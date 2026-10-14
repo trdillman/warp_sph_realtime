@@ -2,14 +2,14 @@ import warp as wp
 
 @wp.kernel
 def k_collide_sdf_primitives(
-    pos: wp.array(dtype=wp.vec3),
-    vel: wp.array(dtype=wp.vec3),
+    pos: wp.array[wp.vec3],
+    vel: wp.array[wp.vec3],
     sphere_center: wp.vec3,
     sphere_radius: float,
     restitution: float
 ):
     """Evaluates analytical/mesh SDF collision and applies penetration correction."""
-    i = wp.tid()
+    i = int(wp.tid())
     xi = pos[i]
     diff = xi - sphere_center
     dist = wp.length(diff)

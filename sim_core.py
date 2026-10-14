@@ -2,6 +2,8 @@ import warp as wp
 
 wp.init()
 
+ARTIFICIAL_VISCOSITY_ALPHA = wp.constant(0.1)
+
 @wp.func
 def cubic_spline_kernel(r: float, h: float) -> float:
     q = r / h
@@ -13,6 +15,24 @@ def cubic_spline_kernel(r: float, h: float) -> float:
     else:
         term = 1.0 - q
         return sigma * 2.0 * (term * term * term)
+
+def lattice_rest_mass(spacing: float, h: float, rest_density: float) -> float:
+    """Particle mass that makes a filled cubic lattice at `spacing` sum to exactly rest_density.
+
+    Any mismatch leaves the resting fluid pre-compressed, where the gamma=7 Tait EOS is far
+    stiffer than the nominal sound speed assumed by the time step.
+    """
+    reach = int(h / spacing) + 1
+    w_sum = 0.0
+    for i in range(-reach, reach + 1):
+        for j in range(-reach, reach + 1):
+            for k in range(-reach, reach + 1):
+                q = spacing * (i * i + j * j + k * k) ** 0.5 / h
+                if q < 1.0:
+                    w = 6.0 * (q ** 3 - q ** 2) + 1.0 if q <= 0.5 else 2.0 * (1.0 - q) ** 3
+                    w_sum += w * 8.0 / (3.14159265 * h ** 3)
+    return rest_density / w_sum
+
 
 @wp.func
 def cubic_spline_grad(diff: wp.vec3, r: float, h: float) -> wp.vec3:
@@ -26,6 +46,23 @@ def cubic_spline_grad(diff: wp.vec3, r: float, h: float) -> wp.vec3:
         term = 1.0 - q
         grad_mag = -sigma * (term * term)
     return (diff / r) * grad_mag
+
+@wp.func
+def wall_accel(d: float, v_into: float, r0: float, sound_speed: float) -> float:
+    """Repulsive acceleration away from a wall at distance d (soft boundary layer of width r0).
+
+    Stiffness scales with c^2 so the layer is as stiff as the fluid; the damping term only acts on
+    motion into the wall, keeping hard position clamps as a rarely used last resort.
+    """
+    if d >= r0:
+        return 0.0
+    overlap = 1.0 - wp.max(d, 0.0) / r0
+    omega = sound_speed / r0
+    a = 0.5 * sound_speed * sound_speed / r0 * overlap
+    if v_into > 0.0:
+        a += omega * v_into * overlap
+    return a
+
 
 @wp.func
 def collide_cylinder_2d(
@@ -58,13 +95,13 @@ def collide_cylinder_2d(
 @wp.kernel
 def k_reorder_soa(
     grid: wp.uint64,
-    pos_in: wp.array(dtype=wp.vec3),
-    vel_in: wp.array(dtype=wp.vec3),
-    pos_sorted: wp.array(dtype=wp.vec3),
-    vel_sorted: wp.array(dtype=wp.vec3),
+    pos_in: wp.array[wp.vec3],
+    vel_in: wp.array[wp.vec3],
+    pos_sorted: wp.array[wp.vec3],
+    vel_sorted: wp.array[wp.vec3],
 ):
     """Reorders particle SoA data into spatial hash cell order for coalesced L2 cache reads."""
-    tid = wp.tid()
+    tid = int(wp.tid())
     src_i = wp.hash_grid_point_id(grid, tid)
     pos_sorted[tid] = pos_in[src_i]
     vel_sorted[tid] = vel_in[src_i]
@@ -72,13 +109,13 @@ def k_reorder_soa(
 @wp.kernel
 def k_compute_density_coalesced(
     grid: wp.uint64,
-    pos_sorted: wp.array(dtype=wp.vec3),
-    density_sorted: wp.array(dtype=float),
+    pos_sorted: wp.array[wp.vec3],
+    density_sorted: wp.array[float],
     mass: float,
     h: float,
     rest_density: float
 ):
-    tid = wp.tid()
+    tid = int(wp.tid())
     xi = pos_sorted[tid]
     rho = float(0.0)
 
@@ -93,11 +130,11 @@ def k_compute_density_coalesced(
 @wp.kernel
 def k_wcsph_forces_and_copyback(
     grid: wp.uint64,
-    pos_sorted: wp.array(dtype=wp.vec3),
-    vel_sorted: wp.array(dtype=wp.vec3),
-    density_sorted: wp.array(dtype=float),
-    pos_vbo_out: wp.array(dtype=wp.vec3),
-    vel_out: wp.array(dtype=wp.vec3),
+    pos_sorted: wp.array[wp.vec3],
+    vel_sorted: wp.array[wp.vec3],
+    density_sorted: wp.array[float],
+    pos_vbo_out: wp.array[wp.vec3],
+    vel_out: wp.array[wp.vec3],
     mass: float,
     h: float,
     rest_density: float,
@@ -108,11 +145,12 @@ def k_wcsph_forces_and_copyback(
     domain_max: wp.vec3,
     enable_obstacles: int
 ):
-    tid = wp.tid()
+    tid = int(wp.tid())
     xi = pos_sorted[tid]
     vi = vel_sorted[tid]
     rho_i = density_sorted[tid]
     p_i = stiffness * (wp.pow(rho_i / rest_density, 7.0) - 1.0)
+    sound_speed = wp.sqrt(7.0 * stiffness / rest_density)
 
     f_pressure = wp.vec3(0.0, 0.0, 0.0)
     f_visc = wp.vec3(0.0, 0.0, 0.0)
@@ -129,11 +167,31 @@ def k_wcsph_forces_and_copyback(
             p_j = stiffness * (wp.pow(rho_j / rest_density, 7.0) - 1.0)
             grad_w = cubic_spline_grad(diff, r, h)
 
+            vj = vel_sorted[j]
             f_pressure -= mass * mass * (p_i / (rho_i * rho_i) + p_j / (rho_j * rho_j)) * grad_w
-            f_visc += viscosity * mass * ((vel_sorted[j] - vi) / rho_j) * cubic_spline_kernel(r, h)
+            f_visc += viscosity * mass * ((vj - vi) / rho_j) * cubic_spline_kernel(r, h)
+
+            # Monaghan artificial viscosity: damps approaching pairs so impact shocks
+            # cannot pump energy into the stiff gamma=7 EOS.
+            vr = wp.dot(vi - vj, diff)
+            if vr < 0.0:
+                mu = h * vr / (r * r + 0.01 * h * h)
+                pi_ij = -ARTIFICIAL_VISCOSITY_ALPHA * sound_speed * mu / (0.5 * (rho_i + rho_j))
+                f_visc -= mass * mass * pi_ij * grad_w
 
     gravity = wp.vec3(0.0, 0.0, -9.81)
     acc = (f_pressure + f_visc) / mass + gravity
+
+    # Soft domain walls (floor, ceiling, 4 sides) keep particles off the clamp planes.
+    r0 = 0.5 * h
+    acc += wp.vec3(
+        wall_accel(xi[0] - domain_min[0], -vi[0], r0, sound_speed)
+        - wall_accel(domain_max[0] - xi[0], vi[0], r0, sound_speed),
+        wall_accel(xi[1] - domain_min[1], -vi[1], r0, sound_speed)
+        - wall_accel(domain_max[1] - xi[1], vi[1], r0, sound_speed),
+        wall_accel(xi[2] - domain_min[2], -vi[2], r0, sound_speed)
+        - wall_accel(domain_max[2] - xi[2], vi[2], r0, sound_speed),
+    )
 
     v_next = vi + acc * dt
     x_next = xi + v_next * dt
@@ -175,6 +233,9 @@ def k_wcsph_forces_and_copyback(
     if x_next[2] < domain_min[2]:
         x_next = wp.vec3(x_next[0], x_next[1], domain_min[2])
         v_next = wp.vec3(v_next[0], v_next[1], -v_next[2] * damping)
+    elif x_next[2] > domain_max[2]:
+        x_next = wp.vec3(x_next[0], x_next[1], domain_max[2])
+        v_next = wp.vec3(v_next[0], v_next[1], -v_next[2] * damping)
 
     vel_out[tid] = v_next
     pos_vbo_out[tid] = x_next
@@ -193,10 +254,10 @@ class RealtimeWCSPHSolver:
         self.substeps = substeps
         self.enable_obstacles = enable_obstacles
         self.rest_density = 1000.0
-        self.mass = 0.8 * (h * 0.5) ** 3 * self.rest_density
-        self.stiffness = 35000.0
+        self.mass = lattice_rest_mass(h * 0.5, h, self.rest_density)
+        self.stiffness = 90000.0  # c ~= 25 m/s; lower values let impacts reach Mach 0.4+ and blow up
         self.viscosity = 0.15
-        self.dt = 0.0015
+        self.dt = 0.4 * h / (7.0 * self.stiffness / self.rest_density) ** 0.5
         self.domain_min = wp.vec3(-2.5, -2.5, 0.0)
         self.domain_max = wp.vec3(2.5, 2.5, 5.0)
 
@@ -215,6 +276,18 @@ class RealtimeWCSPHSolver:
         # Warp 1.16+ CUDA Graph for zero-overhead physics launches
         self.cuda_graph = None
         self.rebuild_cuda_graph()
+
+    def set_particle_spacing(self, spacing: float, max_dt: float | None = None):
+        """Matches h and mass to the spawn spacing (h = 2*spacing) and sets dt to the CFL limit.
+
+        Call rebuild_cuda_graph() afterwards so the captured kernels pick up the new values.
+        """
+        self.h = 2.0 * spacing
+        self.mass = lattice_rest_mass(spacing, self.h, self.rest_density)
+        sound_speed = (7.0 * self.stiffness / self.rest_density) ** 0.5
+        self.dt = 0.4 * self.h / sound_speed
+        if max_dt is not None:
+            self.dt = min(self.dt, max_dt)
 
     def rebuild_cuda_graph(self):
         """Captures the coalesced Density + WCSPH Force + SDF Obstacle + Copy-back kernels into a CUDA Graph."""

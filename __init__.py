@@ -100,11 +100,15 @@ class WM_OT_warp_sph_start(bpy.types.Operator):
             t0 = time.perf_counter()
 
             RT.solver.substeps = scene.warp_sph_substeps
-            pos_vbo_wp = RT.gl_buf.map_to_warp()
-            RT.solver.step(pos_vbo_wp, use_graph=scene.warp_sph_use_cuda_graph)
-            RT.gl_buf.unmap()
-
-            wp.synchronize_device("cuda:0")
+            try:
+                pos_vbo_wp = RT.gl_buf.map_to_warp()
+                RT.solver.step(pos_vbo_wp, use_graph=scene.warp_sph_use_cuda_graph)
+                RT.gl_buf.unmap()
+                wp.synchronize_device("cuda:0")
+            except Exception as exc:
+                self.report({'ERROR'}, f"WarpSPH stopped: {exc}")
+                self.cleanup(context)
+                return {'CANCELLED'}
             dt_ms = (time.perf_counter() - t0) * 1000.0
 
             RT.frame_time_ms = 0.9 * RT.frame_time_ms + 0.1 * dt_ms if RT.step_count > 0 else dt_ms
@@ -144,6 +148,7 @@ class WM_OT_warp_sph_start(bpy.types.Operator):
         if RT.gl_buf:
             RT.gl_buf.destroy()
             RT.gl_buf = None
+        RT.solver = None  # release solver SoA buffers and CUDA graph
         for area in context.screen.areas:
             if area.type == 'VIEW_3D':
                 area.tag_redraw()

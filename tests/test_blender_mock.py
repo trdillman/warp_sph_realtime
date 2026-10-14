@@ -6,8 +6,17 @@ import unittest
 import numpy as np
 import warp as wp
 
+def _running_inside_blender() -> bool:
+    # Type-stub packages (e.g. fake-bpy-module) are importable but have no runtime `bpy.app`.
+    try:
+        import bpy
+        return hasattr(bpy, "app") and hasattr(bpy.app, "version")
+    except ImportError:
+        return False
+
+
 # Mock Blender `bpy` and `gpu` modules if running outside of Blender's bundled Python
-if "bpy" not in sys.modules:
+if not _running_inside_blender():
     class MockScene:
         pass
 
@@ -34,7 +43,6 @@ if "bpy" not in sys.modules:
         unregister_class=lambda cls: _registered_classes.remove(cls) if cls in _registered_classes else None,
     )
 
-if "gpu" not in sys.modules:
     gpu_mock = types.ModuleType("gpu")
     gpu_mock.platform = types.SimpleNamespace(backend_type_get=lambda: "OPENGL")
     sys.modules["gpu"] = gpu_mock
@@ -45,7 +53,7 @@ import __init__ as extension_module
 from sim_core import RealtimeWCSPHSolver
 from scene_config import REGIME_PRESETS, apply_regime_preset
 from demo_scenes import launch_demo_scene_init
-from interop_bridge import ZeroCopyGLBuffer52
+from interop_bridge import ZeroCopyGLBuffer52, wrap_device_vec3
 
 
 class TestBlenderIntegrationAndDemos(unittest.TestCase):
@@ -90,6 +98,16 @@ class TestBlenderIntegrationAndDemos(unittest.TestCase):
         self.assertTrue(hasattr(ZeroCopyGLBuffer52, "destroy"))
 
     @unittest.skipUnless(wp.is_cuda_available(), "CUDA required")
+    def test_wrap_device_vec3_aliases_external_memory(self):
+        """The mapped-VBO wrapper must alias the raw CUDA pointer (zero-copy), not copy it."""
+        owner = wp.zeros(256, dtype=wp.vec3, device="cuda:0")
+        view = wrap_device_vec3(owner.ptr, 256)
+        self.assertEqual(view.shape, (256,))
+        self.assertEqual(view.ptr, owner.ptr)
+        view.fill_(wp.vec3(1.0, 2.0, 3.0))
+        np.testing.assert_allclose(owner.numpy()[-1], [1.0, 2.0, 3.0])
+
+    @unittest.skipUnless(wp.is_cuda_available(), "CUDA required")
     def test_regime_presets_application(self):
         """Verifies that WATER, MILK, and SHOCKWAVE presets update solver physical parameters."""
         solver = RealtimeWCSPHSolver(num_particles=1024, h=0.04)
@@ -130,6 +148,24 @@ class TestBlenderIntegrationAndDemos(unittest.TestCase):
         self.assertAlmostEqual(vel_np[0, 2], 0.0, places=4)
         self.assertAlmostEqual(vel_np[-1, 2], -3.5, places=4)
         self.assertGreater(pos_np[-1, 2], 2.0)
+
+    @unittest.skipUnless(wp.is_cuda_available(), "CUDA required")
+    def test_demo_scenes_stay_bounded_through_impact(self):
+        """Both demos must survive their impact phase without blowing up or leaving the domain."""
+        for scene in ("DOUBLE_DAM_PILLARS", "BLOCK_FLOP_SPLASH"):
+            # Instabilities only appear at the shipped resolution (1M particles), not at small counts.
+            solver = RealtimeWCSPHSolver(num_particles=1_000_000, h=0.04, substeps=1)
+            launch_demo_scene_init(solver, scene)
+            solver.rebuild_cuda_graph()
+            out = wp.zeros_like(solver.pos_sim)
+            for _ in range(int(0.8 / solver.dt)):
+                solver.step(out)
+            pos = solver.pos_sim.numpy()
+            speed = np.linalg.norm(solver.vel.numpy(), axis=1)
+            with self.subTest(scene=scene):
+                self.assertTrue(np.isfinite(pos).all() and np.isfinite(speed).all())
+                self.assertLess(speed.max(), 60.0)
+                self.assertTrue((pos >= [-2.5, -2.5, 0.0]).all() and (pos <= [2.5, 2.5, 5.0]).all())
 
 
 if __name__ == "__main__":

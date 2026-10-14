@@ -14,6 +14,7 @@ class _GLInterop:
     _initialized = False
     gl = None
     _get_proc_addr = None
+    _get_current_context = None
     cudart = None
 
     glGenVertexArrays = None
@@ -83,13 +84,17 @@ class _GLInterop:
             cls._get_proc_addr = cls.gl.wglGetProcAddress
             cls._get_proc_addr.restype = ctypes.c_void_p
             cls._get_proc_addr.argtypes = [ctypes.c_char_p]
+            cls._get_current_context = cls.gl.wglGetCurrentContext
             fn_type = ctypes.WINFUNCTYPE
         else:
             cls.gl = ctypes.CDLL("libGL.so.1")
             cls._get_proc_addr = cls.gl.glXGetProcAddress
             cls._get_proc_addr.restype = ctypes.c_void_p
             cls._get_proc_addr.argtypes = [ctypes.c_char_p]
+            cls._get_current_context = cls.gl.glXGetCurrentContext
             fn_type = ctypes.CFUNCTYPE
+        cls._get_current_context.restype = ctypes.c_void_p
+        cls._get_current_context.argtypes = []
 
         def _gl_fn(name, restype, argtypes):
             fn = getattr(cls.gl, name, None)
@@ -118,6 +123,21 @@ class _GLInterop:
 
         cls._initialized = True
 
+    @classmethod
+    def current_context(cls) -> int:
+        return cls._get_current_context() or 0
+
+
+def wrap_device_vec3(ptr: int, num_particles: int, device: str = "cuda:0") -> wp.array:
+    """Wraps an externally owned CUDA pointer as a non-owning vec3 Warp array (no copy)."""
+    return wp.array(
+        ptr=ptr,
+        dtype=wp.vec3,
+        shape=(num_particles,),
+        capacity=num_particles * 3 * 4,
+        device=device,
+    )
+
 
 class ZeroCopyGLBuffer52:
     def __init__(self, num_particles: int):
@@ -131,21 +151,17 @@ class ZeroCopyGLBuffer52:
 
         self.num_particles = num_particles
         self.byte_size = num_particles * 3 * 4  # float3 SoA position buffer (12B/particle)
-        self.vao = ctypes.c_uint(0)
+        # VAOs are per-GL-context (VBOs are shared), and operators run in a different context
+        # than viewport draw callbacks, so VAOs are created lazily per drawing context.
+        self.vaos = {}
         self.vbo = ctypes.c_uint(0)
         self.cuda_resource = ctypes.c_void_p(0)
 
-        # 1. Create VAO + VBO in Blender 5.2 Core Profile context
-        _GLInterop.glGenVertexArrays(1, ctypes.byref(self.vao))
+        # 1. Create the shared VBO
         _GLInterop.glGenBuffers(1, ctypes.byref(self.vbo))
-
-        _GLInterop.glBindVertexArray(self.vao.value)
         _GLInterop.glBindBuffer(GL_ARRAY_BUFFER, self.vbo.value)
         _GLInterop.glBufferData(GL_ARRAY_BUFFER, self.byte_size, None, GL_DYNAMIC_DRAW)
-        _GLInterop.glEnableVertexAttribArray(0)  # Attribute 0 = 'pos' in Blender 5.2 UNIFORM_COLOR
-        _GLInterop.glVertexAttribPointer(0, 3, GL_FLOAT, 0, 12, ctypes.c_void_p(0))
         _GLInterop.glBindBuffer(GL_ARRAY_BUFFER, 0)
-        _GLInterop.glBindVertexArray(0)
 
         # 2. Register VBO with CUDA Runtime
         err = _GLInterop.cudart.cudaGraphicsGLRegisterBuffer(
@@ -156,19 +172,44 @@ class ZeroCopyGLBuffer52:
 
     def map_to_warp(self) -> wp.array:
         """Locks VBO for CUDA and wraps raw device pointer via Warp 1.16+ wp.from_ptr."""
-        _GLInterop.cudart.cudaGraphicsMapResources(1, ctypes.byref(self.cuda_resource), ctypes.c_void_p(0))
+        err = _GLInterop.cudart.cudaGraphicsMapResources(1, ctypes.byref(self.cuda_resource), ctypes.c_void_p(0))
+        if err != 0:
+            raise RuntimeError(f"cudaGraphicsMapResources failed with CUDA error {err}")
         dev_ptr = ctypes.c_void_p(0)
         size = ctypes.c_size_t(0)
-        _GLInterop.cudart.cudaGraphicsResourceGetMappedPointer(
+        err = _GLInterop.cudart.cudaGraphicsResourceGetMappedPointer(
             ctypes.byref(dev_ptr), ctypes.byref(size), self.cuda_resource
         )
-        return wp.from_ptr(dev_ptr.value, dtype=wp.vec3, shape=(self.num_particles,), device="cuda:0")
+        if err != 0 or not dev_ptr.value or size.value < self.byte_size:
+            self.unmap()
+            raise RuntimeError(
+                f"cudaGraphicsResourceGetMappedPointer failed (CUDA error {err}, "
+                f"{size.value} of {self.byte_size} bytes mapped)"
+            )
+        return wrap_device_vec3(dev_ptr.value, self.num_particles)
 
     def unmap(self):
-        _GLInterop.cudart.cudaGraphicsUnmapResources(1, ctypes.byref(self.cuda_resource), ctypes.c_void_p(0))
+        err = _GLInterop.cudart.cudaGraphicsUnmapResources(1, ctypes.byref(self.cuda_resource), ctypes.c_void_p(0))
+        if err != 0:
+            raise RuntimeError(f"cudaGraphicsUnmapResources failed with CUDA error {err}")
+
+    def _vao_for_current_context(self) -> int:
+        ctx = _GLInterop.current_context()
+        vao = self.vaos.get(ctx)
+        if vao is None:
+            vao = ctypes.c_uint(0)
+            _GLInterop.glGenVertexArrays(1, ctypes.byref(vao))
+            _GLInterop.glBindVertexArray(vao.value)
+            _GLInterop.glBindBuffer(GL_ARRAY_BUFFER, self.vbo.value)
+            _GLInterop.glEnableVertexAttribArray(0)  # Attribute 0 = 'pos' in UNIFORM_COLOR
+            _GLInterop.glVertexAttribPointer(0, 3, GL_FLOAT, 0, 12, ctypes.c_void_p(0))
+            _GLInterop.glBindVertexArray(0)
+            _GLInterop.glBindBuffer(GL_ARRAY_BUFFER, 0)
+            self.vaos[ctx] = vao
+        return vao.value
 
     def draw_points(self):
-        _GLInterop.glBindVertexArray(self.vao.value)
+        _GLInterop.glBindVertexArray(self._vao_for_current_context())
         _GLInterop.glDrawArrays(GL_POINTS, 0, self.num_particles)
         _GLInterop.glBindVertexArray(0)
 
@@ -179,6 +220,8 @@ class ZeroCopyGLBuffer52:
         if self.vbo.value:
             _GLInterop.glDeleteBuffers(1, ctypes.byref(self.vbo))
             self.vbo = ctypes.c_uint(0)
-        if self.vao.value:
-            _GLInterop.glDeleteVertexArrays(1, ctypes.byref(self.vao))
-            self.vao = ctypes.c_uint(0)
+        # A VAO can only be deleted from its own context; others are freed with that context.
+        vao = self.vaos.pop(_GLInterop.current_context(), None)
+        if vao is not None:
+            _GLInterop.glDeleteVertexArrays(1, ctypes.byref(vao))
+        self.vaos.clear()

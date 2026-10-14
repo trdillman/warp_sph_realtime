@@ -7,28 +7,28 @@ except ImportError:
 
 @wp.kernel
 def k_ipbf_predict(
-    pos: wp.array(dtype=wp.vec3),
-    vel: wp.array(dtype=wp.vec3),
-    pos_pred: wp.array(dtype=wp.vec3),
+    pos: wp.array[wp.vec3],
+    vel: wp.array[wp.vec3],
+    pos_pred: wp.array[wp.vec3],
     dt: float
 ):
     """Variational prediction step: x* = x_t + dt * v_t + dt^2 * a_ext."""
-    i = wp.tid()
+    i = int(wp.tid())
     g = wp.vec3(0.0, 0.0, -9.81)
     pos_pred[i] = pos[i] + vel[i] * dt + g * (dt * dt)
 
 @wp.kernel
 def k_ipbf_vbd_iteration(
     grid: wp.uint64,
-    pos_pred: wp.array(dtype=wp.vec3),
-    pos_corr: wp.array(dtype=wp.vec3),
+    pos_pred: wp.array[wp.vec3],
+    pos_corr: wp.array[wp.vec3],
     mass: float,
     h: float,
     rest_density: float,
     relaxation: float
 ):
     """Local 3x3 Hessian / Jacobi position update for unconditional stability at large dt."""
-    tid = wp.tid()
+    tid = int(wp.tid())
     xi = pos_pred[tid]
     rho_i = float(0.0)
     grad_sum = wp.vec3(0.0, 0.0, 0.0)

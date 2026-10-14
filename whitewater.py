@@ -8,17 +8,17 @@ BUBBLE_MIN_NEIGHBORS = 15
 @wp.kernel
 def k_classify_and_advect_whitewater(
     grid: wp.uint64,
-    fluid_pos: wp.array(dtype=wp.vec3),
-    fluid_vel: wp.array(dtype=wp.vec3),
-    ww_pos: wp.array(dtype=wp.vec3),
-    ww_vel: wp.array(dtype=wp.vec3),
-    ww_life: wp.array(dtype=float),
-    ww_type: wp.array(dtype=int),
+    fluid_pos: wp.array[wp.vec3],
+    fluid_vel: wp.array[wp.vec3],
+    ww_pos: wp.array[wp.vec3],
+    ww_vel: wp.array[wp.vec3],
+    ww_life: wp.array[float],
+    ww_type: wp.array[int],
     h: float,
     dt: float
 ):
     """Classifies secondary particles by fluid neighbor count (n_f) and updates physics."""
-    i = wp.tid()
+    i = int(wp.tid())
     if ww_life[i] <= 0.0:
         return
 

@@ -1,28 +1,30 @@
 import bpy
 import warp as wp
 
-# Physical regime presets for daily VFX tasks (from pouring milk to underwater shockwaves)
+# Physical regime presets for daily VFX tasks (from pouring milk to underwater shockwaves).
+# Stiffness sets the sound speed c = sqrt(7*B/rho0); c must stay >= ~25 m/s for the demo impact
+# speeds, and dt is chosen CFL-safe (0.4*h/c) at the default h = 0.04.
 REGIME_PRESETS = {
     "WATER": {
         "name": "Standard Water (WCSPH / IPBF)",
         "rest_density": 1000.0,
-        "stiffness": 35000.0,
+        "stiffness": 90000.0,
         "viscosity": 0.15,
-        "dt": 0.0015,
+        "dt": 0.0006,
     },
     "MILK": {
         "name": "High-Viscosity Pouring Milk",
         "rest_density": 1030.0,
-        "stiffness": 40000.0,
+        "stiffness": 95000.0,
         "viscosity": 0.65,
-        "dt": 0.0012,
+        "dt": 0.0006,
     },
     "SHOCKWAVE": {
         "name": "Underwater Explosion / Compressible",
         "rest_density": 1000.0,
-        "stiffness": 85000.0,
+        "stiffness": 175000.0,
         "viscosity": 0.05,
-        "dt": 0.0008,
+        "dt": 0.00045,
     },
 }
 
@@ -48,7 +50,7 @@ def apply_regime_preset(solver, preset_key: str):
     solver.stiffness = cfg["stiffness"]
     solver.viscosity = cfg["viscosity"]
     solver.dt = cfg["dt"]
-    if hasattr(solver, "h") and hasattr(solver, "mass"):
-        solver.mass = 0.8 * (solver.h * 0.5) ** 3 * solver.rest_density
+    if hasattr(solver, "set_particle_spacing"):
+        solver.set_particle_spacing(solver.h * 0.5, max_dt=cfg["dt"])
     if hasattr(solver, "rebuild_cuda_graph"):
         solver.rebuild_cuda_graph()
