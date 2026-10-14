@@ -15,12 +15,12 @@ from sim_core import (
 
 @wp.kernel
 def k_eval_kernel_samples(
-    radii: wp.array(dtype=float),
+    radii: wp.array[float],
     h: float,
-    out_w: wp.array(dtype=float),
-    out_grad_x: wp.array(dtype=float),
+    out_w: wp.array[float],
+    out_grad_x: wp.array[float],
 ):
-    i = wp.tid()
+    i = int(wp.tid())
     r = radii[i]
     out_w[i] = cubic_spline_kernel(r, h)
     g = cubic_spline_grad(wp.vec3(r, 0.0, 0.0), r, h)

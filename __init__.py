@@ -2,7 +2,7 @@ import time
 import bpy
 import gpu
 import warp as wp
-from bpy.props import BoolProperty, EnumProperty, FloatProperty, IntProperty
+from bpy.props import BoolProperty, EnumProperty, FloatProperty, FloatVectorProperty, IntProperty
 try:
     from .interop_bridge import ZeroCopyGLBuffer52
     from .sim_core import RealtimeWCSPHSolver
@@ -13,8 +13,8 @@ except ImportError:
     from demo_scenes import build_blender_demo_helpers, launch_demo_scene_init
 
 class _SimRuntime:
-    gl_buf: ZeroCopyGLBuffer52 = None
-    solver: RealtimeWCSPHSolver = None
+    gl_buf: ZeroCopyGLBuffer52 | None = None
+    solver: RealtimeWCSPHSolver | None = None
     draw_handle = None
     running: bool = False
     active_demo: str = "DOUBLE_DAM_PILLARS"
@@ -30,23 +30,22 @@ def draw_particles_blender52():
         return
 
     scene = bpy.context.scene
-    pt_size = getattr(scene, "warp_sph_point_size", 2.5)
+    if not scene.warp_sph_show_particles:
+        return
 
     shader = gpu.shader.from_builtin('UNIFORM_COLOR')
     shader.bind()
     mvp = gpu.matrix.get_projection_matrix() @ gpu.matrix.get_model_view_matrix()
     shader.uniform_float("ModelViewProjectionMatrix", mvp)
+    color = tuple(scene.warp_sph_particle_color)
+    shader.uniform_float("color", color)
 
-    # Distinct fluid tint per demo scene
-    if RT.active_demo == "DOUBLE_DAM_PILLARS":
-        shader.uniform_float("color", (0.12, 0.68, 1.0, 1.0))
-    else:
-        shader.uniform_float("color", (0.05, 0.85, 0.72, 1.0))
-
-    gpu.state.depth_test_set('LESS_EQUAL')
-    gpu.state.point_size_set(pt_size)
-    RT.gl_buf.draw_points()
-    gpu.state.depth_test_set('NONE')
+    # gpu.state is applied lazily by Blender's own draw calls, so the raw GL draw sets its state directly.
+    RT.gl_buf.draw_points(
+        scene.warp_sph_point_size,
+        depth_test=scene.warp_sph_depth_test,
+        blend=color[3] < 1.0,
+    )
 
 
 def _reallocate_and_init_scene(scene, num_p: int, demo_type: str):
@@ -63,6 +62,8 @@ def _reallocate_and_init_scene(scene, num_p: int, demo_type: str):
         substeps=scene.warp_sph_substeps,
         enable_obstacles=enable_obs,
     )
+    RT.solver.stiffness = scene.warp_sph_stiffness
+    RT.solver.cfl_factor = scene.warp_sph_time_step_scale
     RT.vram_mb = RT.solver.get_vram_usage_mb()
     RT.step_count = 0
 
@@ -96,6 +97,12 @@ class WM_OT_warp_sph_start(bpy.types.Operator):
             # Dynamic Buffer & Demo Manager: reallocate/reset on-the-fly if slider or demo changed
             if RT.solver.num_particles != target_count or RT.active_demo != target_demo:
                 _reallocate_and_init_scene(scene, target_count, target_demo)
+            elif (RT.solver.stiffness != scene.warp_sph_stiffness
+                  or RT.solver.cfl_factor != scene.warp_sph_time_step_scale):
+                RT.solver.stiffness = scene.warp_sph_stiffness
+                RT.solver.cfl_factor = scene.warp_sph_time_step_scale
+                RT.solver.update_time_step()
+                RT.solver.rebuild_cuda_graph()
 
             t0 = time.perf_counter()
 
@@ -211,9 +218,25 @@ class VIEW3D_PT_warp_sph(bpy.types.Panel):
         col = layout.column(align=True)
         col.prop(scene, "warp_sph_demo_scene", text="Scene")
         col.prop(scene, "warp_sph_particle_count", slider=True)
-        col.prop(scene, "warp_sph_substeps")
-        col.prop(scene, "warp_sph_point_size")
         col.prop(scene, "warp_sph_use_cuda_graph")
+
+        box_speed = layout.box()
+        box_speed.label(text="Simulation Speed vs. Stability", icon='TIME')
+        col_speed = box_speed.column(align=True)
+        col_speed.prop(scene, "warp_sph_substeps")
+        col_speed.prop(scene, "warp_sph_time_step_scale", slider=True)
+        col_speed.prop(scene, "warp_sph_stiffness")
+        if RT.solver:
+            col_speed.label(text=f"dt = {RT.solver.dt * 1000:.3f} ms  |  sim speed ≈ "
+                                 f"{RT.solver.dt * RT.solver.substeps * RT.fps_avg:.2f}x real time")
+
+        box_vis = layout.box()
+        box_vis.label(text="Viewport Display", icon='RESTRICT_VIEW_OFF')
+        col_vis = box_vis.column(align=True)
+        col_vis.prop(scene, "warp_sph_show_particles")
+        col_vis.prop(scene, "warp_sph_point_size")
+        col_vis.prop(scene, "warp_sph_particle_color", text="")
+        col_vis.prop(scene, "warp_sph_depth_test")
 
         layout.separator()
         row = layout.row(align=True)
@@ -260,11 +283,46 @@ def register():
         min=1,
         max=10,
     )
+    bpy.types.Scene.warp_sph_time_step_scale = FloatProperty(
+        name="Time Step (CFL)",
+        description="Physics time step as a fraction of the stability limit. Higher = faster simulation, "
+                    "but above ~0.5 high-speed impacts can blow up",
+        default=0.4,
+        min=0.1,
+        max=1.0,
+    )
+    bpy.types.Scene.warp_sph_stiffness = FloatProperty(
+        name="Fluid Stiffness",
+        description="Pressure stiffness (sets sound speed). Lower = larger time step and faster simulation, "
+                    "but more compressible and less stable on impacts",
+        default=90000.0,
+        min=10000.0,
+        max=400000.0,
+        step=500000,
+    )
+    bpy.types.Scene.warp_sph_show_particles = BoolProperty(
+        name="Show Particles",
+        default=True,
+    )
     bpy.types.Scene.warp_sph_point_size = FloatProperty(
-        name="Viewport Point Size",
+        name="Point Size",
+        description="Particle point size in screen pixels",
         default=2.5,
         min=1.0,
-        max=10.0,
+        max=20.0,
+    )
+    bpy.types.Scene.warp_sph_particle_color = FloatVectorProperty(
+        name="Particle Color",
+        subtype='COLOR',
+        size=4,
+        default=(0.12, 0.68, 1.0, 1.0),
+        min=0.0,
+        max=1.0,
+    )
+    bpy.types.Scene.warp_sph_depth_test = BoolProperty(
+        name="Hide Behind Objects",
+        description="Particles are hidden behind scene geometry (off = always draw on top)",
+        default=True,
     )
     bpy.types.Scene.warp_sph_use_cuda_graph = BoolProperty(
         name="Warp 1.16+ CUDA Graph Capture",
@@ -283,7 +341,12 @@ def unregister():
     bpy.utils.unregister_class(WM_OT_warp_sph_load_demo)
     bpy.utils.unregister_class(WM_OT_warp_sph_start)
     del bpy.types.Scene.warp_sph_use_cuda_graph
+    del bpy.types.Scene.warp_sph_depth_test
+    del bpy.types.Scene.warp_sph_particle_color
     del bpy.types.Scene.warp_sph_point_size
+    del bpy.types.Scene.warp_sph_show_particles
+    del bpy.types.Scene.warp_sph_stiffness
+    del bpy.types.Scene.warp_sph_time_step_scale
     del bpy.types.Scene.warp_sph_substeps
     del bpy.types.Scene.warp_sph_particle_count
     del bpy.types.Scene.warp_sph_demo_scene

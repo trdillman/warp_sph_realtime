@@ -8,6 +8,12 @@ GL_ARRAY_BUFFER = 0x8892
 GL_DYNAMIC_DRAW = 0x88E8
 GL_FLOAT = 0x1406
 GL_POINTS = 0x0000
+GL_PROGRAM_POINT_SIZE = 0x8642
+GL_DEPTH_TEST = 0x0B71
+GL_LEQUAL = 0x0203
+GL_BLEND = 0x0BE2
+GL_SRC_ALPHA = 0x0302
+GL_ONE_MINUS_SRC_ALPHA = 0x0303
 
 
 class _GLInterop:
@@ -27,6 +33,12 @@ class _GLInterop:
     glEnableVertexAttribArray = None
     glVertexAttribPointer = None
     glDrawArrays = None
+    glPointSize = None
+    glEnable = None
+    glDisable = None
+    glIsEnabled = None
+    glDepthFunc = None
+    glBlendFunc = None
 
     @classmethod
     def _find_and_load_cudart(cls):
@@ -120,6 +132,12 @@ class _GLInterop:
         cls.glEnableVertexAttribArray = _gl_fn("glEnableVertexAttribArray", None, [ctypes.c_uint])
         cls.glVertexAttribPointer = _gl_fn("glVertexAttribPointer", None, [ctypes.c_uint, ctypes.c_int, ctypes.c_uint, ctypes.c_ubyte, ctypes.c_int, ctypes.c_void_p])
         cls.glDrawArrays = _gl_fn("glDrawArrays", None, [ctypes.c_uint, ctypes.c_int, ctypes.c_int])
+        cls.glPointSize = _gl_fn("glPointSize", None, [ctypes.c_float])
+        cls.glEnable = _gl_fn("glEnable", None, [ctypes.c_uint])
+        cls.glDisable = _gl_fn("glDisable", None, [ctypes.c_uint])
+        cls.glIsEnabled = _gl_fn("glIsEnabled", ctypes.c_ubyte, [ctypes.c_uint])
+        cls.glDepthFunc = _gl_fn("glDepthFunc", None, [ctypes.c_uint])
+        cls.glBlendFunc = _gl_fn("glBlendFunc", None, [ctypes.c_uint, ctypes.c_uint])
 
         cls._initialized = True
 
@@ -208,10 +226,32 @@ class ZeroCopyGLBuffer52:
             self.vaos[ctx] = vao
         return vao.value
 
-    def draw_points(self):
-        _GLInterop.glBindVertexArray(self._vao_for_current_context())
-        _GLInterop.glDrawArrays(GL_POINTS, 0, self.num_particles)
-        _GLInterop.glBindVertexArray(0)
+    def draw_points(self, point_size: float = 1.0, depth_test: bool = True, blend: bool = False):
+        # Raw GL draws bypass Blender's lazily-applied gpu.state, so set point size, depth and blend
+        # directly and restore Blender's GL state afterwards. GL_PROGRAM_POINT_SIZE (shader-driven
+        # size) must be off for glPointSize to apply.
+        gl = _GLInterop
+        saved = {cap: gl.glIsEnabled(cap) for cap in (GL_PROGRAM_POINT_SIZE, GL_DEPTH_TEST, GL_BLEND)}
+        gl.glDisable(GL_PROGRAM_POINT_SIZE)
+        gl.glPointSize(float(point_size))
+        if depth_test:
+            gl.glEnable(GL_DEPTH_TEST)
+            gl.glDepthFunc(GL_LEQUAL)
+        else:
+            gl.glDisable(GL_DEPTH_TEST)
+        if blend:
+            gl.glEnable(GL_BLEND)
+            gl.glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
+        else:
+            gl.glDisable(GL_BLEND)
+
+        gl.glBindVertexArray(self._vao_for_current_context())
+        gl.glDrawArrays(GL_POINTS, 0, self.num_particles)
+        gl.glBindVertexArray(0)
+
+        gl.glPointSize(1.0)
+        for cap, was_on in saved.items():
+            (gl.glEnable if was_on else gl.glDisable)(cap)
 
     def destroy(self):
         if self.cuda_resource.value:

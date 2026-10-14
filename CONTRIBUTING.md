@@ -27,7 +27,7 @@ Thank you for contributing to **WarpSPH Realtime**! Because this extension bridg
 
 * **Python Style:** Follow PEP 8 and the [Blender Python Style Guide](https://developer.blender.org/docs/handbook/guidelines/python/).
 * **Warp Kernel Rules (`@wp.kernel` / `@wp.func`):**
-  * Explicitly type all kernel arguments (`wp.array(dtype=wp.vec3)`, `float`, `int`, `wp.uint64`).
+  * Explicitly type all kernel arguments (`wp.array[wp.vec3]`, `float`, `int`, `wp.uint64`).
   * Guard all division operations against zero (`if r > 1e-6:`) to prevent NaNs from propagating through neighbor sums.
   * Keep all physics kernels compatible with `wp.ScopedCapture` (no host callbacks or dynamic allocations inside kernels).
 * **Blender UI & Modal Safety:**

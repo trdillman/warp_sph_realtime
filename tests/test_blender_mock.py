@@ -31,7 +31,7 @@ if not _running_inside_blender():
         ),
     )
     bpy_props = types.ModuleType("bpy.props")
-    for p in ("IntProperty", "FloatProperty", "BoolProperty", "EnumProperty", "StringProperty"):
+    for p in ("IntProperty", "FloatProperty", "FloatVectorProperty", "BoolProperty", "EnumProperty", "StringProperty"):
         setattr(bpy_props, p, lambda **kw: kw)
     bpy_mock.props = bpy_props
     sys.modules["bpy"] = bpy_mock
@@ -82,6 +82,11 @@ class TestBlenderIntegrationAndDemos(unittest.TestCase):
             "warp_sph_substeps",
             "warp_sph_point_size",
             "warp_sph_use_cuda_graph",
+            "warp_sph_time_step_scale",
+            "warp_sph_stiffness",
+            "warp_sph_show_particles",
+            "warp_sph_particle_color",
+            "warp_sph_depth_test",
         ]
         for prop in expected_props:
             self.assertTrue(hasattr(bpy_mock.types.Scene, prop), f"Missing scene property {prop}")

@@ -257,7 +257,9 @@ class RealtimeWCSPHSolver:
         self.mass = lattice_rest_mass(h * 0.5, h, self.rest_density)
         self.stiffness = 90000.0  # c ~= 25 m/s; lower values let impacts reach Mach 0.4+ and blow up
         self.viscosity = 0.15
-        self.dt = 0.4 * h / (7.0 * self.stiffness / self.rest_density) ** 0.5
+        self.cfl_factor = 0.4  # dt as a fraction of the sound-crossing time of one smoothing length
+        self.max_dt = None
+        self.dt = self.cfl_factor * h / (7.0 * self.stiffness / self.rest_density) ** 0.5
         self.domain_min = wp.vec3(-2.5, -2.5, 0.0)
         self.domain_max = wp.vec3(2.5, 2.5, 5.0)
 
@@ -284,10 +286,18 @@ class RealtimeWCSPHSolver:
         """
         self.h = 2.0 * spacing
         self.mass = lattice_rest_mass(spacing, self.h, self.rest_density)
+        self.max_dt = max_dt
+        self.update_time_step()
+
+    def update_time_step(self):
+        """dt = cfl_factor * h / c. Larger cfl_factor or lower stiffness = faster but less stable.
+
+        Call rebuild_cuda_graph() afterwards so the captured kernels pick up the new values.
+        """
         sound_speed = (7.0 * self.stiffness / self.rest_density) ** 0.5
-        self.dt = 0.4 * self.h / sound_speed
-        if max_dt is not None:
-            self.dt = min(self.dt, max_dt)
+        self.dt = self.cfl_factor * self.h / sound_speed
+        if self.max_dt is not None:
+            self.dt = min(self.dt, self.max_dt)
 
     def rebuild_cuda_graph(self):
         """Captures the coalesced Density + WCSPH Force + SDF Obstacle + Copy-back kernels into a CUDA Graph."""
