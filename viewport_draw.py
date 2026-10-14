@@ -1,6 +1,9 @@
 import bpy
 import gpu
-from .interop_bridge import ZeroCopyGLBuffer52
+try:
+    from .interop_bridge import ZeroCopyGLBuffer52
+except ImportError:
+    from interop_bridge import ZeroCopyGLBuffer52
 
 def draw_particles_viewport(gl_buf: ZeroCopyGLBuffer52, running: bool):
     """Zero-copy OpenGL Core Profile draw pass for Blender 5.2+ 3D Viewport."""

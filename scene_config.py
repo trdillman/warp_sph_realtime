@@ -48,3 +48,7 @@ def apply_regime_preset(solver, preset_key: str):
     solver.stiffness = cfg["stiffness"]
     solver.viscosity = cfg["viscosity"]
     solver.dt = cfg["dt"]
+    if hasattr(solver, "h") and hasattr(solver, "mass"):
+        solver.mass = 0.8 * (solver.h * 0.5) ** 3 * solver.rest_density
+    if hasattr(solver, "rebuild_cuda_graph"):
+        solver.rebuild_cuda_graph()

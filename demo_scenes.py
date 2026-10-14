@@ -133,7 +133,7 @@ def launch_demo_scene_init(solver, scene_type: str):
             kernel=k_init_double_dambreak_pillars,
             dim=num_p,
             inputs=[solver.pos_sim, solver.vel, num_p, spacing, side_half],
-            device="cuda:0",
+            device=solver.pos_sim.device,
         )
     else:
         # Scene 2: Block Flop into Puddle (High-Speed Crown Splash)
@@ -156,5 +156,5 @@ def launch_demo_scene_init(solver, scene_type: str):
                 puddle_ny,
                 drop_side,
             ],
-            device="cuda:0",
+            device=solver.pos_sim.device,
         )

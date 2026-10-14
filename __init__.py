@@ -3,9 +3,14 @@ import bpy
 import gpu
 import warp as wp
 from bpy.props import BoolProperty, EnumProperty, FloatProperty, IntProperty
-from .interop_bridge import ZeroCopyGLBuffer52
-from .sim_core import RealtimeWCSPHSolver
-from .demo_scenes import build_blender_demo_helpers, launch_demo_scene_init
+try:
+    from .interop_bridge import ZeroCopyGLBuffer52
+    from .sim_core import RealtimeWCSPHSolver
+    from .demo_scenes import build_blender_demo_helpers, launch_demo_scene_init
+except ImportError:
+    from interop_bridge import ZeroCopyGLBuffer52
+    from sim_core import RealtimeWCSPHSolver
+    from demo_scenes import build_blender_demo_helpers, launch_demo_scene_init
 
 class _SimRuntime:
     gl_buf: ZeroCopyGLBuffer52 = None

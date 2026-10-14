@@ -37,5 +37,5 @@ class SDFColliderManager:
             kernel=k_collide_sdf_primitives,
             dim=num_particles,
             inputs=[pos, vel, self.sphere_center, self.sphere_radius, self.restitution],
-            device="cuda:0",
+            device=pos.device,
         )
