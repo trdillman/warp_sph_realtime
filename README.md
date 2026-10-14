@@ -47,6 +47,19 @@
 3. Drag the **Particles** slider (`100,000` – `4,000,000`) or toggle **Warp 1.16+ CUDA Graph Capture** to benchmark real-time viewport throughput.
 4. Press `ESC` or click **Stop Sim** to release GPU buffers.
 
+### Panel Controls (apply live while running)
+| Section | Control | Effect |
+|---|---|---|
+| Simulation Speed vs. Stability | **Sub-steps / Frame** | More physics steps per redraw: faster sim, lower FPS. |
+| | **Time Step (CFL)** | Step size as a fraction of the stability limit (default `0.4`). Higher = faster; above ~`0.5` impacts can blow up. |
+| | **Fluid Stiffness** | Sets sound speed (default `90000`). Lower = larger steps and faster sim, but squishier and less stable. |
+| Viewport Display | **Show Particles** | Hide/show the particle overlay. |
+| | **Point Size** | Screen-space point size, 1–20 px. |
+| | **Particle Color** | RGBA tint; alpha < 1 enables blending. |
+| | **Hide Behind Objects** | Off = particles draw on top of scene geometry. |
+
+The panel also shows the current `dt` and approximate simulated-time speed relative to real time.
+
 ---
 
 ## Running the Test Suite

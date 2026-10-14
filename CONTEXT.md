@@ -9,5 +9,4 @@
 
 **Next Steps**
 - Rebuild + reinstall after changes: `blender --command extension build`, then `extension install-file -r user_default`.
-- Docs drift: README/ARCHITECTURE still say "Warp 1.16+".
 - Alpha <1 looks near-opaque at 1M particles; consider round/soft point shader if needed.
