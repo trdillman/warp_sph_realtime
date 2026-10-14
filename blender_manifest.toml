@@ -1,0 +1,13 @@
+schema_version = "1.0.0"
+id = "warp_sph_realtime"
+version = "0.1.0"
+name = "Warp 1.16+ Zero-Copy Realtime SPH"
+tagline = "Multi-million particle real-time viewport fluid solver using NVIDIA Warp & OpenGL-CUDA interop"
+maintainer = "Tyler Dillman"
+type = "add-on"
+blender_version_min = "5.2.0"
+license = ["SPDX:MIT"]
+platforms = ["windows-x64", "linux-x64"]
+
+[permissions]
+files = "Load/save simulation caches and CUDA libraries"
