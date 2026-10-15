@@ -1,0 +1,14 @@
+00:04.531  blend            | Writing user preferences: "C:/Users/Tyler/Documents/Codex/2026-10-14/new-chat-5/work/ssfr/evidence/extension-profile/config\userpref.blend" 
+Warp 1.17.0 initialized:
+   CUDA Toolkit 12.9, Driver 13.3
+   Devices:
+     "cpu"      : "AMD64 Family 23 Model 113 Stepping 0, AuthenticAMD"
+     "cuda:0"   : "NVIDIA GeForce RTX 4080 SUPER" (16 GiB, sm_89, mempool enabled)
+   Kernel cache:
+     \\?\C:\Users\Tyler\AppData\Local\NVIDIA\warp\Cache\1.17.0
+Info: Preferences saved
+00:14.610  blend            | Saved session recovery to "C:\WINDOWS\TEMP\quit.blend"
+Module bl_ext.user_default.warp_sph_realtime.sim_core f4fb736 load on device 'cuda:0' took 4.84 ms  (cached)
+Module bl_ext.user_default.warp_sph_realtime.demo_scenes aee8ddc load on device 'cuda:0' took 2.30 ms  (cached)
+
+Blender quit

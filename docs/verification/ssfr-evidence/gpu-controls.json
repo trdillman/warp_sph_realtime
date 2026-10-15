@@ -1,0 +1,103 @@
+{
+  "status": "PASS",
+  "cases": [
+    {
+      "samples": 0,
+      "camera": "ORTHO",
+      "size": [
+        64,
+        48
+      ],
+      "visible_thickness": 12.033203125,
+      "occluded_thickness": 0.0
+    },
+    {
+      "samples": 0,
+      "camera": "PERSP",
+      "size": [
+        64,
+        48
+      ],
+      "visible_thickness": 46.62744140625,
+      "occluded_thickness": 0.0
+    },
+    {
+      "samples": 0,
+      "camera": "ORTHO",
+      "size": [
+        65,
+        49
+      ],
+      "visible_thickness": 12.033203125,
+      "occluded_thickness": 0.0
+    },
+    {
+      "samples": 0,
+      "camera": "PERSP",
+      "size": [
+        65,
+        49
+      ],
+      "visible_thickness": 46.62744140625,
+      "occluded_thickness": 0.0
+    },
+    {
+      "samples": 4,
+      "camera": "ORTHO",
+      "size": [
+        64,
+        48
+      ],
+      "visible_thickness": 12.033203125,
+      "occluded_thickness": 0.0
+    },
+    {
+      "samples": 4,
+      "camera": "PERSP",
+      "size": [
+        64,
+        48
+      ],
+      "visible_thickness": 46.62744140625,
+      "occluded_thickness": 0.0
+    },
+    {
+      "samples": 4,
+      "camera": "ORTHO",
+      "size": [
+        65,
+        49
+      ],
+      "visible_thickness": 12.033203125,
+      "occluded_thickness": 0.0
+    },
+    {
+      "samples": 4,
+      "camera": "PERSP",
+      "size": [
+        65,
+        49
+      ],
+      "visible_thickness": 46.62744140625,
+      "occluded_thickness": 0.0
+    }
+  ],
+  "errors": [],
+  "pid": 46144,
+  "blender": "5.2.0 LTS",
+  "build": "fbe6228777e7",
+  "backend": "OPENGL",
+  "gpu": "NVIDIA GeForce RTX 4080 SUPER/PCIe/SSE2",
+  "warp": "1.17.0",
+  "addon": "C:\\Users/Tyler/Documents/Codex/2026-10-14/new-chat-5/work/ssfr/evidence/extension-profile\\extensions\\user_default\\warp_sph_realtime\\__init__.py",
+  "hashes": {
+    "interop_bridge.py": "b90acfb31cb543186bab9915594a94118edfa76ffcb26240eaedb23010d5a610",
+    "viewport_draw.py": "e64a6c57e6ccacbd6bb623069c1e4141a9db79477c6400eaa577a498d9876c81",
+    "ssfr_shaders.py": "830ecfb2b0a6a2ab880d2849f22e62495b428eacafe150b9172453fc7df69dd7",
+    "sim_core.py": "96563ccefb4e180fe21a58944bafb951d51a2a8fc64d12590648ff95e559801c"
+  },
+  "cuda_vbo_alias": true,
+  "graphics_state_roundtrip": "PASS",
+  "failed_shader_objects_deleted": 6,
+  "shader_failure_control": "PASS"
+}

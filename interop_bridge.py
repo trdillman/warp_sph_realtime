@@ -5,6 +5,7 @@ import gpu
 import warp as wp
 
 GL_ARRAY_BUFFER = 0x8892
+GL_ARRAY_BUFFER_BINDING = 0x8894
 GL_DYNAMIC_DRAW = 0x88E8
 GL_FLOAT = 0x1406
 GL_UNSIGNED_BYTE = 0x1401
@@ -43,6 +44,8 @@ GL_RGBA = 0x1908
 GL_DEPTH_COMPONENT32F = 0x8CAC
 GL_DEPTH_COMPONENT = 0x1902
 GL_DEPTH24_STENCIL8 = 0x88F0
+GL_DEPTH32F_STENCIL8 = 0x8CAD
+GL_FLOAT_32_UNSIGNED_INT_24_8_REV = 0x8DAD
 GL_DEPTH_STENCIL = 0x84F9
 GL_UNSIGNED_INT_24_8 = 0x84FA
 GL_DEPTH_STENCIL_ATTACHMENT = 0x821A
@@ -55,6 +58,23 @@ GL_FRAGMENT_SHADER = 0x8B30
 GL_COMPILE_STATUS = 0x8B81
 GL_LINK_STATUS = 0x8B82
 GL_VIEWPORT = 0x0BA2
+GL_DEPTH_WRITEMASK = 0x0B72
+GL_DEPTH_FUNC = 0x0B74
+GL_BLEND_SRC_RGB = 0x80C9
+GL_BLEND_DST_RGB = 0x80C8
+GL_BLEND_SRC_ALPHA = 0x80CB
+GL_BLEND_DST_ALPHA = 0x80CA
+GL_BLEND_EQUATION_RGB = 0x8009
+GL_BLEND_EQUATION_ALPHA = 0x883D
+GL_FUNC_ADD = 0x8006
+GL_CURRENT_PROGRAM = 0x8B8D
+GL_VERTEX_ARRAY_BINDING = 0x85B5
+GL_ACTIVE_TEXTURE = 0x84E0
+GL_TEXTURE_BINDING_2D = 0x8069
+GL_COLOR_CLEAR_VALUE = 0x0C22
+GL_DEPTH_CLEAR_VALUE = 0x0B73
+GL_COLOR_WRITEMASK = 0x0C23
+GL_SCISSOR_TEST = 0x0C11
 
 
 class _GLInterop:
@@ -80,6 +100,14 @@ class _GLInterop:
     glIsEnabled = None
     glDepthFunc = None
     glDepthMask = None
+    glBlendFuncSeparate = None
+    glBlendEquationSeparate = None
+    glGetFramebufferAttachmentParameteriv = None
+    glGetTextureLevelParameteriv = None
+    glGetNamedRenderbufferParameteriv = None
+    glGetFloatv = None
+    glClearDepth = None
+    glColorMask = None
     glBlendFunc = None
     glClearColor = None
     glClear = None
@@ -218,6 +246,14 @@ class _GLInterop:
         cls.glIsEnabled = _gl_fn("glIsEnabled", ctypes.c_ubyte, [ctypes.c_uint])
         cls.glDepthFunc = _gl_fn("glDepthFunc", None, [ctypes.c_uint])
         cls.glDepthMask = _gl_fn("glDepthMask", None, [ctypes.c_ubyte])
+        cls.glBlendFuncSeparate = _gl_fn("glBlendFuncSeparate", None, [ctypes.c_uint] * 4)
+        cls.glBlendEquationSeparate = _gl_fn("glBlendEquationSeparate", None, [ctypes.c_uint] * 2)
+        cls.glGetFramebufferAttachmentParameteriv = _gl_fn("glGetFramebufferAttachmentParameteriv", None, [ctypes.c_uint] * 3 + [ctypes.POINTER(ctypes.c_int)])
+        cls.glGetTextureLevelParameteriv = _gl_fn("glGetTextureLevelParameteriv", None, [ctypes.c_uint, ctypes.c_int, ctypes.c_uint, ctypes.POINTER(ctypes.c_int)])
+        cls.glGetNamedRenderbufferParameteriv = _gl_fn("glGetNamedRenderbufferParameteriv", None, [ctypes.c_uint, ctypes.c_uint, ctypes.POINTER(ctypes.c_int)])
+        cls.glGetFloatv = _gl_fn("glGetFloatv", None, [ctypes.c_uint, ctypes.POINTER(ctypes.c_float)])
+        cls.glClearDepth = _gl_fn("glClearDepth", None, [ctypes.c_double])
+        cls.glColorMask = _gl_fn("glColorMask", None, [ctypes.c_ubyte] * 4)
         cls.glBlendFunc = _gl_fn("glBlendFunc", None, [ctypes.c_uint, ctypes.c_uint])
         cls.glClearColor = _gl_fn("glClearColor", None, [ctypes.c_float, ctypes.c_float, ctypes.c_float, ctypes.c_float])
         cls.glClear = _gl_fn("glClear", None, [ctypes.c_uint])
@@ -273,6 +309,40 @@ class _GLInterop:
         return cls._get_current_context() or 0
 
     @classmethod
+    def framebuffer_depth_format(cls) -> int:
+        """Inspect the actual draw target; Blender viewport depth can be D32F/S8.
+
+        Depth blits require identical source/destination formats. DSA queries
+        avoid disturbing texture/renderbuffer bindings in Blender's state cache.
+        """
+        binding = ctypes.c_int()
+        cls.glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, ctypes.byref(binding))
+        attachment = GL_DEPTH_ATTACHMENT if binding.value else 0x1801  # GL_DEPTH
+        def query(pname, target_attachment=attachment):
+            result = ctypes.c_int()
+            cls.glGetFramebufferAttachmentParameteriv(GL_DRAW_FRAMEBUFFER, target_attachment, pname, ctypes.byref(result))
+            return result.value
+        kind = query(0x8CD0)  # OBJECT_TYPE
+        name = query(0x8CD1) if kind in (0x1702, 0x8D41) else 0  # OBJECT_NAME
+        result = ctypes.c_int()
+        if kind == 0x1702:  # GL_TEXTURE
+            level = query(0x8CD2)  # TEXTURE_LEVEL
+            cls.glGetTextureLevelParameteriv(name, level, 0x1003, ctypes.byref(result))
+        elif kind == 0x8D41:  # GL_RENDERBUFFER
+            cls.glGetNamedRenderbufferParameteriv(name, 0x8D44, ctypes.byref(result))
+        elif not binding.value and kind == 0x8218:  # GL_FRAMEBUFFER_DEFAULT
+            bits = query(0x8216)  # DEPTH_SIZE
+            floating = query(0x8211) == GL_FLOAT  # COMPONENT_TYPE
+            stencil = query(0x8217, 0x1802)  # STENCIL_SIZE, GL_STENCIL
+            if stencil:
+                return GL_DEPTH32F_STENCIL8 if floating else GL_DEPTH24_STENCIL8
+            return GL_DEPTH_COMPONENT32F if floating else {16: 0x81A5, 24: 0x81A6, 32: 0x81A7}.get(bits, 0)
+        if result.value not in (GL_DEPTH24_STENCIL8, GL_DEPTH32F_STENCIL8,
+                                GL_DEPTH_COMPONENT32F, 0x81A5, 0x81A6, 0x81A7):
+            raise RuntimeError(f"SSFR unsupported scene depth format 0x{result.value:04x}")
+        return result.value
+
+    @classmethod
     def compile_program(cls, vert_src: str, frag_src: str) -> int:
         """Compiles and links a GLSL 450 Core shader program."""
         cls.ensure_initialized()
@@ -293,23 +363,31 @@ class _GLInterop:
                 raise RuntimeError(f"GLSL compile error: {log.value.decode('utf-8', errors='replace')}")
             return sh
 
-        vs = _compile(GL_VERTEX_SHADER, vert_src)
-        fs = _compile(GL_FRAGMENT_SHADER, frag_src)
-        prog = cls.glCreateProgram()
-        cls.glAttachShader(prog, vs)
-        cls.glAttachShader(prog, fs)
-        cls.glLinkProgram(prog)
-        cls.glDeleteShader(vs)
-        cls.glDeleteShader(fs)
+        vs = fs = prog = 0
+        try:
+            vs = _compile(GL_VERTEX_SHADER, vert_src)
+            fs = _compile(GL_FRAGMENT_SHADER, frag_src)
+            prog = cls.glCreateProgram()
+            cls.glAttachShader(prog, vs)
+            cls.glAttachShader(prog, fs)
+            cls.glLinkProgram(prog)
+            status = ctypes.c_int(0)
+            cls.glGetProgramiv(prog, GL_LINK_STATUS, ctypes.byref(status))
+            if not status.value:
+                log = ctypes.create_string_buffer(2048)
+                cls.glGetProgramInfoLog(prog, 2048, None, log)
+                raise RuntimeError(f"GLSL link error: {log.value.decode('utf-8', errors='replace')}")
+            return prog
+        except Exception:
+            if prog:
+                cls.glDeleteProgram(prog)
+            raise
+        finally:
+            if vs:
+                cls.glDeleteShader(vs)
+            if fs:
+                cls.glDeleteShader(fs)
 
-        status = ctypes.c_int(0)
-        cls.glGetProgramiv(prog, GL_LINK_STATUS, ctypes.byref(status))
-        if not status.value:
-            log = ctypes.create_string_buffer(2048)
-            cls.glGetProgramInfoLog(prog, 2048, None, log)
-            cls.glDeleteProgram(prog)
-            raise RuntimeError(f"GLSL link error: {log.value.decode('utf-8', errors='replace')}")
-        return prog
 
 
 def wrap_device_vec3(ptr: int, num_particles: int, device: str = "cuda:0") -> wp.array:

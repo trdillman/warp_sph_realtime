@@ -1,3 +1,13 @@
+# Current SSFR repair status
+
+The three PR #1 review findings are repaired and independently reviewed: matching-format scene-only MSAA depth resolve before half-resolution scaling; exception-safe GL state restoration (including lazy-VAO array-buffer binding); failed shader and partial renderer initialization cleanup.
+
+Verification: 33 full-suite tests pass on CUDA. The built extension was installed into a disposable Blender 5.2 LTS / RTX 4080 SUPER profile; eight pixel/occlusion/state/shader controls and the default one-million-particle public workflow (all modes, perspective/orthographic, actual resizing, three start/stop cycles) pass. Source and runtime hashes match.
+
+See `docs/verification/SSFR_REVIEW_REPAIR.md` for the bounded claims, raw evidence, performance observations, limitations and rerun commands. Physics and modal workload are unchanged. Real default-framebuffer and sustained/multi-context stress qualification remain untested; broader camera visual quality is outside this repair.
+
+# Previous framebuffer-only handoff (historical)
+
 # Context
 
 **Current Task**: Preserve Blender's independent read/draw framebuffer bindings during SSFR allocation and resize; verified in Blender 5.2.0 LTS.

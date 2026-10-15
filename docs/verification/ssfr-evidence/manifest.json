@@ -1,0 +1,37 @@
+{
+  "pr_baseline": "e6bd07cdbd650bd5f6d5fcdc7088efb474f3df8e",
+  "preserved_local_commits": [
+    "ff4a7731eb23ac77e85294ac0da90b299d18659c",
+    "a99c8a5"
+  ],
+  "package_sha256": "95771909dca724faad14ddf417744648adf0f524afaa6a2414d4e7af4265db4a",
+  "package_bytes": 32084,
+  "sources": {
+    "interop_bridge.py": "b90acfb31cb543186bab9915594a94118edfa76ffcb26240eaedb23010d5a610",
+    "viewport_draw.py": "e64a6c57e6ccacbd6bb623069c1e4141a9db79477c6400eaa577a498d9876c81",
+    "ssfr_shaders.py": "830ecfb2b0a6a2ab880d2849f22e62495b428eacafe150b9172453fc7df69dd7",
+    "sim_core.py": "96563ccefb4e180fe21a58944bafb951d51a2a8fc64d12590648ff95e559801c",
+    "tests/test_ssfr_gl_contract.py": "d2635f135f98a4e4804aed5d6210647c9c8b60983a5e3307a4268292c682bf24",
+    "tests/runtime_ssfr_probe.py": "b9f8f9e262cd0701e34608ec8df3434c31d013f043ee0d1d6f28d8550570bdae",
+    "tests/runtime_ssfr_workflow.py": "3f5a698c0d3aff470122d0751bba8880a67914930bd249977079047088fd79ed",
+    "tests/run_ssfr_gui.py": "630bfb4d554ded3121c209f15b2075bcb99750e446e7c8a1b79e560bece9fa73"
+  },
+  "evidence": {
+    "baseline.log": "89d0ed853b3bcd11ded70ffc55ac9526c793b119221f5cfa252a50288a9bd76d",
+    "controls-launch.json": "2d3827250e06019b3af7baf2581d3f62eaead2ac5d63f2cef9f66a376335f8a3",
+    "controls.log": "0446854087967c040c58c439f5d2ebf91deb67eff3067fce29e3fe183bdda70b",
+    "extension-build-final.log": "5abdaf4b63d3b720dac7a73bb84bb45613b0f2bef88639ddf0637e145a028e43",
+    "extension-install.log": "09f1e9e538911d48166b5ddb3d5662bc15fe3977465b1237256d05a086d77c47",
+    "gpu-controls.json": "1d5c2aac51dea6271f39deb2d7e8bf5b36c2864b4ca67b36ca5f24d078f263c1",
+    "gui-workflow.json": "7e2db95a9fc5641836c20691b6e8980784c546525978e118401d400b53388a89",
+    "red-context-init.log": "f55b226e11a1512aff43d159eb3e9830cffc5e95b833970c986222bfa9210e99",
+    "red-depth-format.log": "77e51f2ed2211eacd01f763774f2592e8a598f20f0cd623d741e76b721e62a32",
+    "red-independent-review.log": "3c8a169a3fdd4abf0f2e31165d5ae8ff90b52baf7d7298651b1fd68a653cb928",
+    "red.log": "b4e9fcdfd68dc27734efb3848a0ad964c822973cd8191e3b1386a28f2e3ccaf5",
+    "unit-tests-final.log": "3352b31f92b37dcecb713bc68f5a0001b461d36e731f4cace45d1a2457432245",
+    "viewport-0-PERSP.png": "0bfe53ddc86c8a8f423764526de9aec76f026b5a99804c51c8c57d89e9e0a3fe",
+    "viewport-1-ORTHO.png": "8a7fc5bcbe2ce351ef609425c94ae9147471d8d84c4837c35a797051ce33a376",
+    "workflow-launch.json": "e8bc44bde665e9321e120ca8b4abfe5e87c6eedae06fd94c8a989687ab2a4ced",
+    "workflow.log": "27c8a41296832cee9bb6ee013247cabd3f8668c25631b7855e04f575c5bd550e"
+  }
+}
