@@ -8,6 +8,8 @@ Existing local framebuffer-binding commits `ff4a773` and `a99c8a5` were preserve
 > Layout note: this evidence was captured at `c674e38`, before the package restructure. Files named here as `interop_bridge.py` / `viewport_draw.py` / `ssfr_shaders.py` / `sim_core.py` now live at `warp_sph_realtime/render/` and `warp_sph_realtime/sim/`; the probe scripts were updated to those paths, so recorded hashes will not match a rerun.
 >
 > Post-restructure rerun (2026-10-15, same machine, isolated profile, extension zip built by `scripts/build_extension.py`): `--case controls` PASS with no errors; `--case workflow` PASS, 18 cases, no errors.
+>
+> With the verified Warp installer, Start only accepts Warp from the extension-owned directory, so `--warp-path` must be that directory (`<profile>/extensions/.user/user_default/warp_sph_realtime/.local`). Rerun 2026-10-15 with a locked-wheel install there: controls PASS, workflow PASS (18 cases), no errors.
 
 ## Findings and repairs
 

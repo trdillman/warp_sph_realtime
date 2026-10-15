@@ -4,10 +4,11 @@
 [dependency-groups]
 dev = [
     "numpy",
-    "warp-lang>=1.16",
+    "warp-lang==1.17.0",
+    "fake-bpy-module==20251003",  # bpy/gpu type stubs for pyright
     "pytest>=8",
     "ruff>=0.6",
-    "pyright>=1.1.400",
+    "pyright==1.1.408",
 ]
 
 [tool.pytest.ini_options]
