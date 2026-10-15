@@ -13,7 +13,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 - SSFR: matching-format MSAA depth resolve before half-res scaling, exception-safe GL state
-  restoration, and cleanup after failed shader / partial renderer initialization.
+  restoration, cleanup after failed shader / partial renderer initialization, and rejection of
+  unsupported default-framebuffer depth formats.
 
 ### Changed
 - Repository restructured: the extension now lives in the `warp_sph_realtime/` package folder,

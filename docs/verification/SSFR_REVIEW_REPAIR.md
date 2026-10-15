@@ -5,7 +5,7 @@ Status: **VERIFIED for the three bounded review findings and the executed Window
 Baseline PR head: `e6bd07cdbd650bd5f6d5fcdc7088efb474f3df8e`.
 Existing local framebuffer-binding commits `ff4a773` and `a99c8a5` were preserved. No physics, simulation workload, modal operator, or shader mathematics changed in this repair.
 
-> Layout note: this evidence was captured at `5d8a5ff`, before the package restructure. Files named here as `interop_bridge.py` / `viewport_draw.py` / `ssfr_shaders.py` / `sim_core.py` now live at `warp_sph_realtime/render/` and `warp_sph_realtime/sim/`; the probe scripts were updated to those paths, so recorded hashes will not match a rerun.
+> Layout note: this evidence was captured at `c674e38`, before the package restructure. Files named here as `interop_bridge.py` / `viewport_draw.py` / `ssfr_shaders.py` / `sim_core.py` now live at `warp_sph_realtime/render/` and `warp_sph_realtime/sim/`; the probe scripts were updated to those paths, so recorded hashes will not match a rerun.
 
 ## Findings and repairs
 
@@ -21,17 +21,17 @@ The zero-copy path remains `solver GPU arrays -> mapped CUDA/OpenGL VBO -> viewp
 
 ## Executed acceptance map
 
-Environment: Windows, Blender **5.2.0 LTS** build `fbe6228777e7`, NVIDIA **RTX 4080 SUPER**, driver **610.88**, OpenGL backend, Warp **1.17.0**, actual `cuda:0` execution. Blender's extension builder produced a 32,084-byte ZIP, installed using `extension install-file` into a disposable profile. Both final GUI probes loaded `bl_ext.user_default.warp_sph_realtime` from that installed package.
+Environment: Windows, Blender **5.2.0 LTS** build `fbe6228777e7`, NVIDIA **RTX 4080 SUPER**, driver **610.88**, OpenGL backend, Warp **1.17.0**, actual `cuda:0` execution. Blender's extension builder produced a 32,093-byte ZIP, installed using `extension install-file` into a disposable profile. Both final GUI probes loaded `bl_ext.user_default.warp_sph_realtime` from that installed package.
 
-Package SHA256: `95771909dca724faad14ddf417744648adf0f524afaa6a2414d4e7af4265db4a`.
-The [manifest](ssfr-evidence/manifest.json) binds production source, probes, package, and raw receipts. Loaded source hashes match the working candidate and both installed GUI lanes.
+Package SHA256: `66ce2e18494bb08d03bcb4db95cd2b2d59b9492dd687c9aa3db8841db3583516`.
+The [manifest](ssfr-evidence/manifest.json) binds production source, probes, package, raw receipt hashes, and path-redacted published receipt hashes. Unredacted originals remain local. Loaded source hashes match the working candidate and both installed GUI lanes.
 
 | Claim | Result | Evidence |
 |---|---|---|
-| Full unit suite, including CUDA physics regressions | PASS, **33 tests** | [Unit log](ssfr-evidence/unit-tests-final.log); baseline 25 tests and failing-before-fix receipts retained alongside it. |
+| Full unit suite, including CUDA physics regressions | PASS, **35 tests** | [Unit log](ssfr-evidence/unit-tests-final.log); baseline 25 tests and failing-before-fix receipts retained alongside it. |
 | Liquid rendering and scene-depth rejection | PASS, **8 controlled cases**: 0/4 samples x perspective/orthographic x 64x48/65x49 | [GPU controls](ssfr-evidence/gpu-controls.json). Visible summed thickness 12.0332 orthographic / 46.6274 perspective; hidden summed thickness exactly 0 in every case. |
 | Forbidden MSAA downscale detection | PASS, actual driver negative control | Same GPU controls; each multisampled case checks `GL_INVALID_OPERATION`. |
-| Real GL mask/blend/binding round-trip | PASS | Same GPU controls, `graphics_state_roundtrip`. Driver-free exception-exit test is separate. |
+| Real GL mask/blend/binding round-trip | PASS | Same GPU controls, `graphics_state_roundtrip`. Driver-free exception-exit and default-framebuffer format-discovery tests are separate. |
 | Failed shader resource deletion | PASS, three invalid fragment attempts; all **6 shader objects** deleted according to actual `glIsShader` | Same GPU controls. Partial-context-init failure is also covered by a driver-free test. |
 | Public simulation workflow | PASS, **15 mode/camera cases + 3 stop records** | [Workflow receipt](ssfr-evidence/gui-workflow.json): public start/stop operators, advancing solver steps, actual viewport callbacks, perspective/orthographic, liquid/spheres/points, actual area split and FBO resizing. |
 | Unchanged workload | PASS | 1,000,000 particles, 2 substeps, CUDA graph enabled, stiffness 90000, time-step scale 0.4. `sim_core.py`, `demo_scenes.py`, `__init__.py` unchanged from the PR head. |
@@ -47,6 +47,8 @@ The final installed run recorded liquid callback medians of **2.13–9.14 ms**, 
 The additional full-resolution scene depth costs one texture. Matching Blender's float depth also increases the pre-existing depth texture storage relative to the original assumed D24/S8. No particle count, substep count, physical parameter, smoothing setting, or solver algorithm was reduced to obtain a pass. No per-frame particle readback was added.
 
 Untested lanes: real default framebuffer (ID 0) depth-format discovery, other GPUs/drivers/OSes, Vulkan/Metal, sustained stress/VRAM qualification, multi-context/window teardown, off-center projection quality, perspective particle-diameter accuracy and broader orthographic lighting/filter quality. These are not certified by the passing smoke tests.
+
+A final automated follow-up identified unsupported default depth returning format 0. New regressions reproduced this for 0/8-bit depth; both now raise before allocation, while supported formats are preserved. The rebuilt/reinstalled candidate then passed both GUI lanes again. Published evidence paths were redacted and all edited receipt hashes recomputed; original raw receipts remain local.
 
 Early attempts are retained locally: isolated bootstrap missing Warp, automation transport loss, verifier Windows GL 1.1 symbol-loader error, and actual viewport format rejection. None count as passing evidence. Final command-runner controls and workflow both exited 0 and wrote explicit PASS results.
 

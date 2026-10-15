@@ -9,7 +9,7 @@
         48
       ],
       "visible_thickness": 12.033203125,
-      "occluded_thickness": 0.0
+      "occluded_thickness": 0
     },
     {
       "samples": 0,
@@ -19,7 +19,7 @@
         48
       ],
       "visible_thickness": 46.62744140625,
-      "occluded_thickness": 0.0
+      "occluded_thickness": 0
     },
     {
       "samples": 0,
@@ -29,7 +29,7 @@
         49
       ],
       "visible_thickness": 12.033203125,
-      "occluded_thickness": 0.0
+      "occluded_thickness": 0
     },
     {
       "samples": 0,
@@ -39,7 +39,7 @@
         49
       ],
       "visible_thickness": 46.62744140625,
-      "occluded_thickness": 0.0
+      "occluded_thickness": 0
     },
     {
       "samples": 4,
@@ -49,7 +49,7 @@
         48
       ],
       "visible_thickness": 12.033203125,
-      "occluded_thickness": 0.0
+      "occluded_thickness": 0
     },
     {
       "samples": 4,
@@ -59,7 +59,7 @@
         48
       ],
       "visible_thickness": 46.62744140625,
-      "occluded_thickness": 0.0
+      "occluded_thickness": 0
     },
     {
       "samples": 4,
@@ -69,7 +69,7 @@
         49
       ],
       "visible_thickness": 12.033203125,
-      "occluded_thickness": 0.0
+      "occluded_thickness": 0
     },
     {
       "samples": 4,
@@ -79,19 +79,19 @@
         49
       ],
       "visible_thickness": 46.62744140625,
-      "occluded_thickness": 0.0
+      "occluded_thickness": 0
     }
   ],
   "errors": [],
-  "pid": 46144,
+  "pid": 93100,
   "blender": "5.2.0 LTS",
   "build": "fbe6228777e7",
   "backend": "OPENGL",
   "gpu": "NVIDIA GeForce RTX 4080 SUPER/PCIe/SSE2",
   "warp": "1.17.0",
-  "addon": "C:\\Users/Tyler/Documents/Codex/2026-10-14/new-chat-5/work/ssfr/evidence/extension-profile\\extensions\\user_default\\warp_sph_realtime\\__init__.py",
+  "addon": "<repo>/evidence/extension-profile/extensions/user_default/warp_sph_realtime/__init__.py",
   "hashes": {
-    "interop_bridge.py": "b90acfb31cb543186bab9915594a94118edfa76ffcb26240eaedb23010d5a610",
+    "interop_bridge.py": "2598f29f5131871fd8cac85838736248db89e19f8a0d4eb9535e92d6ef486887",
     "viewport_draw.py": "e64a6c57e6ccacbd6bb623069c1e4141a9db79477c6400eaa577a498d9876c81",
     "ssfr_shaders.py": "830ecfb2b0a6a2ab880d2849f22e62495b428eacafe150b9172453fc7df69dd7",
     "sim_core.py": "96563ccefb4e180fe21a58944bafb951d51a2a8fc64d12590648ff95e559801c"

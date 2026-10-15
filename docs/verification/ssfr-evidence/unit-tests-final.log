@@ -4,14 +4,14 @@ Warp 1.17.0 initialized:
      "cpu"      : "AMD64 Family 23 Model 113 Stepping 0, AuthenticAMD"
      "cuda:0"   : "NVIDIA GeForce RTX 4080 SUPER" (16 GiB, sm_89, mempool enabled)
    Kernel cache:
-     \\?\C:\Users\Tyler\AppData\Local\NVIDIA\warp\Cache\1.17.0
-Module sim_core f4fb736 load on device 'cuda:0' took 3.99 ms  (cached)
-Module demo_scenes aee8ddc load on device 'cuda:0' took 2.10 ms  (cached)
-Module test_sim_core b8c0cf7 load on device 'cuda:0' took 2.00 ms  (cached)
-Module ipbf_solver 1bb5a6f load on device 'cuda:0' took 2.28 ms  (cached)
-Module collider_sdf 76c3028 load on device 'cuda:0' took 2.87 ms  (cached)
-Module particle_upsample bbea175 load on device 'cuda:0' took 2.18 ms  (cached)
-Module whitewater 7835dbd load on device 'cuda:0' took 1.93 ms  (cached)
+     //?/<warp-cache>/Cache/1.17.0
+Module sim_core f4fb736 load on device 'cuda:0' took 3.09 ms  (cached)
+Module demo_scenes aee8ddc load on device 'cuda:0' took 1.69 ms  (cached)
+Module test_sim_core b8c0cf7 load on device 'cuda:0' took 2.09 ms  (cached)
+Module ipbf_solver 1bb5a6f load on device 'cuda:0' took 2.83 ms  (cached)
+Module collider_sdf 76c3028 load on device 'cuda:0' took 2.03 ms  (cached)
+Module particle_upsample bbea175 load on device 'cuda:0' took 1.75 ms  (cached)
+Module whitewater 7835dbd load on device 'cuda:0' took 2.31 ms  (cached)
 test_blender_manifest_toml_schema (test_blender_mock.TestBlenderIntegrationAndDemos.test_blender_manifest_toml_schema)
 Validates that blender_manifest.toml adheres to Blender 5.2+ schema 1.0.0. ... ok
 test_demo_scene_1_double_dam_pillars_init (test_blender_mock.TestBlenderIntegrationAndDemos.test_demo_scene_1_double_dam_pillars_init)
@@ -35,6 +35,8 @@ Verifies that Warp 1.16+ CUDA Graph execution matches eager kernel launches exac
 test_solver_step_bounds_and_nan_free (test_sim_core.TestSimCorePhysics.test_solver_step_bounds_and_nan_free)
 Verifies that stepping the WCSPH solver keeps all particles finite and inside domain bounds. ... ok
 test_vram_telemetry_calculation (test_sim_core.TestSimCorePhysics.test_vram_telemetry_calculation) ... ok
+test_default_without_supported_depth_fails_before_allocation (test_ssfr_gl_contract.DefaultDepthFormat.test_default_without_supported_depth_fails_before_allocation) ... ok
+test_supported_default_depth_formats_are_preserved (test_ssfr_gl_contract.DefaultDepthFormat.test_supported_default_depth_formats_are_preserved) ... ok
 test_exception_restores_state (test_ssfr_gl_contract.DrawContracts.test_exception_restores_state) ... ok
 test_failed_depth_transfer_rejects_liquid_instead_of_drawing_unoccluded (test_ssfr_gl_contract.DrawContracts.test_failed_depth_transfer_rejects_liquid_instead_of_drawing_unoccluded) ... ok
 test_lazy_real_vao_creation_restores_incoming_array_buffer (test_ssfr_gl_contract.DrawContracts.test_lazy_real_vao_creation_restores_incoming_array_buffer) ... ok
@@ -67,6 +69,6 @@ test_whitewater_neighbor_count_classification (test_submodules.TestPhysicsSubmod
 Verifies Spray (n_f <= 5), Foam (5 < n_f < 15), and Bubble (n_f >= 15) classification. ... ok
 
 ----------------------------------------------------------------------
-Ran 33 tests in 11.432s
+Ran 35 tests in 12.034s
 
 OK

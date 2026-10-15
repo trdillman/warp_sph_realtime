@@ -9,6 +9,33 @@ from test_ssfr_renderer import _load_viewport_draw, _StatefulGL
 v = _load_viewport_draw()
 
 
+class DefaultDepthFormat(unittest.TestCase):
+    def detect(self, bits, floating=False, stencil=0):
+        gl = v._ig._GLInterop
+        def integer(pname, output):
+            ctypes.cast(output, ctypes.POINTER(ctypes.c_int))[0] = 0
+        def attachment(target, which, pname, output):
+            values = {0x8CD0: 0x8218, 0x8216: bits, 0x8211: 0x1406 if floating else 0x8C17,
+                      0x8217: stencil}
+            # OBJECT_NAME is invalid for a default framebuffer; do not query it.
+            ctypes.cast(output, ctypes.POINTER(ctypes.c_int))[0] = values[pname]
+        with patch.multiple(gl, glGetIntegerv=integer,
+                            glGetFramebufferAttachmentParameteriv=attachment):
+            return gl.framebuffer_depth_format()
+
+    def test_default_without_supported_depth_fails_before_allocation(self):
+        for bits in (0, 8):
+            with self.subTest(bits=bits), self.assertRaisesRegex(RuntimeError, 'unsupported.*depth'):
+                self.detect(bits)
+
+    def test_supported_default_depth_formats_are_preserved(self):
+        for bits, fmt in ((16, 0x81A5), (24, 0x81A6), (32, 0x81A7)):
+            self.assertEqual(self.detect(bits), fmt)
+        self.assertEqual(self.detect(32, floating=True), 0x8CAC)
+        self.assertEqual(self.detect(24, stencil=8), 0x88F0)
+        self.assertEqual(self.detect(32, floating=True, stencil=8), 0x8CAD)
+
+
 class ShaderCleanup(unittest.TestCase):
     def test_partial_renderer_initialization_releases_programs_and_vao(self):
         gl = _StatefulGL()

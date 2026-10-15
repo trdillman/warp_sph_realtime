@@ -335,8 +335,9 @@ class _GLInterop:
             floating = query(0x8211) == GL_FLOAT  # COMPONENT_TYPE
             stencil = query(0x8217, 0x1802)  # STENCIL_SIZE, GL_STENCIL
             if stencil:
-                return GL_DEPTH32F_STENCIL8 if floating else GL_DEPTH24_STENCIL8
-            return GL_DEPTH_COMPONENT32F if floating else {16: 0x81A5, 24: 0x81A6, 32: 0x81A7}.get(bits, 0)
+                result.value = GL_DEPTH32F_STENCIL8 if floating else GL_DEPTH24_STENCIL8
+            else:
+                result.value = GL_DEPTH_COMPONENT32F if floating else {16: 0x81A5, 24: 0x81A6, 32: 0x81A7}.get(bits, 0)
         if result.value not in (GL_DEPTH24_STENCIL8, GL_DEPTH32F_STENCIL8,
                                 GL_DEPTH_COMPONENT32F, 0x81A5, 0x81A6, 0x81A7):
             raise RuntimeError(f"SSFR unsupported scene depth format 0x{result.value:04x}")
