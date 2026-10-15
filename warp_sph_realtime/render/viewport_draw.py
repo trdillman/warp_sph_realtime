@@ -1,13 +1,17 @@
 import ctypes
+from functools import wraps
 import bpy
 import gpu
 
+from . import interop_bridge as _ig
 from .interop_bridge import (
     GL_BLEND,
     GL_CLAMP_TO_EDGE,
     GL_COLOR_ATTACHMENT0,
     GL_COLOR_BUFFER_BIT,
+    GL_DEPTH_ATTACHMENT,
     GL_DEPTH_BUFFER_BIT,
+    GL_DEPTH_COMPONENT,
     GL_DEPTH24_STENCIL8,
     GL_DEPTH_STENCIL,
     GL_UNSIGNED_INT_24_8,
@@ -95,6 +99,71 @@ def _mat4_to_ctypes(mat) -> ctypes.Array:
     return (ctypes.c_float * 16)(*vals)
 
 
+def _preserve_gl_state(draw):
+    """Restore caller state even on shader/allocation/draw failures.
+
+    Capture before allocation: texture creation also mutates the active unit.
+    Queries are scalar GL state queries, never simulation-buffer readbacks.
+    """
+    @wraps(draw)
+    def guarded(*args, **kwargs):
+        gl = _GLInterop
+        gl.ensure_initialized()
+        def ints(pname, count=1):
+            out = (ctypes.c_int * count)()
+            gl.glGetIntegerv(pname, out)
+            return tuple(out)
+        def floats(pname, count):
+            out = (ctypes.c_float * count)()
+            gl.glGetFloatv(pname, out)
+            return tuple(out)
+        keys = (_ig.GL_DEPTH_WRITEMASK, _ig.GL_DEPTH_FUNC, _ig.GL_BLEND_SRC_RGB,
+                _ig.GL_BLEND_DST_RGB, _ig.GL_BLEND_SRC_ALPHA, _ig.GL_BLEND_DST_ALPHA,
+                _ig.GL_BLEND_EQUATION_RGB, _ig.GL_BLEND_EQUATION_ALPHA,
+                _ig.GL_CURRENT_PROGRAM, _ig.GL_VERTEX_ARRAY_BINDING,
+                GL_DRAW_FRAMEBUFFER_BINDING, GL_READ_FRAMEBUFFER_BINDING,
+                _ig.GL_ACTIVE_TEXTURE, _ig.GL_ARRAY_BUFFER_BINDING)
+        state = {k: ints(k)[0] for k in keys}
+        viewport = ints(GL_VIEWPORT, 4)
+        color_mask = ints(_ig.GL_COLOR_WRITEMASK, 4)
+        clear_color = floats(_ig.GL_COLOR_CLEAR_VALUE, 4)
+        clear_depth = floats(_ig.GL_DEPTH_CLEAR_VALUE, 1)[0]
+        caps = {cap: gl.glIsEnabled(cap) for cap in
+                (GL_PROGRAM_POINT_SIZE, GL_DEPTH_TEST, GL_BLEND, _ig.GL_SCISSOR_TEST)}
+        textures = {}
+        for unit in (GL_TEXTURE0, GL_TEXTURE0 + 1, GL_TEXTURE0 + 2, state[_ig.GL_ACTIVE_TEXTURE]):
+            gl.glActiveTexture(unit)
+            textures[unit] = ints(_ig.GL_TEXTURE_BINDING_2D)[0]
+        gl.glActiveTexture(state[_ig.GL_ACTIVE_TEXTURE])
+        try:
+            gl.glDisable(_ig.GL_SCISSOR_TEST)
+            gl.glColorMask(1, 1, 1, 1)
+            gl.glClearDepth(1.0)
+            gl.glBlendEquationSeparate(_ig.GL_FUNC_ADD, _ig.GL_FUNC_ADD)
+            return draw(*args, **kwargs)
+        finally:
+            gl.glBindFramebuffer(GL_DRAW_FRAMEBUFFER, state[GL_DRAW_FRAMEBUFFER_BINDING])
+            gl.glBindFramebuffer(GL_READ_FRAMEBUFFER, state[GL_READ_FRAMEBUFFER_BINDING])
+            gl.glViewport(*viewport)
+            gl.glDepthMask(state[_ig.GL_DEPTH_WRITEMASK])
+            gl.glDepthFunc(state[_ig.GL_DEPTH_FUNC])
+            gl.glBlendFuncSeparate(*(state[k] for k in keys[2:6]))
+            gl.glBlendEquationSeparate(state[_ig.GL_BLEND_EQUATION_RGB], state[_ig.GL_BLEND_EQUATION_ALPHA])
+            gl.glClearColor(*clear_color)
+            gl.glClearDepth(clear_depth)
+            gl.glColorMask(*color_mask)
+            gl.glUseProgram(state[_ig.GL_CURRENT_PROGRAM])
+            gl.glBindVertexArray(state[_ig.GL_VERTEX_ARRAY_BINDING])
+            gl.glBindBuffer(_ig.GL_ARRAY_BUFFER, state[_ig.GL_ARRAY_BUFFER_BINDING])
+            for unit, texture in textures.items():
+                gl.glActiveTexture(unit)
+                gl.glBindTexture(GL_TEXTURE_2D, texture)
+            gl.glActiveTexture(state[_ig.GL_ACTIVE_TEXTURE])
+            for cap, enabled in caps.items():
+                (gl.glEnable if enabled else gl.glDisable)(cap)
+    return guarded
+
+
 class SSFRViewportRenderer:
     """Manages per-GL-context shaders, empty fullscreen VAOs, and offscreen FBOs for SSFR."""
 
@@ -102,7 +171,7 @@ class SSFRViewportRenderer:
         self._ctx_resources = {}
         self._pending_destroy = False
 
-    def _get_or_create_ctx_data(self, width: int, height: int) -> dict:
+    def _get_or_create_ctx_data(self, width: int, height: int, depth_format: int = GL_DEPTH24_STENCIL8) -> dict:
         gl = _GLInterop
         gl.ensure_initialized()
         ctx = gl.current_context()
@@ -112,11 +181,20 @@ class SSFRViewportRenderer:
             empty_vao = ctypes.c_uint(0)
             gl.glGenVertexArrays(1, ctypes.byref(empty_vao))
 
-            prog_depth = gl.compile_program(SSFR_DEPTH_VERT, SSFR_DEPTH_FRAG)
-            prog_thick = gl.compile_program(SSFR_DEPTH_VERT, SSFR_THICKNESS_FRAG)
-            prog_filter = gl.compile_program(SSFR_FULLSCREEN_VERT, SSFR_NARROW_RANGE_FRAG)
-            prog_comp = gl.compile_program(SSFR_FULLSCREEN_VERT, SSFR_COMPOSITE_FRAG)
-            prog_sphere = gl.compile_program(SSFR_DEPTH_VERT, SPHERE_IMPOSTOR_FRAG)
+            programs = []
+            try:
+                for vertex, fragment in ((SSFR_DEPTH_VERT, SSFR_DEPTH_FRAG),
+                                         (SSFR_DEPTH_VERT, SSFR_THICKNESS_FRAG),
+                                         (SSFR_FULLSCREEN_VERT, SSFR_NARROW_RANGE_FRAG),
+                                         (SSFR_FULLSCREEN_VERT, SSFR_COMPOSITE_FRAG),
+                                         (SSFR_DEPTH_VERT, SPHERE_IMPOSTOR_FRAG)):
+                    programs.append(gl.compile_program(vertex, fragment))
+            except Exception:
+                for program in programs:
+                    gl.glDeleteProgram(program)
+                gl.glDeleteVertexArrays(1, ctypes.byref(empty_vao))
+                raise
+            prog_depth, prog_thick, prog_filter, prog_comp, prog_sphere = programs
 
             data = {
                 "empty_vao": empty_vao,
@@ -134,6 +212,7 @@ class SSFRViewportRenderer:
                 "fbo_ping": ctypes.c_uint(0),
                 "fbo_pong": ctypes.c_uint(0),
                 "fbo_scene_col": ctypes.c_uint(0),
+                "tex_scene_depth": ctypes.c_uint(0),
                 "tex_depth_hw": ctypes.c_uint(0),
                 "tex_thick_depth_hw": ctypes.c_uint(0),
                 "tex_eye_depth": ctypes.c_uint(0),
@@ -144,12 +223,12 @@ class SSFRViewportRenderer:
             }
             self._ctx_resources[ctx] = data
 
-        if width > 0 and height > 0 and (data["width"] != width or data["height"] != height):
-            self._resize_fbos(data, width, height)
+        if width > 0 and height > 0 and (data["width"] != width or data["height"] != height or data.get("depth_format") != depth_format):
+            self._resize_fbos(data, width, height, depth_format)
 
         return data
 
-    def _resize_fbos(self, data: dict, w: int, h: int):
+    def _resize_fbos(self, data: dict, w: int, h: int, depth_format: int = GL_DEPTH24_STENCIL8):
         gl = _GLInterop
         w = max(2, int(w))
         h = max(2, int(h))
@@ -167,7 +246,7 @@ class SSFRViewportRenderer:
             if data[k].value:
                 gl.glDeleteFramebuffers(1, ctypes.byref(data[k]))
                 data[k] = ctypes.c_uint(0)
-        for k in ("tex_depth_hw", "tex_thick_depth_hw", "tex_eye_depth", "tex_thick", "tex_ping", "tex_pong", "tex_scene_col"):
+        for k in ("tex_scene_depth", "tex_depth_hw", "tex_thick_depth_hw", "tex_eye_depth", "tex_thick", "tex_ping", "tex_pong", "tex_scene_col"):
             if data.get(k) and data[k].value:
                 gl.glDeleteTextures(1, ctypes.byref(data[k]))
                 data[k] = ctypes.c_uint(0)
@@ -191,9 +270,15 @@ class SSFRViewportRenderer:
             gl.glBindTexture(GL_TEXTURE_2D, 0)
             return t
 
-        # Use packed GL_DEPTH24_STENCIL8 matching Blender 5.2+ viewport framebuffers
-        data["tex_depth_hw"] = _make_tex(w, h, GL_DEPTH24_STENCIL8, GL_DEPTH_STENCIL, GL_UNSIGNED_INT_24_8, GL_NEAREST)
-        data["tex_thick_depth_hw"] = _make_tex(half_w, half_h, GL_DEPTH24_STENCIL8, GL_DEPTH_STENCIL, GL_UNSIGNED_INT_24_8, GL_NEAREST)
+        # Match the source exactly; packed D24/S8 is not universal in Blender 5.2.
+        packed = depth_format in (GL_DEPTH24_STENCIL8, _ig.GL_DEPTH32F_STENCIL8)
+        depth_attachment = GL_DEPTH_STENCIL_ATTACHMENT if packed else GL_DEPTH_ATTACHMENT
+        depth_external = GL_DEPTH_STENCIL if packed else GL_DEPTH_COMPONENT
+        depth_type = (_ig.GL_FLOAT_32_UNSIGNED_INT_24_8_REV if depth_format == _ig.GL_DEPTH32F_STENCIL8
+                      else GL_UNSIGNED_INT_24_8 if packed else GL_FLOAT)
+        data["tex_scene_depth"] = _make_tex(w, h, depth_format, depth_external, depth_type, GL_NEAREST)
+        data["tex_depth_hw"] = _make_tex(w, h, depth_format, depth_external, depth_type, GL_NEAREST)
+        data["tex_thick_depth_hw"] = _make_tex(half_w, half_h, depth_format, depth_external, depth_type, GL_NEAREST)
         data["tex_eye_depth"] = _make_tex(w, h, GL_R32F, GL_RED, GL_FLOAT, GL_NEAREST)
         # Upgrade #1: Half-resolution thickness texture (W/2 x H/2) with linear hardware upsampling
         data["tex_thick"] = _make_tex(half_w, half_h, GL_R16F, GL_RED, GL_FLOAT, GL_LINEAR)
@@ -205,13 +290,13 @@ class SSFRViewportRenderer:
         gl.glGenFramebuffers(1, ctypes.byref(data["fbo_depth"]))
         gl.glBindFramebuffer(GL_FRAMEBUFFER, data["fbo_depth"].value)
         gl.glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, data["tex_eye_depth"].value, 0)
-        gl.glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_TEXTURE_2D, data["tex_depth_hw"].value, 0)
+        gl.glFramebufferTexture2D(GL_FRAMEBUFFER, depth_attachment, GL_TEXTURE_2D, data["tex_depth_hw"].value, 0)
 
         # 2. Half-Resolution Thickness FBO (Color0 = optical thickness R16F + DepthStencil for scene occlusion)
         gl.glGenFramebuffers(1, ctypes.byref(data["fbo_thick"]))
         gl.glBindFramebuffer(GL_FRAMEBUFFER, data["fbo_thick"].value)
         gl.glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, data["tex_thick"].value, 0)
-        gl.glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_TEXTURE_2D, data["tex_thick_depth_hw"].value, 0)
+        gl.glFramebufferTexture2D(GL_FRAMEBUFFER, depth_attachment, GL_TEXTURE_2D, data["tex_thick_depth_hw"].value, 0)
 
         # 3. Ping-Pong Narrow-Range Filter FBOs
         gl.glGenFramebuffers(1, ctypes.byref(data["fbo_ping"]))
@@ -227,13 +312,17 @@ class SSFRViewportRenderer:
         gl.glBindFramebuffer(GL_FRAMEBUFFER, data["fbo_scene_col"].value)
         gl.glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, data["tex_scene_col"].value, 0)
 
+        gl.glFramebufferTexture2D(GL_FRAMEBUFFER, depth_attachment, GL_TEXTURE_2D, data["tex_scene_depth"].value, 0)
+
         gl.glBindFramebuffer(GL_DRAW_FRAMEBUFFER, prev_draw_fbo.value)
         gl.glBindFramebuffer(GL_READ_FRAMEBUFFER, prev_read_fbo.value)
+        data["depth_format"] = depth_format
         data["width"] = w
         data["height"] = h
         data["half_w"] = half_w
         data["half_h"] = half_h
 
+    @_preserve_gl_state
     def draw_spheres(self, gl_buf: ZeroCopyGLBuffer52, scene, vp_height: int):
         """Renders shaded 3D sphere impostors in a single pass."""
         gl = _GLInterop
@@ -276,10 +365,13 @@ class SSFRViewportRenderer:
         for cap, was_on in saved.items():
             (gl.glEnable if was_on else gl.glDisable)(cap)
 
+    @_preserve_gl_state
     def draw_ssfr_liquid(self, gl_buf: ZeroCopyGLBuffer52, scene, vp_x: int, vp_y: int, vp_w: int, vp_h: int):
         """Executes the 5-Pass Narrow-Range Screen-Space Fluid Rendering pipeline."""
         gl = _GLInterop
-        data = self._get_or_create_ctx_data(vp_w, vp_h)
+        use_depth_occlusion = bool(getattr(scene, "warp_sph_depth_test", True))
+        depth_format = gl.framebuffer_depth_format() if use_depth_occlusion else GL_DEPTH24_STENCIL8
+        data = self._get_or_create_ctx_data(vp_w, vp_h, depth_format)
 
         prev_draw_fbo = ctypes.c_int(0)
         prev_read_fbo = ctypes.c_int(0)
@@ -304,16 +396,35 @@ class SSFRViewportRenderer:
         # Pre-Pass Blit: Capture Blender's Viewport Color & Depth Buffers
         # -------------------------------------------------------------------
         has_scene_color = 0
-        if prev_draw_fbo.value != 0:
-            gl.glBindFramebuffer(GL_READ_FRAMEBUFFER, prev_draw_fbo.value)
-            gl.glBindFramebuffer(GL_DRAW_FRAMEBUFFER, data["fbo_scene_col"].value)
-            gl.glBlitFramebuffer(
-                vp_x, vp_y, vp_x + vp_w, vp_y + vp_h,
-                0, 0, vp_w, vp_h,
-                GL_COLOR_BUFFER_BIT,
-                GL_LINEAR,
-            )
-            has_scene_color = 1
+        gl.glBindFramebuffer(GL_READ_FRAMEBUFFER, prev_draw_fbo.value)
+        gl.glBindFramebuffer(GL_DRAW_FRAMEBUFFER, data["fbo_scene_col"].value)
+        gl.glBlitFramebuffer(
+            vp_x, vp_y, vp_x + vp_w, vp_y + vp_h,
+            0, 0, vp_w, vp_h,
+            GL_COLOR_BUFFER_BIT,
+            GL_NEAREST,
+        )
+        has_scene_color = 1
+
+        # Resolve MSAA at identical dimensions before any scaling or particle writes.
+        # Never silently replace missing obstacle depth with a cleared buffer.
+        def copy_depth(src, dst, src_rect, dst_rect):
+            for _ in range(16):
+                if gl.glGetError() == GL_NO_ERROR:
+                    break
+            gl.glBindFramebuffer(GL_READ_FRAMEBUFFER, src)
+            gl.glBindFramebuffer(GL_DRAW_FRAMEBUFFER, dst)
+            gl.glBlitFramebuffer(*src_rect, *dst_rect, GL_DEPTH_BUFFER_BIT, GL_NEAREST)
+            error = gl.glGetError()
+            if error != GL_NO_ERROR:
+                raise RuntimeError(f"SSFR scene depth transfer failed (GL 0x{error:04x})")
+
+        full_rect = (0, 0, vp_w, vp_h)
+        if use_depth_occlusion:
+            copy_depth(prev_draw_fbo.value, data["fbo_scene_col"].value,
+                       (vp_x, vp_y, vp_x + vp_w, vp_y + vp_h), full_rect)
+            copy_depth(data["fbo_scene_col"].value, data["fbo_thick"].value,
+                       full_rect, (0, 0, data["half_w"], data["half_h"]))
 
         # -------------------------------------------------------------------
         # Pass 1: Eye-Space Sphere Depth Pass (FBO_Depth) with Early-Z Occlusion
@@ -324,25 +435,9 @@ class SSFRViewportRenderer:
         gl.glDepthMask(1)
         gl.glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
 
-        # Upgrade #2: Blit Blender's opaque scene depth into FBO_Depth so particles
-        # behind pillars/spheres are hardware-culled immediately during Pass 1
-        if use_depth_occlusion and prev_draw_fbo.value != 0:
-            while gl.glGetError():
-                pass
-            gl.glBindFramebuffer(GL_READ_FRAMEBUFFER, prev_draw_fbo.value)
-            gl.glBindFramebuffer(GL_DRAW_FRAMEBUFFER, data["fbo_depth"].value)
-            gl.glBlitFramebuffer(
-                vp_x, vp_y, vp_x + vp_w, vp_y + vp_h,
-                0, 0, vp_w, vp_h,
-                GL_DEPTH_BUFFER_BIT,
-                GL_NEAREST,
-            )
-            if gl.glGetError() != GL_NO_ERROR:
-                # If format mismatch occurs, clear depth buffer so fluid still renders safely
-                gl.glBindFramebuffer(GL_FRAMEBUFFER, data["fbo_depth"].value)
-                gl.glClear(GL_DEPTH_BUFFER_BIT)
-            else:
-                gl.glBindFramebuffer(GL_FRAMEBUFFER, data["fbo_depth"].value)
+        if use_depth_occlusion:
+            copy_depth(data["fbo_scene_col"].value, data["fbo_depth"].value, full_rect, full_rect)
+            gl.glBindFramebuffer(GL_FRAMEBUFFER, data["fbo_depth"].value)
 
         gl.glEnable(GL_DEPTH_TEST)
         gl.glDepthFunc(GL_LEQUAL)
@@ -368,24 +463,9 @@ class SSFRViewportRenderer:
         gl.glViewport(0, 0, half_w, half_h)
         gl.glClearColor(0.0, 0.0, 0.0, 0.0)
         gl.glDepthMask(1)
-        gl.glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
-
-        if use_depth_occlusion and prev_draw_fbo.value != 0:
-            while gl.glGetError():
-                pass
-            gl.glBindFramebuffer(GL_READ_FRAMEBUFFER, prev_draw_fbo.value)
-            gl.glBindFramebuffer(GL_DRAW_FRAMEBUFFER, data["fbo_thick"].value)
-            gl.glBlitFramebuffer(
-                vp_x, vp_y, vp_x + vp_w, vp_y + vp_h,
-                0, 0, half_w, half_h,
-                GL_DEPTH_BUFFER_BIT,
-                GL_NEAREST,
-            )
-            if gl.glGetError() != GL_NO_ERROR:
-                gl.glBindFramebuffer(GL_FRAMEBUFFER, data["fbo_thick"].value)
-                gl.glClear(GL_DEPTH_BUFFER_BIT)
-            else:
-                gl.glBindFramebuffer(GL_FRAMEBUFFER, data["fbo_thick"].value)
+        gl.glClear(GL_COLOR_BUFFER_BIT)
+        if not use_depth_occlusion:
+            gl.glClear(GL_DEPTH_BUFFER_BIT)
 
         if use_depth_occlusion:
             gl.glEnable(GL_DEPTH_TEST)
@@ -497,7 +577,7 @@ class SSFRViewportRenderer:
             for k in ("fbo_depth", "fbo_thick", "fbo_ping", "fbo_pong", "fbo_scene_col"):
                 if data[k].value:
                     gl.glDeleteFramebuffers(1, ctypes.byref(data[k]))
-            for k in ("tex_depth_hw", "tex_thick_depth_hw", "tex_eye_depth", "tex_thick", "tex_ping", "tex_pong", "tex_scene_col"):
+            for k in ("tex_scene_depth", "tex_depth_hw", "tex_thick_depth_hw", "tex_eye_depth", "tex_thick", "tex_ping", "tex_pong", "tex_scene_col"):
                 if data.get(k) and data[k].value:
                     gl.glDeleteTextures(1, ctypes.byref(data[k]))
             for k in ("prog_depth", "prog_thick", "prog_filter", "prog_comp", "prog_sphere"):

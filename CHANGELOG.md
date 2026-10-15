@@ -11,6 +11,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - `scripts/build_extension.py` to validate, build, and optionally install the extension zip.
 - GitHub Actions CI running ruff, pyright, and pytest (CUDA tests skip on hosted runners).
 
+### Fixed
+- SSFR: matching-format MSAA depth resolve before half-res scaling, exception-safe GL state
+  restoration, and cleanup after failed shader / partial renderer initialization.
+
 ### Changed
 - Repository restructured: the extension now lives in the `warp_sph_realtime/` package folder,
   split into `sim/`, `scene/`, `render/`, and `experimental/` subpackages.

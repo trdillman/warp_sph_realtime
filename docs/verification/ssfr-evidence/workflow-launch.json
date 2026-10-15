@@ -1,0 +1,24 @@
+{
+  "args": [
+    "--factory-startup",
+    "--no-window-focus",
+    "--gpu-backend",
+    "opengl",
+    "--window-geometry",
+    "40",
+    "40",
+    "1000",
+    "760",
+    "--python",
+    "C:/Users/Tyler/Documents/Codex/2026-10-14/new-chat-5/work/ssfr/tests/run_ssfr_gui.py",
+    "--",
+    "--case",
+    "workflow",
+    "--warp-path",
+    "C:/Users/Tyler/AppData/Roaming/Python/Python314/site-packages",
+    "--evidence-dir",
+    "C:/Users/Tyler/Documents/Codex/2026-10-14/new-chat-5/work/ssfr/evidence/final-runner"
+  ],
+  "profile": "C:/Users/Tyler/Documents/Codex/2026-10-14/new-chat-5/work/ssfr/evidence/extension-profile",
+  "exit_code": 0
+}

@@ -1,15 +1,15 @@
 # Context
 
-**Current Task**: Repo restructured into the `warp_sph_realtime/` package (sim, scene, render, experimental) with pyproject tooling, CI, and build script; landed on local `main` (not yet pushed).
+**Current Task**: Repo restructured into the `warp_sph_realtime/` package (sim, scene, render, experimental) with pyproject tooling, CI and build script; remote SSFR repair `5d8a5ff` ported onto it. On local `main`, not pushed.
 
 **Key Decisions**
-- Blender extension source is the inner `warp_sph_realtime/` folder; build with `python scripts/build_extension.py [--install]`. Only relative imports inside the package.
-- `__init__.py` registers lazily via `addon.py`, so `sim/` and `experimental/` import without bpy and are testable headless.
-- Pyright suppressions are kept (460 baseline errors are bpy/warp stub false positives); each is documented in `pyproject.toml`.
+- Extension source is the inner `warp_sph_realtime/` folder; build with `python scripts/build_extension.py [--install]`. Relative imports only inside the package.
+- `__init__.py` registers lazily via `addon.py`, so `sim/` and `experimental/` import without bpy.
+- Live-Blender probe scripts (`tests/run_ssfr_gui.py`, `tests/runtime_ssfr_*.py`) are excluded from pyright; pyright suppressions are documented in `pyproject.toml`.
 
-**Verification (main @ restructure commit)**: pytest 25 passed, unittest 25 OK, ruff clean, pyright 0 errors; Blender 5.2 extension validate/build/install/enable verified headless. No GPU sim or GUI run since restructure.
+**Verification**: pytest 33 passed, ruff clean, pyright 0 errors; Blender 5.2 extension build/install/enable checked headless. SSFR GUI evidence (`docs/verification/SSFR_REVIEW_REPAIR.md`) predates the restructure; GUI probes not rerun since.
 
 **Next Steps**
-- Push `main` (and decide fate of `feat/ssfr-renderer`, `refactor/repo-structure`) after owner approval.
-- Port `origin/feat/isolated-warp-installer` (old root-path layout) into `warp_sph_realtime/` before merging.
-- Remaining SSFR review findings: GL-state restoration, multi-context cleanup churn, perspective point diameter, orthographic view/filter scaling, off-center projection.
+- Push `main` after owner approval; then retire `feat/ssfr-renderer` / `refactor/repo-structure` / `port/ssfr-repair`.
+- Port `origin/feat/isolated-warp-installer` (old root layout) into the package before merging.
+- Rerun the GUI probes (`tests/run_ssfr_gui.py --case controls|workflow`) on the new layout.

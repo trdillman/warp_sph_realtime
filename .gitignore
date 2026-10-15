@@ -10,3 +10,4 @@ dist/
 *.blend2
 .codex/context/
 .ruff_cache/
+evidence/

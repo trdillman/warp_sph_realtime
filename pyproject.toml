@@ -26,9 +26,14 @@ select = ["E4", "E7", "E9", "F"]
 [tool.ruff.lint.per-file-ignores]
 # Blender stubs must be installed in sys.modules before the package is imported.
 "tests/test_blender_mock.py" = ["E402"]
+# Compact one-line GL fakes/probe steps kept verbatim from the verified SSFR repair.
+"tests/runtime_ssfr_*.py" = ["E701", "E702"]
+"tests/test_ssfr_gl_contract.py" = ["E701", "E702"]
 
 [tool.pyright]
 include = ["warp_sph_realtime", "tests", "scripts"]
+# Live-Blender GPU probe scripts (run via `blender --python`), not headless test modules.
+exclude = ["**/__pycache__", "tests/run_ssfr_gui.py", "tests/runtime_ssfr_*.py"]
 extraPaths = ["."]
 pythonVersion = "3.13"
 # Suppressions below are false positives from third-party stubs, not project bugs
