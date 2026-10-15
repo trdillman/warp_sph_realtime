@@ -17,28 +17,28 @@ from types import ModuleType
 
 import numpy as np
 
-_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-if _ROOT not in sys.path:
-    sys.path.insert(0, _ROOT)
-
-from ssfr_shaders import (
+import warp_sph_realtime.render as render_pkg
+from warp_sph_realtime.render.ssfr_shaders import (
     compute_beer_lambert_transmittance,
     compute_projected_filter_sigma,
     compute_schlick_fresnel,
     narrow_range_filter_1d_cpu,
 )
 
+_RENDER_DIR = os.path.dirname(render_pkg.__file__)
+
 
 def _load_viewport_draw():
-    ib_spec = importlib.util.spec_from_file_location("interop_bridge", os.path.join(_ROOT, "interop_bridge.py"))
+    ib_name = "warp_sph_realtime.render.interop_bridge"
+    ib_spec = importlib.util.spec_from_file_location(ib_name, os.path.join(_RENDER_DIR, "interop_bridge.py"))
     ib_module = importlib.util.module_from_spec(ib_spec)
     spec = importlib.util.spec_from_file_location(
-        "warp_sph_viewport_draw_under_test", os.path.join(_ROOT, "viewport_draw.py")
+        "warp_sph_realtime.render._viewport_draw_under_test", os.path.join(_RENDER_DIR, "viewport_draw.py")
     )
     module = importlib.util.module_from_spec(spec)
     with unittest.mock.patch.dict(
         sys.modules,
-        {"bpy": ModuleType("bpy"), "gpu": ModuleType("gpu"), "interop_bridge": ib_module},
+        {"bpy": ModuleType("bpy"), "gpu": ModuleType("gpu"), ib_name: ib_module},
     ):
         ib_spec.loader.exec_module(ib_module)
         spec.loader.exec_module(module)

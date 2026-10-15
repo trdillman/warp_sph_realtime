@@ -1,19 +1,14 @@
+"""Blender operators, panel, scene properties, and the modal simulation runtime."""
+
 import time
 import bpy
-import gpu
 import warp as wp
 from bpy.props import BoolProperty, EnumProperty, FloatProperty, FloatVectorProperty, IntProperty
 
-try:
-    from .interop_bridge import ZeroCopyGLBuffer52
-    from .sim_core import RealtimeWCSPHSolver
-    from .demo_scenes import build_blender_demo_helpers, launch_demo_scene_init
-    from .viewport_draw import cleanup_viewport_renderer, draw_particles_viewport
-except ImportError:
-    from interop_bridge import ZeroCopyGLBuffer52
-    from sim_core import RealtimeWCSPHSolver
-    from demo_scenes import build_blender_demo_helpers, launch_demo_scene_init
-    from viewport_draw import cleanup_viewport_renderer, draw_particles_viewport
+from .render.interop_bridge import ZeroCopyGLBuffer52
+from .render.viewport_draw import cleanup_viewport_renderer, draw_particles_viewport
+from .scene.demo_scenes import build_blender_demo_helpers, launch_demo_scene_init
+from .sim.sim_core import RealtimeWCSPHSolver
 
 
 class _SimRuntime:

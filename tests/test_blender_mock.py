@@ -47,13 +47,11 @@ if not _running_inside_blender():
     gpu_mock.platform = types.SimpleNamespace(backend_type_get=lambda: "OPENGL")
     sys.modules["gpu"] = gpu_mock
 
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
-
-import __init__ as extension_module
-from sim_core import RealtimeWCSPHSolver
-from scene_config import REGIME_PRESETS, apply_regime_preset
-from demo_scenes import launch_demo_scene_init
-from interop_bridge import ZeroCopyGLBuffer52, wrap_device_vec3
+import warp_sph_realtime as extension_module
+from warp_sph_realtime.sim.sim_core import RealtimeWCSPHSolver
+from warp_sph_realtime.scene.scene_config import REGIME_PRESETS, apply_regime_preset
+from warp_sph_realtime.scene.demo_scenes import launch_demo_scene_init
+from warp_sph_realtime.render.interop_bridge import ZeroCopyGLBuffer52, wrap_device_vec3
 
 
 class TestBlenderIntegrationAndDemos(unittest.TestCase):
@@ -63,7 +61,7 @@ class TestBlenderIntegrationAndDemos(unittest.TestCase):
 
     def test_blender_manifest_toml_schema(self):
         """Validates that blender_manifest.toml adheres to Blender 5.2+ schema 1.0.0."""
-        manifest_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "blender_manifest.toml"))
+        manifest_path = os.path.join(os.path.dirname(extension_module.__file__), "blender_manifest.toml")
         with open(manifest_path, "rb") as f:
             data = tomllib.load(f)
 

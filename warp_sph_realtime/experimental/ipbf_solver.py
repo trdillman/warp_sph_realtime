@@ -1,9 +1,6 @@
 import warp as wp
 
-try:
-    from .sim_core import cubic_spline_kernel, cubic_spline_grad
-except ImportError:
-    from sim_core import cubic_spline_kernel, cubic_spline_grad
+from ..sim.sim_core import cubic_spline_kernel, cubic_spline_grad
 
 @wp.kernel
 def k_ipbf_predict(

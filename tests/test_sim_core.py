@@ -1,13 +1,8 @@
-import os
-import sys
 import unittest
 import numpy as np
 import warp as wp
 
-# Add parent package to path for standalone execution
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
-
-from sim_core import (
+from warp_sph_realtime.sim.sim_core import (
     RealtimeWCSPHSolver,
     cubic_spline_kernel,
     cubic_spline_grad,

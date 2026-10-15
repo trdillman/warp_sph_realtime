@@ -1,0 +1,48 @@
+# Development tooling only. The Blender extension itself is described by
+# warp_sph_realtime/blender_manifest.toml and built with scripts/build_extension.py.
+
+[dependency-groups]
+dev = [
+    "numpy",
+    "warp-lang>=1.16",
+    "pytest>=8",
+    "ruff>=0.6",
+    "pyright>=1.1.400",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = "-p no:cacheprovider"
+
+[tool.ruff]
+target-version = "py313"  # Blender 5.2 bundles Python 3.13
+line-length = 120
+extend-exclude = [".codex"]
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F"]
+
+[tool.ruff.lint.per-file-ignores]
+# Blender stubs must be installed in sys.modules before the package is imported.
+"tests/test_blender_mock.py" = ["E402"]
+
+[tool.pyright]
+include = ["warp_sph_realtime", "tests", "scripts"]
+extraPaths = ["."]
+pythonVersion = "3.13"
+# Suppressions below are false positives from third-party stubs, not project bugs
+# (unsuppressed baseline: 460 errors, all in these rules):
+#   Warp kernel DSL (wp.array[float], wp.tid(), vector math)
+reportArgumentType = "none"
+reportIndexIssue = "none"
+reportOperatorIssue = "none"
+reportCallIssue = "none"
+#   ctypes GL entry points are None until _GLInterop.ensure_initialized()
+reportOptionalCall = "none"
+reportOptionalMemberAccess = "none"
+#   bpy: runtime Scene properties, module stubs, annotation-style props, {'FINISHED'} returns
+reportAttributeAccessIssue = "none"
+reportAssignmentType = "none"
+reportInvalidTypeForm = "none"
+reportIncompatibleMethodOverride = "none"

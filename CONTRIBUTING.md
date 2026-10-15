@@ -13,11 +13,12 @@ Thank you for contributing to **WarpSPH Realtime**! Because this extension bridg
 
 2. **Install Dependencies:**
    ```bash
-   pip install "warp-lang>=1.16.0" numpy pytest
+   pip install "warp-lang>=1.16.0" numpy pytest ruff pyright
    ```
+   (The same list is declared as the `dev` dependency group in `pyproject.toml`.)
 
 3. **Symlink for Live Reloading in Blender 5.2:**
-   Link the repository into your Blender user extensions directory so edits can be reloaded via `Blender > System > Reload Scripts`:
+   Link the inner `warp_sph_realtime/` package folder (not the repository root) into your Blender user extensions directory so edits can be reloaded via `Blender > System > Reload Scripts`:
    * **Windows:** `%APPDATA%\Blender Foundation\Blender\5.2\extensions\user_default\warp_sph_realtime`
    * **Linux:** `~/.config/blender/5.2/extensions/user_default/warp_sph_realtime`
 
@@ -40,22 +41,28 @@ Thank you for contributing to **WarpSPH Realtime**! Because this extension bridg
 All pull requests must pass the automated test suite before merge. Our test suite is designed to run **both** inside a standard Python/CUDA terminal (mocking `bpy` and `gpu` where needed) and inside `blender --background --python`:
 
 ```bash
-# Run all unit and integration tests via pytest
-pytest tests/ -v
+# From the repository root
+pytest
+ruff check .
+pyright
 
 # Or via standard library unittest
 python -m unittest discover -s tests -v
+
+# Build (and optionally install) the extension zip with Blender
+python scripts/build_extension.py --blender /path/to/blender [--install]
 ```
 
 ### What the Test Suite Covers
 * **`tests/test_sim_core.py`:** Cubic spline kernel accuracy, gradient symmetry, $O(n)$ spatial hash + SoA reordering integrity, domain boundary clamping, NaN-free multi-step integration, and exact numerical equivalence between `use_graph=True` and `use_graph=False`.
 * **`tests/test_submodules.py`:** IPBF variational prediction & VBD Hessian contraction, SDF sphere penetration resolution, whitewater spray/foam/bubble classification by neighbor count ($n_f$), surface particle splitting flags, DLPack bridge, and `.xyz` export.
-* **`tests/test_blender_mock.py`:** Demo 1 & Demo 2 GPU particle initializers, regime presets (`WATER`, `MILK`, `SHOCKWAVE`), and `blender_manifest.toml` schema validation.
+* **`tests/test_blender_mock.py`:** Extension register/unregister, Demo 1 & Demo 2 GPU particle initializers, regime presets (`WATER`, `MILK`, `SHOCKWAVE`), and `blender_manifest.toml` schema validation.
+* **`tests/test_ssfr_renderer.py`:** SSFR filter/shading math and framebuffer-binding preservation during allocation and resize.
 
 ---
 
 ## 4. Pull Request Checklist
 - [ ] New kernels maintain Structure of Arrays (SoA) layout and zero CPU readback.
-- [ ] `pytest tests/ -v` passes with 0 errors.
-- [ ]Tested interactively in Blender 5.2+ (`OpenGL` backend) at $\ge 1,000,000$ particles.
-- [ ] `ARCHITECTURE.md` or `SPEC_AND_PLAN.md` updated if module interfaces changed.
+- [ ] `pytest`, `ruff check .`, and `pyright` pass with 0 errors.
+- [ ] Tested interactively in Blender 5.2+ (`OpenGL` backend) at $\ge 1,000,000$ particles.
+- [ ] `docs/ARCHITECTURE.md` or `docs/SPEC_AND_PLAN.md` updated if module interfaces changed.

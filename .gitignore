@@ -9,3 +9,4 @@ dist/
 *.blend1
 *.blend2
 .codex/context/
+.ruff_cache/

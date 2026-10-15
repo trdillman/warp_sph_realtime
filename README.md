@@ -35,7 +35,7 @@
 2. **Switch Blender Display Backend to OpenGL:**
    * Open Blender 5.2 $\rightarrow$ `Edit > Preferences > System > Display Graphics` $\rightarrow$ select **OpenGL**.
 3. **Install Extension:**
-   * Zip the `warp_sph_realtime` folder and install via `Edit > Preferences > Get Extensions > Install from Disk...`, **or** point a Local Extension Repository directly to this folder ([Blender Extension Docs](https://developer.blender.org/docs/handbook/extensions/addon_dev_setup/)).
+   * Build the zip with `python scripts/build_extension.py` (writes `dist/warp_sph_realtime-<version>.zip`) and install via `Edit > Preferences > Get Extensions > Install from Disk...`, **or** point a Local Extension Repository at the inner `warp_sph_realtime/` package folder ([Blender Extension Docs](https://developer.blender.org/docs/handbook/extensions/addon_dev_setup/)).
 
 ---
 
@@ -67,19 +67,40 @@ Fine adjustment: hold **Shift** while dragging any value for 10× finer control,
 ---
 
 ## Running the Test Suite
-The repository includes a comprehensive `pytest` / `unittest` suite under `tests/` that validates physics kernels, mass/bounds conservation, CUDA Graph equivalence, whitewater neighbor classification, and demo scene initializers (running headless on CUDA without requiring an active Blender UI window):
+The repository includes a `pytest` / `unittest` suite under `tests/` that validates physics kernels, mass/bounds conservation, CUDA Graph equivalence, whitewater neighbor classification, and demo scene initializers (running headless on CUDA without requiring an active Blender UI window):
 
 ```bash
-pytest tests/ -v
+pip install numpy "warp-lang>=1.16" pytest ruff pyright
+pytest                      # run from the repository root
+ruff check .
+pyright
 # or using unittest directly:
 python -m unittest discover -s tests -v
 ```
 
 ---
 
+## Project Layout
+```
+warp_sph_realtime/          Blender extension package (the folder that is zipped)
+  blender_manifest.toml     Extension metadata
+  __init__.py               register()/unregister(); lazily imports addon
+  addon.py                  Operators, panel, scene properties, modal runtime
+  sim/                      WCSPH solver (sim_core)
+  scene/                    Regime presets, demo scene initialisers
+  render/                   OpenGL-CUDA interop, SSFR shaders, viewport drawing
+  experimental/             Phase 2-4 modules, tested but not wired into the runtime
+tests/                      Headless test suite (mocks bpy/gpu where needed)
+docs/                       Architecture, research notes, spec and roadmap
+scripts/build_extension.py  Validate + build (+ optional install) via Blender
+```
+
+---
+
 ## Documentation Index
-* [`ARCHITECTURE.md`](./ARCHITECTURE.md) — Mermaid system diagram and module connection guide.
-* [`RESEARCH.md`](./RESEARCH.md) — Literature comparison and linked bibliography.
-* [`SPEC_AND_PLAN.md`](./SPEC_AND_PLAN.md) — Technical specification and 4-phase engineering roadmap.
+* [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md) — Mermaid system diagram and module connection guide.
+* [`docs/RESEARCH.md`](./docs/RESEARCH.md) — Literature comparison and linked bibliography.
+* [`docs/SPEC_AND_PLAN.md`](./docs/SPEC_AND_PLAN.md) — Technical specification and 4-phase engineering roadmap.
 * [`AGENTS.md`](./AGENTS.md) — Instructions and invariants for AI coding agents working in this repository.
 * [`CONTRIBUTING.md`](./CONTRIBUTING.md) — Developer setup, coding standards, and pull request workflow.
+* [`CHANGELOG.md`](./CHANGELOG.md) — Notable changes by release.

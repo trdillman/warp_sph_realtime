@@ -1,18 +1,15 @@
 import os
-import sys
 import tempfile
 import unittest
 import numpy as np
 import warp as wp
 
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
-
-from ipbf_solver import k_ipbf_predict, k_ipbf_vbd_iteration
-from collider_sdf import SDFColliderManager
-from whitewater import k_classify_and_advect_whitewater
-from particle_upsample import k_flag_surface_particles_for_split
-from neighbor_rt import NeighborSearchBackend
-from mesher_io import export_particles_xyz
+from warp_sph_realtime.experimental.ipbf_solver import k_ipbf_predict, k_ipbf_vbd_iteration
+from warp_sph_realtime.experimental.collider_sdf import SDFColliderManager
+from warp_sph_realtime.experimental.whitewater import k_classify_and_advect_whitewater
+from warp_sph_realtime.experimental.particle_upsample import k_flag_surface_particles_for_split
+from warp_sph_realtime.experimental.neighbor_rt import NeighborSearchBackend
+from warp_sph_realtime.experimental.mesher_io import export_particles_xyz
 
 
 class TestPhysicsSubmodules(unittest.TestCase):

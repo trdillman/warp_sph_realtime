@@ -1,4 +1,3 @@
-import bpy
 import warp as wp
 
 # Physical regime presets for daily VFX tasks (from pouring milk to underwater shockwaves).
