@@ -3,14 +3,18 @@ import bpy
 import gpu
 import warp as wp
 from bpy.props import BoolProperty, EnumProperty, FloatProperty, FloatVectorProperty, IntProperty
+
 try:
     from .interop_bridge import ZeroCopyGLBuffer52
     from .sim_core import RealtimeWCSPHSolver
     from .demo_scenes import build_blender_demo_helpers, launch_demo_scene_init
+    from .viewport_draw import cleanup_viewport_renderer, draw_particles_viewport
 except ImportError:
     from interop_bridge import ZeroCopyGLBuffer52
     from sim_core import RealtimeWCSPHSolver
     from demo_scenes import build_blender_demo_helpers, launch_demo_scene_init
+    from viewport_draw import cleanup_viewport_renderer, draw_particles_viewport
+
 
 class _SimRuntime:
     gl_buf: ZeroCopyGLBuffer52 | None = None
@@ -23,29 +27,12 @@ class _SimRuntime:
     vram_mb: float = 0.0
     step_count: int = 0
 
+
 RT = _SimRuntime()
 
+
 def draw_particles_blender52():
-    if not RT.running or RT.gl_buf is None:
-        return
-
-    scene = bpy.context.scene
-    if not scene.warp_sph_show_particles:
-        return
-
-    shader = gpu.shader.from_builtin('UNIFORM_COLOR')
-    shader.bind()
-    mvp = gpu.matrix.get_projection_matrix() @ gpu.matrix.get_model_view_matrix()
-    shader.uniform_float("ModelViewProjectionMatrix", mvp)
-    color = tuple(scene.warp_sph_particle_color)
-    shader.uniform_float("color", color)
-
-    # gpu.state is applied lazily by Blender's own draw calls, so the raw GL draw sets its state directly.
-    RT.gl_buf.draw_points(
-        scene.warp_sph_point_size,
-        depth_test=scene.warp_sph_depth_test,
-        blend=color[3] < 1.0,
-    )
+    draw_particles_viewport(RT.gl_buf, RT.running)
 
 
 def _reallocate_and_init_scene(scene, num_p: int, demo_type: str):
@@ -152,6 +139,7 @@ class WM_OT_warp_sph_start(bpy.types.Operator):
         if RT.draw_handle:
             bpy.types.SpaceView3D.draw_handler_remove(RT.draw_handle, 'WINDOW')
             RT.draw_handle = None
+        cleanup_viewport_renderer()
         if RT.gl_buf:
             RT.gl_buf.destroy()
             RT.gl_buf = None
@@ -227,16 +215,28 @@ class VIEW3D_PT_warp_sph(bpy.types.Panel):
         col_speed.prop(scene, "warp_sph_time_step_scale", slider=True)
         col_speed.prop(scene, "warp_sph_stiffness")
         if RT.solver:
-            col_speed.label(text=f"dt = {RT.solver.dt * 1000:.3f} ms  |  sim speed ≈ "
-                                 f"{RT.solver.dt * RT.solver.substeps * RT.fps_avg:.2f}x real time")
+            col_speed.label(
+                text=f"dt = {RT.solver.dt * 1000:.3f} ms  |  sim speed ≈ "
+                     f"{RT.solver.dt * RT.solver.substeps * RT.fps_avg:.2f}x real time"
+            )
 
         box_vis = layout.box()
-        box_vis.label(text="Viewport Display", icon='RESTRICT_VIEW_OFF')
+        box_vis.label(text="Viewport Display & SSFR", icon='SHADING_RENDERED')
         col_vis = box_vis.column(align=True)
         col_vis.prop(scene, "warp_sph_show_particles")
-        col_vis.prop(scene, "warp_sph_point_size")
+        col_vis.prop(scene, "warp_sph_render_mode", text="Mode")
         col_vis.prop(scene, "warp_sph_particle_color", text="")
         col_vis.prop(scene, "warp_sph_depth_test")
+
+        if scene.warp_sph_render_mode == "POINTS":
+            col_vis.prop(scene, "warp_sph_point_size")
+        elif scene.warp_sph_render_mode == "SPHERES":
+            col_vis.prop(scene, "warp_sph_particle_radius")
+        else:
+            col_vis.prop(scene, "warp_sph_particle_radius")
+            col_vis.prop(scene, "warp_sph_filter_iterations")
+            col_vis.prop(scene, "warp_sph_filter_sigma")
+            col_vis.prop(scene, "warp_sph_absorption")
 
         layout.separator()
         row = layout.row(align=True)
@@ -304,12 +304,50 @@ def register():
         name="Show Particles",
         default=True,
     )
+    bpy.types.Scene.warp_sph_render_mode = EnumProperty(
+        name="Render Mode",
+        items=[
+            ("SSFR_LIQUID", "SSFR Liquid (Narrow-Range + Beer-Lambert)", "5-pass Screen-Space Fluid Renderer with Truong & Yuksel Narrow-Range Filter and Fresnel shading"),
+            ("SPHERES", "Shaded Sphere Impostors", "Single-pass eye-space shaded 3D spheres with per-fragment depth correction"),
+            ("POINTS", "Raw Points (Max FPS)", "Fastest raw GL_POINTS mode for telemetry benchmarking"),
+        ],
+        default="SSFR_LIQUID",
+    )
     bpy.types.Scene.warp_sph_point_size = FloatProperty(
         name="Point Size",
-        description="Particle point size in screen pixels",
+        description="Particle point size in screen pixels (Raw Points mode)",
         default=2.5,
         min=1.0,
         max=20.0,
+    )
+    bpy.types.Scene.warp_sph_particle_radius = FloatProperty(
+        name="Particle Radius (m)",
+        description="World-space sphere radius for SSFR and Sphere Impostor modes",
+        default=0.022,
+        min=0.005,
+        max=0.10,
+    )
+    bpy.types.Scene.warp_sph_filter_iterations = IntProperty(
+        name="Narrow-Range Filter Passes",
+        description="Number of 1D separable Horizontal + Vertical Narrow-Range smoothing iterations",
+        default=2,
+        min=1,
+        max=5,
+    )
+    bpy.types.Scene.warp_sph_filter_sigma = FloatProperty(
+        name="Filter Sigma (px)",
+        description="Screen-space Gaussian standard deviation inside the Narrow-Range depth window",
+        default=4.0,
+        min=1.0,
+        max=12.0,
+    )
+    bpy.types.Scene.warp_sph_absorption = FloatVectorProperty(
+        name="Beer-Lambert Absorption (RGB)",
+        description="Wavelength-dependent light extinction coefficients exp(-a * thickness)",
+        size=3,
+        default=(0.85, 0.22, 0.05),
+        min=0.0,
+        max=5.0,
     )
     bpy.types.Scene.warp_sph_particle_color = FloatVectorProperty(
         name="Particle Color",
@@ -343,7 +381,12 @@ def unregister():
     del bpy.types.Scene.warp_sph_use_cuda_graph
     del bpy.types.Scene.warp_sph_depth_test
     del bpy.types.Scene.warp_sph_particle_color
+    del bpy.types.Scene.warp_sph_absorption
+    del bpy.types.Scene.warp_sph_filter_sigma
+    del bpy.types.Scene.warp_sph_filter_iterations
+    del bpy.types.Scene.warp_sph_particle_radius
     del bpy.types.Scene.warp_sph_point_size
+    del bpy.types.Scene.warp_sph_render_mode
     del bpy.types.Scene.warp_sph_show_particles
     del bpy.types.Scene.warp_sph_stiffness
     del bpy.types.Scene.warp_sph_time_step_scale

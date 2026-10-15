@@ -1,0 +1,2 @@
+# Preserve the exact bytes covered by the verification evidence manifest.
+docs/verification/ssfr-evidence/* -text whitespace=cr-at-eol,-blank-at-eol

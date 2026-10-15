@@ -1,0 +1,62 @@
+test_exception_restores_state (test_ssfr_gl_contract.DrawContracts.test_exception_restores_state) ... FAIL
+test_failed_depth_transfer_rejects_liquid_instead_of_drawing_unoccluded (test_ssfr_gl_contract.DrawContracts.test_failed_depth_transfer_rejects_liquid_instead_of_drawing_unoccluded) ... FAIL
+test_liquid_restores_nondefault_state_including_separate_alpha_blend (test_ssfr_gl_contract.DrawContracts.test_liquid_restores_nondefault_state_including_separate_alpha_blend) ... FAIL
+test_multisample_source_is_resolved_before_scaling_scene_only_depth (test_ssfr_gl_contract.DrawContracts.test_multisample_source_is_resolved_before_scaling_scene_only_depth) ... FAIL
+test_failed_fragment_releases_both_shaders (test_ssfr_gl_contract.ShaderCleanup.test_failed_fragment_releases_both_shaders) ... FAIL
+
+======================================================================
+FAIL: test_exception_restores_state (test_ssfr_gl_contract.DrawContracts.test_exception_restores_state)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "<repo>/tests/test_ssfr_gl_contract.py", line 109, in test_exception_restores_state
+    self.assertEqual(self.snapshot(), before)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: '({2978: [0, 0, 65, 49], 2930: [1], 2932: [515], 32[233 chars] 14)' != '({2978: [9, 7, 65, 49], 2930: [0], 2932: [513], 32[230 chars]101)'
+- ({2978: [0, 0, 65, 49], 2930: [1], 2932: [515], 32969: [1], 32968: [0], 32971: [770], 32970: [1], 32777: [32778], 34877: [32779], 35725: [2], 34229: [90], 34016: [33989], 3107: [0, 1, 0, 1]}, {2929, 3089, 34370}, {33984: 50, 33985: 51, 33986: 52, 33987: 53, 33988: 54, 33989: 0}, 14, 14)
++ ({2978: [9, 7, 65, 49], 2930: [0], 2932: [513], 32969: [1], 32968: [0], 32971: [770], 32970: [1], 32777: [32778], 34877: [32779], 35725: [88], 34229: [89], 34016: [33989], 3107: [0, 1, 0, 1]}, {3089, 3042}, {33984: 50, 33985: 51, 33986: 52, 33987: 53, 33988: 54, 33989: 55}, 100, 101)
+
+
+======================================================================
+FAIL: test_failed_depth_transfer_rejects_liquid_instead_of_drawing_unoccluded (test_ssfr_gl_contract.DrawContracts.test_failed_depth_transfer_rejects_liquid_instead_of_drawing_unoccluded)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "<repo>/tests/test_ssfr_gl_contract.py", line 121, in test_failed_depth_transfer_rejects_liquid_instead_of_drawing_unoccluded
+    with self.assertRaisesRegex(RuntimeError, 'depth'):
+         ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: RuntimeError not raised
+
+======================================================================
+FAIL: test_liquid_restores_nondefault_state_including_separate_alpha_blend (test_ssfr_gl_contract.DrawContracts.test_liquid_restores_nondefault_state_including_separate_alpha_blend)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "<repo>/tests/test_ssfr_gl_contract.py", line 103, in test_liquid_restores_nondefault_state_including_separate_alpha_blend
+    self.assertEqual(self.snapshot(), before)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: '({29[22 chars]30: [1], 2932: [515], 32969: [770], 32968: [77[208 chars]101)' != '({29[22 chars]30: [0], 2932: [513], 32969: [1], 32968: [0], [208 chars]101)'
+- ({2978: [9, 7, 65, 49], 2930: [1], 2932: [515], 32969: [770], 32968: [771], 32971: [770], 32970: [771], 32777: [32778], 34877: [32779], 35725: [0], 34229: [0], 34016: [33984], 3107: [0, 1, 0, 1]}, {3089, 3042}, {33984: 0, 33985: 0, 33986: 0, 33987: 53, 33988: 54, 33989: 0}, 100, 101)
++ ({2978: [9, 7, 65, 49], 2930: [0], 2932: [513], 32969: [1], 32968: [0], 32971: [770], 32970: [1], 32777: [32778], 34877: [32779], 35725: [88], 34229: [89], 34016: [33989], 3107: [0, 1, 0, 1]}, {3089, 3042}, {33984: 50, 33985: 51, 33986: 52, 33987: 53, 33988: 54, 33989: 55}, 100, 101)
+
+
+======================================================================
+FAIL: test_multisample_source_is_resolved_before_scaling_scene_only_depth (test_ssfr_gl_contract.DrawContracts.test_multisample_source_is_resolved_before_scaling_scene_only_depth)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "<repo>/tests/test_ssfr_gl_contract.py", line 116, in test_multisample_source_is_resolved_before_scaling_scene_only_depth
+    self.assertNotEqual(half[0][0], 100, 'cannot scale a multisampled source')
+    ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: 100 == 100 : cannot scale a multisampled source
+
+======================================================================
+FAIL: test_failed_fragment_releases_both_shaders (test_ssfr_gl_contract.ShaderCleanup.test_failed_fragment_releases_both_shaders)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "<repo>/tests/test_ssfr_gl_contract.py", line 23, in test_failed_fragment_releases_both_shaders
+    self.assertCountEqual(deleted, [11, 12])
+    ~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^
+AssertionError: Element counts were not equal:
+First has 0, Second has 1:  11
+
+----------------------------------------------------------------------
+Ran 5 tests in 0.019s
+
+FAILED (failures=5)

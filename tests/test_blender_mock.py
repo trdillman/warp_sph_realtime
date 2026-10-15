@@ -85,6 +85,11 @@ class TestBlenderIntegrationAndDemos(unittest.TestCase):
             "warp_sph_time_step_scale",
             "warp_sph_stiffness",
             "warp_sph_show_particles",
+            "warp_sph_render_mode",
+            "warp_sph_particle_radius",
+            "warp_sph_filter_iterations",
+            "warp_sph_filter_sigma",
+            "warp_sph_absorption",
             "warp_sph_particle_color",
             "warp_sph_depth_test",
         ]
@@ -96,10 +101,12 @@ class TestBlenderIntegrationAndDemos(unittest.TestCase):
             self.assertFalse(hasattr(bpy_mock.types.Scene, prop), f"Property {prop} not cleaned up after unregister")
 
     def test_interop_bridge_interface(self):
-        """Verifies that ZeroCopyGLBuffer52 class and OpenGL constants are properly exposed."""
+        """Verifies that ZeroCopyGLBuffer52 class and OpenGL methods are properly exposed."""
         self.assertTrue(hasattr(ZeroCopyGLBuffer52, "map_to_warp"))
         self.assertTrue(hasattr(ZeroCopyGLBuffer52, "unmap"))
         self.assertTrue(hasattr(ZeroCopyGLBuffer52, "draw_points"))
+        self.assertTrue(hasattr(ZeroCopyGLBuffer52, "bind_vao"))
+        self.assertTrue(hasattr(ZeroCopyGLBuffer52, "unbind_vao"))
         self.assertTrue(hasattr(ZeroCopyGLBuffer52, "destroy"))
 
     @unittest.skipUnless(wp.is_cuda_available(), "CUDA required")

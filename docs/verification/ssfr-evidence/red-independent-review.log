@@ -1,0 +1,23 @@
+test_exception_restores_state (test_ssfr_gl_contract.DrawContracts.test_exception_restores_state) ... ok
+test_failed_depth_transfer_rejects_liquid_instead_of_drawing_unoccluded (test_ssfr_gl_contract.DrawContracts.test_failed_depth_transfer_rejects_liquid_instead_of_drawing_unoccluded) ... ok
+test_lazy_real_vao_creation_restores_incoming_array_buffer (test_ssfr_gl_contract.DrawContracts.test_lazy_real_vao_creation_restores_incoming_array_buffer) ... FAIL
+test_liquid_restores_nondefault_state_including_separate_alpha_blend (test_ssfr_gl_contract.DrawContracts.test_liquid_restores_nondefault_state_including_separate_alpha_blend) ... ok
+test_matches_blender_float_depth_stencil_format_and_reallocates_on_change (test_ssfr_gl_contract.DrawContracts.test_matches_blender_float_depth_stencil_format_and_reallocates_on_change) ... ok
+test_multisample_source_is_resolved_before_scaling_scene_only_depth (test_ssfr_gl_contract.DrawContracts.test_multisample_source_is_resolved_before_scaling_scene_only_depth) ... ok
+test_failed_fragment_releases_both_shaders (test_ssfr_gl_contract.ShaderCleanup.test_failed_fragment_releases_both_shaders) ... ok
+test_partial_renderer_initialization_releases_programs_and_vao (test_ssfr_gl_contract.ShaderCleanup.test_partial_renderer_initialization_releases_programs_and_vao) ... ok
+
+======================================================================
+FAIL: test_lazy_real_vao_creation_restores_incoming_array_buffer (test_ssfr_gl_contract.DrawContracts.test_lazy_real_vao_creation_restores_incoming_array_buffer)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "<repo>/tests/test_ssfr_gl_contract.py", line 133, in test_lazy_real_vao_creation_restores_incoming_array_buffer
+    self.assertEqual(self.snapshot(), before)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: '({29[191 chars]64: [0]}, {3089, 3042}, {33984: 50, 33985: 51,[51 chars]101)' != '({29[191 chars]64: [71]}, {3089, 3042}, {33984: 50, 33985: 51[52 chars]101)'
+Diff is 1009 characters long. Set self.maxDiff to None to see it.
+
+----------------------------------------------------------------------
+Ran 8 tests in 0.022s
+
+FAILED (failures=1)

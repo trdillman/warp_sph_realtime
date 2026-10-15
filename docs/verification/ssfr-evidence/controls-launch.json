@@ -1,0 +1,24 @@
+{
+  "args": [
+    "--factory-startup",
+    "--no-window-focus",
+    "--gpu-backend",
+    "opengl",
+    "--window-geometry",
+    "40",
+    "40",
+    "1000",
+    "760",
+    "--python",
+    "<repo>/tests/run_ssfr_gui.py",
+    "--",
+    "--case",
+    "controls",
+    "--warp-path",
+    "<warp-packages>",
+    "--evidence-dir",
+    "<repo>/evidence/final-runner"
+  ],
+  "profile": "<repo>/evidence/extension-profile",
+  "exit_code": 0
+}

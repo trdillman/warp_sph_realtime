@@ -1,0 +1,64 @@
+test_blender_manifest_toml_schema (test_blender_mock.TestBlenderIntegrationAndDemos.test_blender_manifest_toml_schema)
+Validates that blender_manifest.toml adheres to Blender 5.2+ schema 1.0.0. ... ok
+test_demo_scene_1_double_dam_pillars_init (test_blender_mock.TestBlenderIntegrationAndDemos.test_demo_scene_1_double_dam_pillars_init)
+Verifies Demo 1 initializes opposing velocity columns and enables SDF obstacles. ... ok
+test_demo_scene_2_block_flop_splash_init (test_blender_mock.TestBlenderIntegrationAndDemos.test_demo_scene_2_block_flop_splash_init)
+Verifies Demo 2 initializes a stationary floor puddle and a falling upper block. ... ok
+test_demo_scenes_stay_bounded_through_impact (test_blender_mock.TestBlenderIntegrationAndDemos.test_demo_scenes_stay_bounded_through_impact)
+Both demos must survive their impact phase without blowing up or leaving the domain. ... ok
+test_extension_register_and_unregister (test_blender_mock.TestBlenderIntegrationAndDemos.test_extension_register_and_unregister)
+Verifies full extension lifecycle: register creates UI panel & scene props, unregister cleans up. ... ok
+test_interop_bridge_interface (test_blender_mock.TestBlenderIntegrationAndDemos.test_interop_bridge_interface)
+Verifies that ZeroCopyGLBuffer52 class and OpenGL methods are properly exposed. ... ok
+test_regime_presets_application (test_blender_mock.TestBlenderIntegrationAndDemos.test_regime_presets_application)
+Verifies that WATER, MILK, and SHOCKWAVE presets update solver physical parameters. ... ok
+test_wrap_device_vec3_aliases_external_memory (test_blender_mock.TestBlenderIntegrationAndDemos.test_wrap_device_vec3_aliases_external_memory)
+The mapped-VBO wrapper must alias the raw CUDA pointer (zero-copy), not copy it. ... ok
+test_cubic_spline_kernel_properties (test_sim_core.TestSimCorePhysics.test_cubic_spline_kernel_properties)
+Verifies non-negativity, compact support (r >= h -> 0), and monotonic decay. ... ok
+test_cuda_graph_vs_eager_equivalence (test_sim_core.TestSimCorePhysics.test_cuda_graph_vs_eager_equivalence)
+Verifies that Warp 1.16+ CUDA Graph execution matches eager kernel launches exactly. ... ok
+test_solver_step_bounds_and_nan_free (test_sim_core.TestSimCorePhysics.test_solver_step_bounds_and_nan_free)
+Verifies that stepping the WCSPH solver keeps all particles finite and inside domain bounds. ... ok
+test_vram_telemetry_calculation (test_sim_core.TestSimCorePhysics.test_vram_telemetry_calculation) ... ok
+test_allocation_on_default_framebuffer_stays_on_default (test_ssfr_renderer.SSFRFramebufferBindingRegression.test_allocation_on_default_framebuffer_stays_on_default) ... ok
+test_allocation_preserves_distinct_draw_and_read_bindings (test_ssfr_renderer.SSFRFramebufferBindingRegression.test_allocation_preserves_distinct_draw_and_read_bindings) ... ok
+test_resize_restores_bindings_rebound_between_resizes (test_ssfr_renderer.SSFRFramebufferBindingRegression.test_resize_restores_bindings_rebound_between_resizes) ... ok
+test_beer_lambert_transmittance_decay (test_ssfr_renderer.TestSSFRRenderer.test_beer_lambert_transmittance_decay)
+Verifies exponential Beer-Lambert attenuation across RGB channels. ... ok
+test_joint_antipodal_pairing_prevents_slope_bending_at_edges (test_ssfr_renderer.TestSSFRRenderer.test_joint_antipodal_pairing_prevents_slope_bending_at_edges)
+Verifies that a linear inclined ramp terminating at a cliff does not bend at the edge. ... ok
+test_narrow_range_filter_smooths_bumps_and_preserves_silhouettes (test_ssfr_renderer.TestSSFRRenderer.test_narrow_range_filter_smooths_bumps_and_preserves_silhouettes)
+Verifies Truong & Yuksel Narrow-Range Filter reduces high-frequency noise while keeping step edges sharp. ... ok
+test_projected_filter_sigma_scales_with_depth (test_ssfr_renderer.TestSSFRRenderer.test_projected_filter_sigma_scales_with_depth)
+Closer fluid particles (smaller |z_i|) should produce a larger screen-space filter sigma. ... ok
+test_schlick_fresnel_grazing_vs_normal_incidence (test_ssfr_renderer.TestSSFRRenderer.test_schlick_fresnel_grazing_vs_normal_incidence)
+Verifies R0 (~0.02 for water IOR=1.333) at normal incidence and 1.0 at grazing angle. ... ok
+test_ipbf_prediction_and_vbd_iteration (test_submodules.TestPhysicsSubmodules.test_ipbf_prediction_and_vbd_iteration)
+Tests variational prediction and local 3x3 Hessian/Jacobi position correction. ... ok
+test_mesher_xyz_export (test_submodules.TestPhysicsSubmodules.test_mesher_xyz_export) ... ok
+test_sdf_sphere_collider_pushes_particles_out (test_submodules.TestPhysicsSubmodules.test_sdf_sphere_collider_pushes_particles_out)
+Verifies that particles inside an analytical SDF sphere are projected to its surface. ... ok
+test_surface_particle_upsample_flags (test_submodules.TestPhysicsSubmodules.test_surface_particle_upsample_flags)
+Verifies free-surface density threshold flagging (< 0.85 * rest_density). ... ok
+test_whitewater_neighbor_count_classification (test_submodules.TestPhysicsSubmodules.test_whitewater_neighbor_count_classification)
+Verifies Spray (n_f <= 5), Foam (5 < n_f < 15), and Bubble (n_f >= 15) classification. ... ok
+
+----------------------------------------------------------------------
+Ran 25 tests in 11.435s
+
+OK
+Warp 1.17.0 initialized:
+   CUDA Toolkit 12.9, Driver 13.3
+   Devices:
+     "cpu"      : "CPU"
+     "cuda:0"   : "NVIDIA GeForce RTX 4080 SUPER" (16 GiB, sm_89, mempool enabled)
+   Kernel cache:
+     //?/<warp-cache>/Cache/1.17.0
+Module sim_core f4fb736 load on device 'cuda:0' took 645.99 ms  (cached)
+Module demo_scenes aee8ddc load on device 'cuda:0' took 99.36 ms  (cached)
+Module test_sim_core b8c0cf7 load on device 'cuda:0' took 89.36 ms  (cached)
+Module ipbf_solver 1bb5a6f load on device 'cuda:0' took 198.61 ms  (cached)
+Module collider_sdf 76c3028 load on device 'cuda:0' took 94.09 ms  (cached)
+Module particle_upsample bbea175 load on device 'cuda:0' took 56.74 ms  (cached)
+Module whitewater 7835dbd load on device 'cuda:0' took 250.01 ms  (cached)

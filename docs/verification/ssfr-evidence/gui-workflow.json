@@ -1,0 +1,299 @@
+{
+  "status": "PASS",
+  "pid": 60020,
+  "cases": [
+    {
+      "cycle": 1,
+      "mode": "SSFR_LIQUID",
+      "camera": "PERSP",
+      "rendered_frames": 9,
+      "step_count": 9,
+      "submission_median_ms": 2.738600014708936,
+      "solver_step_ms": 31.49098429534265,
+      "vram_solver_mb": 72.479248046875,
+      "contexts": 1,
+      "fbo_sizes": [
+        [
+          818,
+          646
+        ]
+      ]
+    },
+    {
+      "cycle": 1,
+      "mode": "SSFR_LIQUID",
+      "camera": "ORTHO",
+      "rendered_frames": 14,
+      "step_count": 16,
+      "submission_median_ms": 9.668250000686385,
+      "solver_step_ms": 28.096286323419694,
+      "vram_solver_mb": 72.479248046875,
+      "contexts": 1,
+      "fbo_sizes": [
+        [
+          243,
+          646
+        ]
+      ]
+    },
+    {
+      "cycle": 1,
+      "mode": "SPHERES",
+      "camera": "ORTHO",
+      "rendered_frames": 12,
+      "step_count": 22,
+      "submission_median_ms": 1.1052000045310706,
+      "solver_step_ms": 26.61281418750784,
+      "vram_solver_mb": 72.479248046875,
+      "contexts": 1,
+      "fbo_sizes": [
+        [
+          243,
+          646
+        ]
+      ]
+    },
+    {
+      "cycle": 1,
+      "mode": "POINTS",
+      "camera": "PERSP",
+      "rendered_frames": 14,
+      "step_count": 29,
+      "submission_median_ms": 0.31975000456441194,
+      "solver_step_ms": 25.217968043024634,
+      "vram_solver_mb": 72.479248046875,
+      "contexts": 1,
+      "fbo_sizes": [
+        [
+          243,
+          646
+        ]
+      ]
+    },
+    {
+      "cycle": 1,
+      "mode": "SSFR_LIQUID",
+      "camera": "PERSP",
+      "rendered_frames": 10,
+      "step_count": 34,
+      "submission_median_ms": 10.123300002305768,
+      "solver_step_ms": 24.7829868976429,
+      "vram_solver_mb": 72.479248046875,
+      "contexts": 1,
+      "fbo_sizes": [
+        [
+          243,
+          646
+        ]
+      ]
+    },
+    {
+      "cycle_stop": 1,
+      "cuda_buffer_released": true,
+      "solver_released": true
+    },
+    {
+      "cycle": 2,
+      "mode": "SSFR_LIQUID",
+      "camera": "PERSP",
+      "rendered_frames": 20,
+      "step_count": 10,
+      "submission_median_ms": 7.332350010983646,
+      "solver_step_ms": 23.296996172045425,
+      "vram_solver_mb": 72.479248046875,
+      "contexts": 1,
+      "fbo_sizes": [
+        [
+          243,
+          646
+        ]
+      ]
+    },
+    {
+      "cycle": 2,
+      "mode": "SSFR_LIQUID",
+      "camera": "ORTHO",
+      "rendered_frames": 10,
+      "step_count": 15,
+      "submission_median_ms": 12.440450009307824,
+      "solver_step_ms": 23.454956662580454,
+      "vram_solver_mb": 72.479248046875,
+      "contexts": 1,
+      "fbo_sizes": [
+        [
+          243,
+          646
+        ]
+      ]
+    },
+    {
+      "cycle": 2,
+      "mode": "SPHERES",
+      "camera": "ORTHO",
+      "rendered_frames": 14,
+      "step_count": 22,
+      "submission_median_ms": 0.6191499996930361,
+      "solver_step_ms": 23.426561569014808,
+      "vram_solver_mb": 72.479248046875,
+      "contexts": 1,
+      "fbo_sizes": [
+        [
+          243,
+          646
+        ]
+      ]
+    },
+    {
+      "cycle": 2,
+      "mode": "POINTS",
+      "camera": "PERSP",
+      "rendered_frames": 18,
+      "step_count": 31,
+      "submission_median_ms": 0.14775000454392284,
+      "solver_step_ms": 22.18582877051331,
+      "vram_solver_mb": 72.479248046875,
+      "contexts": 1,
+      "fbo_sizes": [
+        [
+          243,
+          646
+        ]
+      ]
+    },
+    {
+      "cycle": 2,
+      "mode": "SSFR_LIQUID",
+      "camera": "PERSP",
+      "rendered_frames": 16,
+      "step_count": 39,
+      "submission_median_ms": 6.600549997529015,
+      "solver_step_ms": 17.747089468649268,
+      "vram_solver_mb": 72.479248046875,
+      "contexts": 1,
+      "fbo_sizes": [
+        [
+          243,
+          646
+        ]
+      ]
+    },
+    {
+      "cycle_stop": 2,
+      "cuda_buffer_released": true,
+      "solver_released": true
+    },
+    {
+      "cycle": 3,
+      "mode": "SSFR_LIQUID",
+      "camera": "PERSP",
+      "rendered_frames": 16,
+      "step_count": 8,
+      "submission_median_ms": 11.210749988094904,
+      "solver_step_ms": 15.249368432202383,
+      "vram_solver_mb": 72.479248046875,
+      "contexts": 1,
+      "fbo_sizes": [
+        [
+          243,
+          646
+        ]
+      ]
+    },
+    {
+      "cycle": 3,
+      "mode": "SSFR_LIQUID",
+      "camera": "ORTHO",
+      "rendered_frames": 12,
+      "step_count": 14,
+      "submission_median_ms": 9.781250002561137,
+      "solver_step_ms": 12.846815774577356,
+      "vram_solver_mb": 72.479248046875,
+      "contexts": 1,
+      "fbo_sizes": [
+        [
+          243,
+          646
+        ]
+      ]
+    },
+    {
+      "cycle": 3,
+      "mode": "SPHERES",
+      "camera": "ORTHO",
+      "rendered_frames": 22,
+      "step_count": 25,
+      "submission_median_ms": 0.5466500006150454,
+      "solver_step_ms": 10.903911955575776,
+      "vram_solver_mb": 72.479248046875,
+      "contexts": 1,
+      "fbo_sizes": [
+        [
+          243,
+          646
+        ]
+      ]
+    },
+    {
+      "cycle": 3,
+      "mode": "POINTS",
+      "camera": "PERSP",
+      "rendered_frames": 16,
+      "step_count": 33,
+      "submission_median_ms": 0.23454999609384686,
+      "solver_step_ms": 10.514161886317648,
+      "vram_solver_mb": 72.479248046875,
+      "contexts": 1,
+      "fbo_sizes": [
+        [
+          243,
+          646
+        ]
+      ]
+    },
+    {
+      "cycle": 3,
+      "mode": "SSFR_LIQUID",
+      "camera": "PERSP",
+      "rendered_frames": 8,
+      "step_count": 37,
+      "submission_median_ms": 16.20790000015404,
+      "solver_step_ms": 11.756781182855192,
+      "vram_solver_mb": 72.479248046875,
+      "contexts": 1,
+      "fbo_sizes": [
+        [
+          243,
+          646
+        ]
+      ]
+    },
+    {
+      "cycle_stop": 3,
+      "cuda_buffer_released": true,
+      "solver_released": true
+    }
+  ],
+  "errors": [],
+  "blender": "5.2.0 LTS",
+  "backend": "OPENGL",
+  "gpu": "NVIDIA GeForce RTX 4080 SUPER/PCIe/SSE2",
+  "hashes": {
+    "interop_bridge.py": "2598f29f5131871fd8cac85838736248db89e19f8a0d4eb9535e92d6ef486887",
+    "viewport_draw.py": "e64a6c57e6ccacbd6bb623069c1e4141a9db79477c6400eaa577a498d9876c81",
+    "ssfr_shaders.py": "830ecfb2b0a6a2ab880d2849f22e62495b428eacafe150b9172453fc7df69dd7",
+    "sim_core.py": "96563ccefb4e180fe21a58944bafb951d51a2a8fc64d12590648ff95e559801c"
+  },
+  "workload": {
+    "warp_sph_particle_count": 1000000,
+    "warp_sph_substeps": 2,
+    "warp_sph_use_cuda_graph": true,
+    "warp_sph_stiffness": 90000,
+    "warp_sph_time_step_scale": 0.4000000059604645
+  },
+  "depth_attachment": {
+    "type": "0x1702",
+    "name": 17,
+    "format": "0x8cad",
+    "error": 0
+  }
+}
