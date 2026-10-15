@@ -1,7 +1,7 @@
 schema_version = "1.0.0"
 id = "warp_sph_realtime"
 version = "0.1.0"
-name = "Warp 1.16+ Zero-Copy Realtime SPH"
+name = "WarpSPH Realtime (CUDA 12)"
 tagline = "Real-time GPU fluid in the viewport via NVIDIA Warp"
 maintainer = "Tyler Dillman"
 type = "add-on"
@@ -10,7 +10,8 @@ license = ["SPDX:MIT"]
 platforms = ["windows-x64", "linux-x64"]
 
 [permissions]
-files = "Load/save simulation caches and CUDA libraries"
+files = "Store verified Warp and caches"
+network = "Download verified Warp after user confirmation"
 
 [build]
 paths_exclude_pattern = ["__pycache__/", ".*", "/tests/", "/*.md"]

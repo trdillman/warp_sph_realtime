@@ -43,7 +43,7 @@ class _GLInterop:
     @classmethod
     def _find_and_load_cudart(cls):
         if sys.platform == "win32":
-            candidates = ["cudart64_13.dll", "cudart64_12.dll", "cudart64_110.dll", "cudart64_11.dll"]
+            candidates = ["cudart64_12.dll"]
             for name in candidates:
                 try:
                     return ctypes.WinDLL(name)
@@ -74,15 +74,15 @@ class _GLInterop:
                             return ctypes.WinDLL(full)
                         except OSError:
                             pass
-            raise RuntimeError("Could not find cudart64_12.dll or cudart64_13.dll in PATH or CUDA_PATH.")
+            raise RuntimeError("CUDA 12 runtime cudart64_12.dll not found; install CUDA 12 runtime for GPU/OpenGL interop.")
         else:
-            candidates = ["libcudart.so.13", "libcudart.so.12", "libcudart.so.11.0", "libcudart.so"]
+            candidates = ["libcudart.so.12"]
             for so in candidates:
                 try:
                     return ctypes.CDLL(so)
                 except OSError:
                     continue
-            raise RuntimeError("Could not find libcudart.so in LD_LIBRARY_PATH.")
+            raise RuntimeError("CUDA 12 runtime libcudart.so.12 not found; install the CUDA 12 runtime for GPU/OpenGL interop.")
 
     @classmethod
     def ensure_initialized(cls):
@@ -90,6 +90,16 @@ class _GLInterop:
             return
 
         cls.cudart = cls._find_and_load_cudart()
+        runtime_version = ctypes.c_int()
+        version_fn = cls.cudart.cudaRuntimeGetVersion
+        version_fn.restype = ctypes.c_int
+        version_fn.argtypes = [ctypes.POINTER(ctypes.c_int)]
+        code = version_fn(ctypes.byref(runtime_version))
+        if code != 0 or runtime_version.value != 12090:
+            raise RuntimeError(
+                f"WarpSPH CUDA/OpenGL interop is qualified for CUDA 12.9 (12090); found "
+                f"{runtime_version.value} (error {code})"
+            )
 
         if sys.platform == "win32":
             cls.gl = ctypes.windll.opengl32
@@ -145,6 +155,28 @@ class _GLInterop:
     def current_context(cls) -> int:
         return cls._get_current_context() or 0
 
+    @classmethod
+    def validate_gl_cuda_device(cls) -> None:
+        """CUDA:0 must correspond to the active OpenGL context's GPU."""
+        if not cls.current_context():
+            raise RuntimeError("No active OpenGL context for CUDA graphics interoperability")
+        fn = cls.cudart.cudaGLGetDevices
+        fn.argtypes = [ctypes.POINTER(ctypes.c_uint),
+                       ctypes.POINTER(ctypes.c_int), ctypes.c_uint, ctypes.c_int]
+        fn.restype = ctypes.c_int
+        count = ctypes.c_uint(0)
+        devices = (ctypes.c_int * 16)()
+        # cudaGLDeviceListAll = 1; request devices associated with current GL context.
+        result = fn(ctypes.byref(count), devices, 16, 1)
+        if result != 0 or count.value == 0:
+            raise RuntimeError(
+                f"CUDA cannot associate the current OpenGL context with a GPU (error {result})"
+            )
+        if 0 not in list(devices)[:count.value]:
+            raise RuntimeError(
+                "OpenGL is using a different GPU from WarpSPH's configured CUDA:0 device"
+            )
+
 
 def wrap_device_vec3(ptr: int, num_particles: int, device: str = "cuda:0") -> wp.array:
     """Wraps an externally owned CUDA pointer as a non-owning vec3 Warp array (no copy)."""
@@ -166,6 +198,7 @@ class ZeroCopyGLBuffer52:
             )
 
         _GLInterop.ensure_initialized()
+        _GLInterop.validate_gl_cuda_device()
 
         self.num_particles = num_particles
         self.byte_size = num_particles * 3 * 4  # float3 SoA position buffer (12B/particle)

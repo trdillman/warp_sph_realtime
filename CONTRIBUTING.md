@@ -1,6 +1,6 @@
 # Contributing to WarpSPH Realtime (`CONTRIBUTING.md`)
 
-Thank you for contributing to **WarpSPH Realtime**! Because this extension bridges **Blender 5.2's OpenGL Core Profile** and **NVIDIA Warp 1.16+ CUDA Graphs**, please follow the setup and verification guidelines below.
+Thank you for contributing to **WarpSPH Realtime**! Because this extension bridges **Blender 5.2's OpenGL Core Profile** and **NVIDIA Warp 1.17 CUDA Graphs**, please follow the setup and verification guidelines below.
 
 ---
 
@@ -13,7 +13,7 @@ Thank you for contributing to **WarpSPH Realtime**! Because this extension bridg
 
 2. **Install Dependencies:**
    ```bash
-   pip install "warp-lang>=1.16.0" numpy pytest
+   pip install "warp-lang==1.17.0" numpy pytest
    ```
 
 3. **Symlink for Live Reloading in Blender 5.2:**

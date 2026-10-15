@@ -24,6 +24,7 @@ if not _running_inside_blender():
     bpy_mock.types = types.SimpleNamespace(
         Operator=object,
         Panel=object,
+        AddonPreferences=object,
         Scene=MockScene,
         SpaceView3D=types.SimpleNamespace(
             draw_handler_add=lambda *a, **k: None,

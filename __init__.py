@@ -1,16 +1,39 @@
+"""WarpSPH extension entrypoint: no NVIDIA Warp import before the runtime gate."""
+from __future__ import annotations
+
+import importlib
 import time
 import bpy
 import gpu
-import warp as wp
 from bpy.props import BoolProperty, EnumProperty, FloatProperty, FloatVectorProperty, IntProperty
 try:
-    from .interop_bridge import ZeroCopyGLBuffer52
-    from .sim_core import RealtimeWCSPHSolver
-    from .demo_scenes import build_blender_demo_helpers, launch_demo_scene_init
+    from . import warp_installer, warp_runtime
 except ImportError:
-    from interop_bridge import ZeroCopyGLBuffer52
-    from sim_core import RealtimeWCSPHSolver
-    from demo_scenes import build_blender_demo_helpers, launch_demo_scene_init
+    import warp_installer
+    import warp_runtime
+
+wp = None
+ZeroCopyGLBuffer52 = None
+RealtimeWCSPHSolver = None
+build_blender_demo_helpers = None
+launch_demo_scene_init = None
+_startup_error = ""
+
+
+def _activate_runtime():
+    """Import CUDA-dependent modules only after owned/version/device checks."""
+    global wp, ZeroCopyGLBuffer52, RealtimeWCSPHSolver
+    global build_blender_demo_helpers, launch_demo_scene_init
+    loaded = warp_runtime.require_cuda_runtime()
+    prefix = (__package__ + ".") if __package__ else ""
+    bridge = importlib.import_module(prefix + "interop_bridge")
+    solver = importlib.import_module(prefix + "sim_core")
+    demos = importlib.import_module(prefix + "demo_scenes")
+    wp = loaded
+    ZeroCopyGLBuffer52 = bridge.ZeroCopyGLBuffer52
+    RealtimeWCSPHSolver = solver.RealtimeWCSPHSolver
+    build_blender_demo_helpers = demos.build_blender_demo_helpers
+    launch_demo_scene_init = demos.launch_demo_scene_init
 
 class _SimRuntime:
     gl_buf: ZeroCopyGLBuffer52 | None = None
@@ -81,7 +104,7 @@ def _reallocate_and_init_scene(scene, num_p: int, demo_type: str):
 
 class WM_OT_warp_sph_start(bpy.types.Operator):
     bl_idname = "wm.warp_sph_start"
-    bl_label = "Start Warp 1.16+ Realtime SPH"
+    bl_label = "Start WarpSPH Realtime"
     _timer = None
 
     def modal(self, context, event):
@@ -132,8 +155,14 @@ class WM_OT_warp_sph_start(bpy.types.Operator):
         if RT.running:
             return {'FINISHED'}
 
-        scene = context.scene
-        _reallocate_and_init_scene(scene, scene.warp_sph_particle_count, scene.warp_sph_demo_scene)
+        try:
+            _activate_runtime()
+            scene = context.scene
+            _reallocate_and_init_scene(scene, scene.warp_sph_particle_count, scene.warp_sph_demo_scene)
+        except Exception as exc:
+            RT.running = False
+            self.report({'ERROR'}, f"WarpSPH cannot start: {exc}")
+            return {'CANCELLED'}
 
         RT.running = True
         RT.draw_handle = bpy.types.SpaceView3D.draw_handler_add(
@@ -186,15 +215,59 @@ class WM_OT_warp_sph_stop(bpy.types.Operator):
         return {'FINISHED'}
 
 
+class WM_OT_warp_sph_install(bpy.types.Operator):
+    bl_idname = "wm.warp_sph_install"
+    bl_label = "Install NVIDIA Warp"
+    bl_description = "Download and checksum-verify Warp 1.17.0 CUDA 12 into this extension's isolated user directory"
+
+    repair: BoolProperty(name="Repair Warp", default=False)
+
+    def execute(self, context):
+        if RT.running:
+            self.report({'ERROR'}, "Stop the simulation before changing the Warp runtime")
+            return {'CANCELLED'}
+        result = warp_installer.install_warp(force_reinstall=self.repair)
+        self.report({'INFO'} if result.success else {'ERROR'}, result.message)
+        return {'FINISHED'} if result.success else {'CANCELLED'}
+
+
+class WARPSPH_Preferences(bpy.types.AddonPreferences):
+    bl_idname = __package__ or "warp_sph_realtime"
+
+    def draw(self, context):
+        box = self.layout.box()
+        box.label(text="NVIDIA Warp Runtime (CUDA 12.9)", icon='PREFERENCES')
+        state = warp_runtime.status()
+        box.label(text=state.message, icon='CHECKMARK' if state.available else 'ERROR')
+        if _startup_error:
+            box.label(text=_startup_error, icon='ERROR')
+        if not state.available:
+            box.operator("wm.warp_sph_install", text="Install NVIDIA Warp 1.17.0", icon='IMPORT')
+        row = box.row()
+        op = row.operator("wm.warp_sph_install", text="Repair Warp (restart required)", icon='FILE_REFRESH')
+        op.repair = True
+        box.label(text="WarpSPH never modifies Blender's Python or other extensions.")
+
+
 class VIEW3D_PT_warp_sph(bpy.types.Panel):
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'UI'
     bl_category = "WarpSPH"
-    bl_label = "Warp 1.16+ Realtime Fluid"
+    bl_label = "WarpSPH Realtime Fluid"
 
     def draw(self, context):
         layout = self.layout
         scene = context.scene
+        state = warp_runtime.status()
+        status_box = layout.box()
+        status_box.label(text="Runtime: " + ("Installed (GPU check on Start)" if state.available else "Not ready"), icon='CHECKMARK' if state.available else 'ERROR')
+        status_box.label(text=state.message)
+        if _startup_error:
+            status_box.label(text=_startup_error, icon='ERROR')
+        if not state.available:
+            status_box.operator("wm.warp_sph_install", text="Install NVIDIA Warp", icon='IMPORT')
+        op = status_box.operator("wm.warp_sph_install", text="Repair Warp", icon='FILE_REFRESH')
+        op.repair = True
 
         # Quick-Run Demo Scene Buttons
         box_demo = layout.box()
@@ -241,6 +314,7 @@ class VIEW3D_PT_warp_sph(bpy.types.Panel):
         layout.separator()
         row = layout.row(align=True)
         if not RT.running:
+            row.enabled = state.available and not bool(_startup_error)
             row.operator("wm.warp_sph_start", icon='PLAY', text="Start Realtime Sim")
         else:
             row.operator("wm.warp_sph_stop", icon='PAUSE', text="Stop Sim (ESC)")
@@ -260,6 +334,12 @@ class VIEW3D_PT_warp_sph(bpy.types.Panel):
 
 
 def register():
+    global _startup_error
+    _startup_error = ""
+    try:
+        warp_installer.apply_pending_repair_on_startup()
+    except Exception as exc:
+        _startup_error = str(exc)
     bpy.types.Scene.warp_sph_demo_scene = EnumProperty(
         name="Demo Scene",
         items=[
@@ -325,18 +405,22 @@ def register():
         default=True,
     )
     bpy.types.Scene.warp_sph_use_cuda_graph = BoolProperty(
-        name="Warp 1.16+ CUDA Graph Capture",
+        name="Warp 1.17 CUDA Graph Capture",
         description="Execute Coalesced Density + WCSPH Force + Copy-back via captured CUDA Graph",
         default=True,
     )
     bpy.utils.register_class(WM_OT_warp_sph_start)
     bpy.utils.register_class(WM_OT_warp_sph_load_demo)
     bpy.utils.register_class(WM_OT_warp_sph_stop)
+    bpy.utils.register_class(WM_OT_warp_sph_install)
+    bpy.utils.register_class(WARPSPH_Preferences)
     bpy.utils.register_class(VIEW3D_PT_warp_sph)
 
 
 def unregister():
     bpy.utils.unregister_class(VIEW3D_PT_warp_sph)
+    bpy.utils.unregister_class(WARPSPH_Preferences)
+    bpy.utils.unregister_class(WM_OT_warp_sph_install)
     bpy.utils.unregister_class(WM_OT_warp_sph_stop)
     bpy.utils.unregister_class(WM_OT_warp_sph_load_demo)
     bpy.utils.unregister_class(WM_OT_warp_sph_start)
