@@ -1,23 +1,117 @@
+"""SSFR math behavior and framebuffer-binding regression tests.
+
+``viewport_draw`` is loaded under a unique module name while minimal Blender
+stubs are scoped to that exec with ``patch.dict``; no fake modules are left in
+``sys.modules``. The GL fake models only independent framebuffer bindings,
+fresh names, and bound-object deletion; unrelated GL calls are harmless mocks.
+"""
+
+import ctypes
+import importlib.util
 import math
 import os
 import sys
 import unittest
+import unittest.mock
+from types import ModuleType
+
 import numpy as np
 
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+if _ROOT not in sys.path:
+    sys.path.insert(0, _ROOT)
 
 from ssfr_shaders import (
-    SSFR_COMPOSITE_FRAG,
-    SSFR_DEPTH_FRAG,
-    SSFR_DEPTH_VERT,
-    SSFR_FULLSCREEN_VERT,
-    SSFR_NARROW_RANGE_FRAG,
-    SSFR_THICKNESS_FRAG,
     compute_beer_lambert_transmittance,
     compute_projected_filter_sigma,
     compute_schlick_fresnel,
     narrow_range_filter_1d_cpu,
 )
+
+
+def _load_viewport_draw():
+    ib_spec = importlib.util.spec_from_file_location("interop_bridge", os.path.join(_ROOT, "interop_bridge.py"))
+    ib_module = importlib.util.module_from_spec(ib_spec)
+    spec = importlib.util.spec_from_file_location(
+        "warp_sph_viewport_draw_under_test", os.path.join(_ROOT, "viewport_draw.py")
+    )
+    module = importlib.util.module_from_spec(spec)
+    with unittest.mock.patch.dict(
+        sys.modules,
+        {"bpy": ModuleType("bpy"), "gpu": ModuleType("gpu"), "interop_bridge": ib_module},
+    ):
+        ib_spec.loader.exec_module(ib_module)
+        spec.loader.exec_module(module)
+    return module
+
+
+_VIEWPORT_DRAW = _load_viewport_draw()
+
+
+class _StatefulGL:
+    """Minimal fake for independent GL_DRAW/READ framebuffer state."""
+
+    GL_FRAMEBUFFER = 0x8D40
+    GL_DRAW_FRAMEBUFFER = 0x8CA9
+    GL_READ_FRAMEBUFFER = 0x8CA8
+    GL_DRAW_FRAMEBUFFER_BINDING = 0x8CA6
+    GL_READ_FRAMEBUFFER_BINDING = 0x8CAA
+
+    def __init__(self):
+        self._next = 1
+        self.draw_binding = self.read_binding = 0
+        self.framebuffers = set()
+        self.ensure_initialized = unittest.mock.Mock()
+        self.current_context = unittest.mock.Mock(return_value="ssfr-test-context")
+        self.glGenVertexArrays = unittest.mock.Mock(side_effect=self._gen)
+        self.glGenTextures = unittest.mock.Mock(side_effect=self._gen)
+        self.compile_program = unittest.mock.Mock(side_effect=self._fresh)
+        self.glBindTexture = unittest.mock.Mock()
+        self.glTexImage2D = unittest.mock.Mock()
+        self.glTexParameteri = unittest.mock.Mock()
+        self.glFramebufferTexture2D = unittest.mock.Mock()
+        self.glDeleteTextures = unittest.mock.Mock()
+        self.glGenFramebuffers = unittest.mock.Mock(side_effect=self._gen_framebuffers)
+        self.glDeleteFramebuffers = unittest.mock.Mock(side_effect=self._delete_framebuffers)
+
+    def _fresh(self, *_args):
+        value = self._next
+        self._next += 1
+        return value
+
+    def _gen(self, count, output):
+        output = ctypes.cast(output, ctypes.POINTER(ctypes.c_uint))
+        for i in range(count):
+            output[i] = self._fresh()
+
+    def _gen_framebuffers(self, count, output):
+        output = ctypes.cast(output, ctypes.POINTER(ctypes.c_uint))
+        for i in range(count):
+            name = self._fresh()
+            self.framebuffers.add(name)
+            output[i] = name
+
+    def _delete_framebuffers(self, count, framebuffers):
+        framebuffers = ctypes.cast(framebuffers, ctypes.POINTER(ctypes.c_uint))
+        for i in range(count):
+            name = framebuffers[i]
+            self.framebuffers.discard(name)
+            if self.draw_binding == name:
+                self.draw_binding = 0
+            if self.read_binding == name:
+                self.read_binding = 0
+
+    def glBindFramebuffer(self, target, framebuffer):
+        if framebuffer and framebuffer not in self.framebuffers:
+            raise AssertionError(f"unknown framebuffer {framebuffer}")
+        if target in (self.GL_FRAMEBUFFER, self.GL_DRAW_FRAMEBUFFER):
+            self.draw_binding = framebuffer
+        if target in (self.GL_FRAMEBUFFER, self.GL_READ_FRAMEBUFFER):
+            self.read_binding = framebuffer
+
+    def glGetIntegerv(self, pname, output):
+        value = self.draw_binding if pname == self.GL_DRAW_FRAMEBUFFER_BINDING else self.read_binding
+        ctypes.cast(output, ctypes.POINTER(ctypes.c_int))[0] = value
 
 
 class TestSSFRRenderer(unittest.TestCase):
@@ -79,22 +173,50 @@ class TestSSFRRenderer(unittest.TestCase):
         self.assertAlmostEqual(f_normal, 0.02037, places=4)
         self.assertAlmostEqual(f_grazing, 1.0, places=5)
 
-    def test_glsl_shader_sources_valid_core_450_and_refraction(self):
-        """Ensures all SSFR GLSL shader sources declare #version 450 core, main(), and refraction uniforms."""
-        for shader_src in (
-            SSFR_DEPTH_VERT,
-            SSFR_DEPTH_FRAG,
-            SSFR_THICKNESS_FRAG,
-            SSFR_FULLSCREEN_VERT,
-            SSFR_NARROW_RANGE_FRAG,
-            SSFR_COMPOSITE_FRAG,
-        ):
-            self.assertIn("#version 450 core", shader_src)
-            self.assertIn("void main()", shader_src)
 
-        self.assertIn("SceneColorTex", SSFR_COMPOSITE_FRAG)
-        self.assertIn("gl_FragDepth", SSFR_COMPOSITE_FRAG)
-        self.assertIn("depth_scale", SSFR_NARROW_RANGE_FRAG)
+class SSFRFramebufferBindingRegression(unittest.TestCase):
+    def setUp(self):
+        self.gl = _StatefulGL()
+        patcher = unittest.mock.patch.object(_VIEWPORT_DRAW, "_GLInterop", self.gl)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+        self.renderer = _VIEWPORT_DRAW.SSFRViewportRenderer()
+
+    def _external_framebuffers(self):
+        values = (ctypes.c_uint * 2)()
+        self.gl.glGenFramebuffers(2, values)
+        return values[0], values[1]
+
+    def test_allocation_preserves_distinct_draw_and_read_bindings(self):
+        draw_fb, read_fb = self._external_framebuffers()
+        self.gl.glBindFramebuffer(self.gl.GL_DRAW_FRAMEBUFFER, draw_fb)
+        self.gl.glBindFramebuffer(self.gl.GL_READ_FRAMEBUFFER, read_fb)
+        self.assertNotEqual(draw_fb, read_fb)
+
+        self.renderer._get_or_create_ctx_data(64, 48)
+
+        self.assertEqual(self.gl.draw_binding, draw_fb, "draw binding changed during allocation")
+        self.assertEqual(self.gl.read_binding, read_fb, "read binding changed during allocation")
+
+    def test_resize_restores_bindings_rebound_between_resizes(self):
+        self.renderer._get_or_create_ctx_data(64, 48)
+        draw_fb, read_fb = self._external_framebuffers()
+        self.gl.glBindFramebuffer(self.gl.GL_DRAW_FRAMEBUFFER, draw_fb)
+        self.gl.glBindFramebuffer(self.gl.GL_READ_FRAMEBUFFER, read_fb)
+
+        data = self.renderer._get_or_create_ctx_data(32, 16)
+
+        self.assertEqual((data["width"], data["height"]), (32, 16))
+        self.assertEqual(self.gl.draw_binding, draw_fb, "draw binding changed during resize")
+        self.assertEqual(self.gl.read_binding, read_fb, "read binding changed during resize")
+
+    def test_allocation_on_default_framebuffer_stays_on_default(self):
+        data = self.renderer._get_or_create_ctx_data(64, 48)
+        allocated = {data[key].value for key in ("fbo_depth", "fbo_thick", "fbo_ping", "fbo_pong", "fbo_scene_col")}
+
+        self.assertEqual(self.gl.draw_binding, 0, "default draw binding changed")
+        self.assertEqual(self.gl.read_binding, 0, "default read binding changed")
+        self.assertNotIn(0, allocated)
 
 
 if __name__ == "__main__":

@@ -217,6 +217,12 @@ class SSFRViewportRenderer:
         half_w = max(1, w // 2)
         half_h = max(1, h // 2)
 
+        # Allocation must not replace Blender's active viewport framebuffer.
+        prev_draw_fbo = ctypes.c_int(0)
+        prev_read_fbo = ctypes.c_int(0)
+        gl.glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, ctypes.byref(prev_draw_fbo))
+        gl.glGetIntegerv(GL_READ_FRAMEBUFFER_BINDING, ctypes.byref(prev_read_fbo))
+
         # Delete existing FBOs/textures if resizing
         for k in ("fbo_depth", "fbo_thick", "fbo_ping", "fbo_pong", "fbo_scene_col"):
             if data[k].value:
@@ -282,7 +288,8 @@ class SSFRViewportRenderer:
         gl.glBindFramebuffer(GL_FRAMEBUFFER, data["fbo_scene_col"].value)
         gl.glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, data["tex_scene_col"].value, 0)
 
-        gl.glBindFramebuffer(GL_FRAMEBUFFER, 0)
+        gl.glBindFramebuffer(GL_DRAW_FRAMEBUFFER, prev_draw_fbo.value)
+        gl.glBindFramebuffer(GL_READ_FRAMEBUFFER, prev_read_fbo.value)
         data["width"] = w
         data["height"] = h
         data["half_w"] = half_w
