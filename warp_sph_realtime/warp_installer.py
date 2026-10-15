@@ -1,7 +1,6 @@
 """Install the certified NVIDIA Warp wheel into this extension's own directory.
 
-The pin is ``warp_wheels.lock.json`` next to this module. It is a copy of
-``tools/release/wheels.lock.json`` and a test keeps the two files equal.
+The pin is ``warp_wheels.lock.json`` next to this module.
 The installer downloads only that URL and accepts the file only when its size
 and SHA-256 match the lock.
 
