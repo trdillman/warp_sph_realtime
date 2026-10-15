@@ -95,8 +95,17 @@ class TestBlenderIntegrationAndDemos(unittest.TestCase):
         ]
         for prop in expected_props:
             self.assertTrue(hasattr(bpy_mock.types.Scene, prop), f"Missing scene property {prop}")
+        registered = {cls.__name__ for cls in _registered_classes}
+        for op in ("WM_OT_warp_sph_pause", "WM_OT_warp_sph_step_frame"):
+            self.assertIn(op, registered)
+        # Small-range values need fine click steps (Blender step is in 1/100 units)
+        radius = bpy_mock.types.Scene.warp_sph_particle_radius
+        self.assertLessEqual(radius["step"] / 100.0, 0.0005)
+        self.assertGreaterEqual(radius["precision"], 4)
 
         extension_module.unregister()
+        registered = {cls.__name__ for cls in _registered_classes}
+        self.assertNotIn("WM_OT_warp_sph_pause", registered)
         for prop in expected_props:
             self.assertFalse(hasattr(bpy_mock.types.Scene, prop), f"Property {prop} not cleaned up after unregister")
 

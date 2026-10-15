@@ -21,6 +21,8 @@ class _SimRuntime:
     solver: RealtimeWCSPHSolver | None = None
     draw_handle = None
     running: bool = False
+    paused: bool = False      # physics frozen; GPU state and drawing kept alive
+    step_once: bool = False   # advance exactly one frame while paused
     active_demo: str = "DOUBLE_DAM_PILLARS"
     fps_avg: float = 0.0
     frame_time_ms: float = 0.0
@@ -91,6 +93,14 @@ class WM_OT_warp_sph_start(bpy.types.Operator):
                 RT.solver.update_time_step()
                 RT.solver.rebuild_cuda_graph()
 
+            if RT.paused and not RT.step_once:
+                # Keep redrawing so display settings stay live on the frozen frame
+                for area in context.screen.areas:
+                    if area.type == 'VIEW_3D':
+                        area.tag_redraw()
+                return {'PASS_THROUGH'}
+            RT.step_once = False
+
             t0 = time.perf_counter()
 
             RT.solver.substeps = scene.warp_sph_substeps
@@ -123,6 +133,8 @@ class WM_OT_warp_sph_start(bpy.types.Operator):
         _reallocate_and_init_scene(scene, scene.warp_sph_particle_count, scene.warp_sph_demo_scene)
 
         RT.running = True
+        RT.paused = False
+        RT.step_once = False
         RT.draw_handle = bpy.types.SpaceView3D.draw_handler_add(
             draw_particles_blender52, (), 'WINDOW', 'POST_VIEW'
         )
@@ -133,6 +145,8 @@ class WM_OT_warp_sph_start(bpy.types.Operator):
 
     def cleanup(self, context):
         RT.running = False
+        RT.paused = False
+        RT.step_once = False
         if self._timer:
             context.window_manager.event_timer_remove(self._timer)
             self._timer = None
@@ -171,6 +185,35 @@ class WM_OT_warp_sph_stop(bpy.types.Operator):
 
     def execute(self, context):
         RT.running = False
+        return {'FINISHED'}
+
+
+class WM_OT_warp_sph_pause(bpy.types.Operator):
+    bl_idname = "wm.warp_sph_pause"
+    bl_label = "Pause / Resume Simulation"
+    bl_description = "Freeze or continue the physics without releasing GPU buffers"
+
+    @classmethod
+    def poll(cls, context):
+        return RT.running
+
+    def execute(self, context):
+        RT.paused = not RT.paused
+        return {'FINISHED'}
+
+
+class WM_OT_warp_sph_step_frame(bpy.types.Operator):
+    bl_idname = "wm.warp_sph_step_frame"
+    bl_label = "Step One Frame"
+    bl_description = "Pause (if running) and advance the simulation by exactly one frame"
+
+    @classmethod
+    def poll(cls, context):
+        return RT.running
+
+    def execute(self, context):
+        RT.paused = True
+        RT.step_once = True
         return {'FINISHED'}
 
 
@@ -243,13 +286,19 @@ class VIEW3D_PT_warp_sph(bpy.types.Panel):
         if not RT.running:
             row.operator("wm.warp_sph_start", icon='PLAY', text="Start Realtime Sim")
         else:
-            row.operator("wm.warp_sph_stop", icon='PAUSE', text="Stop Sim (ESC)")
+            if RT.paused:
+                row.operator("wm.warp_sph_pause", icon='PLAY', text="Resume")
+            else:
+                row.operator("wm.warp_sph_pause", icon='PAUSE', text="Pause")
+            row.operator("wm.warp_sph_step_frame", icon='FRAME_NEXT', text="Step")
+            row.operator("wm.warp_sph_stop", icon='SNAP_FACE', text="Stop (ESC)")
 
         # Live GPU Telemetry Readout
         box = layout.box()
         box.label(text="GPU Performance Telemetry", icon='PREFERENCES')
         col_stat = box.column(align=True)
-        col_stat.label(text=f"Status: {'RUNNING' if RT.running else 'IDLE'}")
+        status = 'IDLE' if not RT.running else ('PAUSED' if RT.paused else 'RUNNING')
+        col_stat.label(text=f"Status: {status}")
         col_stat.label(text=f"Active Demo: {RT.active_demo}")
         col_stat.label(text=f"FPS Avg: {RT.fps_avg:.1f} FPS")
         col_stat.label(text=f"Frame Time: {RT.frame_time_ms:.2f} ms")
@@ -290,6 +339,8 @@ def register():
         default=0.4,
         min=0.1,
         max=1.0,
+        step=1,          # Blender steps are 1/100 units: 0.01 per click
+        precision=3,
     )
     bpy.types.Scene.warp_sph_stiffness = FloatProperty(
         name="Fluid Stiffness",
@@ -319,13 +370,19 @@ def register():
         default=2.5,
         min=1.0,
         max=20.0,
+        step=10,         # 0.1 px per click
+        precision=1,
     )
     bpy.types.Scene.warp_sph_particle_radius = FloatProperty(
         name="Particle Radius (m)",
         description="World-space sphere radius for SSFR and Sphere Impostor modes",
         default=0.022,
-        min=0.005,
+        min=0.002,
         max=0.10,
+        soft_min=0.004,  # narrow drag range so mouse travel maps to useful radii
+        soft_max=0.04,
+        step=0.05,       # 0.0005 m (0.5 mm) per click
+        precision=4,
     )
     bpy.types.Scene.warp_sph_filter_iterations = IntProperty(
         name="Narrow-Range Filter Passes",
@@ -340,6 +397,8 @@ def register():
         default=4.0,
         min=1.0,
         max=12.0,
+        step=10,         # 0.1 px per click
+        precision=1,
     )
     bpy.types.Scene.warp_sph_absorption = FloatVectorProperty(
         name="Beer-Lambert Absorption (RGB)",
@@ -348,6 +407,9 @@ def register():
         default=(0.85, 0.22, 0.05),
         min=0.0,
         max=5.0,
+        soft_max=2.0,
+        step=1,          # 0.01 per click
+        precision=3,
     )
     bpy.types.Scene.warp_sph_particle_color = FloatVectorProperty(
         name="Particle Color",
@@ -370,11 +432,15 @@ def register():
     bpy.utils.register_class(WM_OT_warp_sph_start)
     bpy.utils.register_class(WM_OT_warp_sph_load_demo)
     bpy.utils.register_class(WM_OT_warp_sph_stop)
+    bpy.utils.register_class(WM_OT_warp_sph_pause)
+    bpy.utils.register_class(WM_OT_warp_sph_step_frame)
     bpy.utils.register_class(VIEW3D_PT_warp_sph)
 
 
 def unregister():
     bpy.utils.unregister_class(VIEW3D_PT_warp_sph)
+    bpy.utils.unregister_class(WM_OT_warp_sph_step_frame)
+    bpy.utils.unregister_class(WM_OT_warp_sph_pause)
     bpy.utils.unregister_class(WM_OT_warp_sph_stop)
     bpy.utils.unregister_class(WM_OT_warp_sph_load_demo)
     bpy.utils.unregister_class(WM_OT_warp_sph_start)
