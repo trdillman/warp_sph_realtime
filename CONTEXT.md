@@ -1,6 +1,6 @@
 # Context
 
-**Current Task**: Repo restructured into the `warp_sph_realtime/` package (on `origin/main`). Verified Warp installer (`origin/feat/isolated-warp-installer`) ported onto the package layout on `feat/warp-installer-pkg`, opened as a PR for owner review.
+**Current Task**: Repo restructured into the `warp_sph_realtime/` package (on `origin/main`). Verified Warp installer (`origin/feat/isolated-warp-installer`) ported onto the package layout and merged via PR #3.
 
 **Key Decisions**
 - Extension source is the inner `warp_sph_realtime/` folder; build with `python scripts/build_extension.py [--install]`. Relative imports only inside the package.
@@ -9,6 +9,7 @@
 
 **Verification**: pytest + ruff + pyright clean; env-gated Blender tests (missing-Warp registration, locked-wheel CUDA/GL) pass; SSFR GUI probes PASS with Warp in the owned directory.
 
+CI installs `fake-bpy-module` stubs and pins pyright/warp-lang; green on `main`.
+
 **Next Steps**
-- Review/merge the installer PR.
-- With approval, delete superseded branches `feat/ssfr-renderer` (local + origin) and `origin/feat/isolated-warp-installer`.
+- Only `main` remains; start new work on feature branches from it.
