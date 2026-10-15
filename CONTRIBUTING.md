@@ -13,7 +13,7 @@ Thank you for contributing to **WarpSPH Realtime**! Because this extension bridg
 
 2. **Install Dependencies:**
    ```bash
-   pip install "warp-lang==1.17.0" numpy pytest ruff pyright
+   pip install "warp-lang==1.17.0" "fake-bpy-module==20251003" numpy pytest ruff "pyright==1.1.408"
    ```
    (The same list is declared as the `dev` dependency group in `pyproject.toml`.)
 
