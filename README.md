@@ -67,7 +67,7 @@ Fine adjustment: hold **Shift** while dragging any value for 10× finer control,
 The repository includes a `pytest` / `unittest` suite under `tests/` that validates physics kernels, mass/bounds conservation, CUDA Graph equivalence, whitewater neighbor classification, and demo scene initializers (running headless on CUDA without requiring an active Blender UI window):
 
 ```bash
-pip install numpy "warp-lang>=1.16" pytest ruff pyright
+pip install numpy "warp-lang==1.17.0" "fake-bpy-module==20251003" "pytest>=8" "ruff>=0.6" "pyright==1.1.408"
 pytest                      # run from the repository root
 ruff check .
 pyright
