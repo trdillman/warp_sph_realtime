@@ -10,7 +10,7 @@ test_partial_renderer_initialization_releases_programs_and_vao (test_ssfr_gl_con
 FAIL: test_matches_blender_float_depth_stencil_format_and_reallocates_on_change (test_ssfr_gl_contract.DrawContracts.test_matches_blender_float_depth_stencil_format_and_reallocates_on_change)
 ----------------------------------------------------------------------
 Traceback (most recent call last):
-  File "C:\Users\Tyler\Documents\Codex\2026-10-14\new-chat-5\work\ssfr\tests\test_ssfr_gl_contract.py", line 140, in test_matches_blender_float_depth_stencil_format_and_reallocates_on_change
+  File "<repo>/tests/test_ssfr_gl_contract.py", line 140, in test_matches_blender_float_depth_stencil_format_and_reallocates_on_change
     self.assertEqual(formats.count(0x8CAD), 3,
     ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^
                      'scene resolve, particle depth and thickness must match viewport format')

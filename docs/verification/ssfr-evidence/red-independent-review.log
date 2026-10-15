@@ -11,7 +11,7 @@ test_partial_renderer_initialization_releases_programs_and_vao (test_ssfr_gl_con
 FAIL: test_lazy_real_vao_creation_restores_incoming_array_buffer (test_ssfr_gl_contract.DrawContracts.test_lazy_real_vao_creation_restores_incoming_array_buffer)
 ----------------------------------------------------------------------
 Traceback (most recent call last):
-  File "C:\Users\Tyler\Documents\Codex\2026-10-14\new-chat-5\work\ssfr\tests\test_ssfr_gl_contract.py", line 133, in test_lazy_real_vao_creation_restores_incoming_array_buffer
+  File "<repo>/tests/test_ssfr_gl_contract.py", line 133, in test_lazy_real_vao_creation_restores_incoming_array_buffer
     self.assertEqual(self.snapshot(), before)
     ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^
 AssertionError: '({29[191 chars]64: [0]}, {3089, 3042}, {33984: 50, 33985: 51,[51 chars]101)' != '({29[191 chars]64: [71]}, {3089, 3042}, {33984: 50, 33985: 51[52 chars]101)'

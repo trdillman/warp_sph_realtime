@@ -54,7 +54,7 @@ Warp 1.17.0 initialized:
      "cpu"      : "CPU"
      "cuda:0"   : "NVIDIA GeForce RTX 4080 SUPER" (16 GiB, sm_89, mempool enabled)
    Kernel cache:
-     \\?\C:\Users\Tyler\AppData\Local\NVIDIA\warp\Cache\1.17.0
+     //?/<warp-cache>/Cache/1.17.0
 Module sim_core f4fb736 load on device 'cuda:0' took 645.99 ms  (cached)
 Module demo_scenes aee8ddc load on device 'cuda:0' took 99.36 ms  (cached)
 Module test_sim_core b8c0cf7 load on device 'cuda:0' took 89.36 ms  (cached)

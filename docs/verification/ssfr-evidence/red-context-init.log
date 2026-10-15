@@ -9,7 +9,7 @@ test_partial_renderer_initialization_releases_programs_and_vao (test_ssfr_gl_con
 FAIL: test_partial_renderer_initialization_releases_programs_and_vao (test_ssfr_gl_contract.ShaderCleanup.test_partial_renderer_initialization_releases_programs_and_vao)
 ----------------------------------------------------------------------
 Traceback (most recent call last):
-  File "C:\Users\Tyler\Documents\Codex\2026-10-14\new-chat-5\work\ssfr\tests\test_ssfr_gl_contract.py", line 22, in test_partial_renderer_initialization_releases_programs_and_vao
+  File "<repo>/tests/test_ssfr_gl_contract.py", line 22, in test_partial_renderer_initialization_releases_programs_and_vao
     self.assertEqual(gl.glDeleteProgram.call_args_list,
     ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
                      [unittest.mock.call(21), unittest.mock.call(22)])
