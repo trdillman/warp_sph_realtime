@@ -6,6 +6,8 @@ Baseline PR head: `e6bd07cdbd650bd5f6d5fcdc7088efb474f3df8e`.
 Existing local framebuffer-binding commits `ff4a773` and `a99c8a5` were preserved. No physics, simulation workload, modal operator, or shader mathematics changed in this repair.
 
 > Layout note: this evidence was captured at `c674e38`, before the package restructure. Files named here as `interop_bridge.py` / `viewport_draw.py` / `ssfr_shaders.py` / `sim_core.py` now live at `warp_sph_realtime/render/` and `warp_sph_realtime/sim/`; the probe scripts were updated to those paths, so recorded hashes will not match a rerun.
+>
+> Post-restructure rerun (2026-10-15, same machine, isolated profile, extension zip built by `scripts/build_extension.py`): `--case controls` PASS with no errors; `--case workflow` PASS, 18 cases, no errors.
 
 ## Findings and repairs
 

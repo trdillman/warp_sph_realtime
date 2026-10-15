@@ -16,7 +16,7 @@ import time
 import traceback
 from mathutils import Vector
 _module = os.environ.get('SSFR_MODULE', 'warp_sph_realtime')
-a = importlib.import_module(_module)
+a = importlib.import_module(_module + '.addon')
 v = importlib.import_module(_module + '.render.viewport_draw')
 g = importlib.import_module(_module + '.render.interop_bridge')
 
