@@ -30,6 +30,8 @@ def _activate_runtime():
     global wp, ZeroCopyGLBuffer52, RealtimeWCSPHSolver
     global build_blender_demo_helpers, launch_demo_scene_init
     global cleanup_viewport_renderer, draw_particles_viewport
+    if wp is not None:
+        return  # already active; keep existing bindings
     loaded = warp_runtime.require_cuda_runtime()
     bridge = importlib.import_module(".render.interop_bridge", __package__)
     viewport = importlib.import_module(".render.viewport_draw", __package__)

@@ -6,6 +6,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Added
+- Verified Warp installer: SHA-256-locked `warp-lang==1.17.0` (CUDA 12.9) wheel installed on
+  user confirmation into extension-owned storage; the extension registers without Warp and imports
+  CUDA modules only on Start. Adds `files` and `network` manifest permissions.
 - Pause / single-step simulation controls and fine-step particle radius.
 - `pyproject.toml` with pytest, ruff, and pyright configuration and a `dev` dependency group.
 - `scripts/build_extension.py` to validate, build, and optionally install the extension zip.

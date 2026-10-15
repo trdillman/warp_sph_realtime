@@ -43,6 +43,7 @@ idx=-1
 draws=[]
 phase='start'
 deadline=time.monotonic()+30
+a._activate_runtime()  # bind the lazy draw callback before wrapping it
 original=a.draw_particles_viewport
 
 
