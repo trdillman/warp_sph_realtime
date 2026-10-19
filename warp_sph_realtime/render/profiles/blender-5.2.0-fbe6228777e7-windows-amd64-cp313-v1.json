@@ -1,0 +1,308 @@
+{
+  "schema_version": 1,
+  "profile_id": "blender-5.2.0-fbe6228777e7-windows-amd64-cp313-v1",
+  "abi_version": 1,
+  "identity": {
+    "exe_sha256": "0060916d6921eb4d46c57254609d805a2ea711917399051391a52ba14beb6327",
+    "pdb_sha256": "ffb7f1e947c28cee90f73a1aa1ac96e7d5c445ea76476bbe58232e3ff6d3c7ae",
+    "build_hash": "fbe6228777e7",
+    "pe_timestamp": 1783992949,
+    "image_size": 125337600,
+    "pdb_guid": "d357c018-4455-89ed-4c4c-44205044422e",
+    "pdb_age": 1,
+    "architecture": "AMD64",
+    "python_abi": "3.13"
+  },
+  "calling_convention": "Microsoft x64; explicit hidden aggregate-result pointer",
+  "symbols": {
+    "GPU_pixel_buffer_create": {
+      "name": "?GPU_pixel_buffer_create@blender@@YAPEAUGPUPixelBuffer@1@_K@Z",
+      "rva": 14249184,
+      "kind": "callable"
+    },
+    "GPU_pixel_buffer_free": {
+      "name": "?GPU_pixel_buffer_free@blender@@YAXPEAUGPUPixelBuffer@1@@Z",
+      "rva": 11346176,
+      "kind": "callable"
+    },
+    "GPU_pixel_buffer_size": {
+      "name": "?GPU_pixel_buffer_size@blender@@YA_KPEAUGPUPixelBuffer@1@@Z",
+      "rva": 14249232,
+      "kind": "callable"
+    },
+    "GPU_pixel_buffer_get_native_handle": {
+      "name": "?GPU_pixel_buffer_get_native_handle@blender@@YA?AUGPUPixelBufferNativeHandle@1@PEAUGPUPixelBuffer@1@@Z",
+      "rva": 14249248,
+      "kind": "callable"
+    },
+    "GPU_texture_update_sub_from_pixel_buffer": {
+      "name": "?GPU_texture_update_sub_from_pixel_buffer@blender@@YAXPEAVTexture@gpu@1@W4eGPUDataFormat@1@PEAUGPUPixelBuffer@1@HHHHHH@Z",
+      "rva": 14244656,
+      "kind": "callable"
+    },
+    "GPU_texture_width": {
+      "name": "?GPU_texture_width@blender@@YAHPEBVTexture@gpu@1@@Z",
+      "rva": 4651280,
+      "kind": "callable"
+    },
+    "GPU_texture_height": {
+      "name": "?GPU_texture_height@blender@@YAHPEBVTexture@gpu@1@@Z",
+      "rva": 14247984,
+      "kind": "callable"
+    },
+    "GPU_fence_create": {
+      "name": "?GPU_fence_create@blender@@YAPEAUGPUFence@1@XZ",
+      "rva": 14217088,
+      "kind": "callable"
+    },
+    "GPU_fence_signal": {
+      "name": "?GPU_fence_signal@blender@@YAXPEAUGPUFence@1@@Z",
+      "rva": 4456272,
+      "kind": "callable"
+    },
+    "GPU_fence_free": {
+      "name": "?GPU_fence_free@blender@@YAXPEAUGPUFence@1@@Z",
+      "rva": 11346176,
+      "kind": "callable"
+    },
+    "GPU_platform_uuid": {
+      "name": "?GPU_platform_uuid@blender@@YA?AV?$Span@E@1@XZ",
+      "rva": 4304960,
+      "kind": "callable"
+    },
+    "GPUBackend_get": {
+      "name": "?get@GPUBackend@gpu@blender@@SAPEAV123@XZ",
+      "rva": 4268960,
+      "kind": "callable"
+    },
+    "GPU_context_active_get": {
+      "name": "?GPU_context_active_get@blender@@YAPEAUGPUContext@1@XZ",
+      "rva": 4269440,
+      "kind": "callable"
+    },
+    "GPU_context_active_set": {
+      "name": "?GPU_context_active_set@blender@@YAXPEAUGPUContext@1@@Z",
+      "rva": 4271296,
+      "kind": "callable"
+    },
+    "wm_window_make_drawable": {
+      "name": "?wm_window_make_drawable@blender@@YAXPEAUwmWindowManager@1@PEAUwmWindow@1@@Z",
+      "rva": 4445408,
+      "kind": "callable"
+    },
+    "wm_window_reset_drawable": {
+      "name": "?wm_window_reset_drawable@blender@@YAXXZ",
+      "rva": 4445584,
+      "kind": "callable"
+    },
+    "DRW_gpu_context_enable": {
+      "name": "?DRW_gpu_context_enable@blender@@YAXXZ",
+      "rva": 11819184,
+      "kind": "callable"
+    },
+    "DRW_gpu_context_disable": {
+      "name": "?DRW_gpu_context_disable@blender@@YAXXZ",
+      "rva": 11819440,
+      "kind": "callable"
+    },
+    "DRW_gpu_context_is_enabled": {
+      "name": "?DRW_gpu_context_is_enabled@blender@@YA_NXZ",
+      "rva": 11819392,
+      "kind": "callable"
+    },
+    "vkWaitSemaphores": {
+      "name": "vkWaitSemaphores",
+      "rva": 79747584,
+      "kind": "callable"
+    },
+    "BPyGPUTexture_Type": {
+      "name": "?BPyGPUTexture_Type@blender@@3U_typeobject@@A",
+      "rva": 107660176,
+      "kind": "data"
+    },
+    "VKBackend_vtable": {
+      "name": "??_7VKBackend@gpu@blender@@6B@",
+      "rva": 79921288,
+      "kind": "data"
+    },
+    "VKFence_vtable": {
+      "name": "??_7VKFence@gpu@blender@@6B@",
+      "rva": 80404632,
+      "kind": "data"
+    },
+    "vkWaitSemaphores_IAT": {
+      "name": "__imp_vkWaitSemaphores",
+      "rva": 97834352,
+      "kind": "data"
+    }
+  },
+  "signatures": {
+    "GPU_pixel_buffer_create": "ptr(size_t)",
+    "GPU_pixel_buffer_free": "void(ptr)",
+    "GPU_pixel_buffer_size": "size_t(ptr)",
+    "GPU_pixel_buffer_get_native_handle": "ptr(NativeHandle* sret,ptr)",
+    "GPU_texture_update_sub_from_pixel_buffer": "void(ptr,int32,ptr,int32,int32,int32,int32,int32,int32)",
+    "GPU_texture_width": "int32(const ptr)",
+    "GPU_texture_height": "int32(const ptr)",
+    "GPU_fence_create": "ptr()",
+    "GPU_fence_signal": "void(ptr)",
+    "GPU_fence_free": "void(ptr)",
+    "GPU_platform_uuid": "ptr(Span* sret)",
+    "GPUBackend_get": "ptr()",
+    "GPU_context_active_get": "ptr()",
+    "GPU_context_active_set": "void(ptr nullable)",
+    "wm_window_make_drawable": "void(ptr,ptr)",
+    "wm_window_reset_drawable": "void()",
+    "DRW_gpu_context_enable": "void()",
+    "DRW_gpu_context_disable": "void()",
+    "DRW_gpu_context_is_enabled": "bool()",
+    "vkWaitSemaphores": "int32(ptr,const VkSemaphoreWaitInfo*,uint64)"
+  },
+  "layouts": {
+    "BPyGPUTexture": {
+      "size": 24,
+      "alignment": 8,
+      "offsets": {
+        "ob_refcnt": 0,
+        "ob_type": 8,
+        "texture": 16
+      },
+      "rule": "exact Py_TYPE equality before texture extraction; resolver never extracts"
+    },
+    "Span": {
+      "size": 16,
+      "alignment": 8,
+      "offsets": {
+        "data": 0,
+        "count": 8
+      }
+    },
+    "GPUPixelBufferNativeHandle": {
+      "size": 16,
+      "alignment": 8,
+      "offsets": {
+        "handle": 0,
+        "size": 8
+      }
+    },
+    "VKFence": {
+      "size": 24,
+      "alignment": 8,
+      "offsets": {
+        "vtable": 0,
+        "signalled": 8,
+        "timeline_value": 16
+      }
+    },
+    "VKBackend": {
+      "size": null,
+      "alignment": 8,
+      "offsets": {
+        "vtable": 0,
+        "device": 16
+      },
+      "size_scope": "prefix only; whole class size not used"
+    },
+    "VKDevice": {
+      "size": null,
+      "alignment": 8,
+      "offsets": {
+        "vk_device": 16,
+        "submission_finished_semaphore": 144
+      },
+      "size_scope": "prefix only; whole class size not used"
+    },
+    "wmWindow": {
+      "size": null,
+      "alignment": 8,
+      "offsets": {
+        "runtime": 240
+      },
+      "size_scope": "prefix only; whole class size not used"
+    },
+    "wmWindowRuntime": {
+      "size": null,
+      "alignment": 8,
+      "offsets": {
+        "gpu_context": 40
+      },
+      "size_scope": "prefix only; whole class size not used"
+    },
+    "CUDA_EXTERNAL_MEMORY_HANDLE_DESC": {
+      "size": 104,
+      "alignment": 8,
+      "offsets": {
+        "type": 0,
+        "handle": 8,
+        "size": 24,
+        "flags": 32,
+        "reserved": 36
+      }
+    },
+    "CUDA_EXTERNAL_MEMORY_BUFFER_DESC": {
+      "size": 88,
+      "alignment": 8,
+      "offsets": {
+        "offset": 0,
+        "size": 8,
+        "flags": 16,
+        "reserved": 20
+      }
+    },
+    "VkSemaphoreWaitInfo": {
+      "size": 40,
+      "alignment": 8,
+      "offsets": {
+        "sType": 0,
+        "pNext": 8,
+        "flags": 16,
+        "semaphoreCount": 20,
+        "pSemaphores": 24,
+        "pValues": 32
+      }
+    }
+  },
+  "enums": {
+    "GPU_DATA_FLOAT": 0,
+    "CUDA_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_WIN32": 2,
+    "CUDA_EXTERNAL_MEMORY_DEDICATED": 1,
+    "VK_STRUCTURE_TYPE_SEMAPHORE_WAIT_INFO": 1000207004,
+    "VK_SUCCESS": 0,
+    "VK_TIMEOUT": 2,
+    "CUDA_SUCCESS": 0,
+    "CUDA_ERROR_NOT_READY": 600
+  },
+  "allocation": {
+    "export_size": "use returned native handle allocation size; never infer requested size",
+    "map_offset": 0,
+    "map_flags": 0,
+    "handle_ownership": "close exported Win32 handle after successful CUDA import; release on failures",
+    "memory_flags": 1,
+    "solver_device": "cuda:0",
+    "position_format": "RGBA32F",
+    "position_bytes": 16,
+    "padded_width": 4096,
+    "uuid_bytes": 16
+  },
+  "helper": {
+    "python_relative": "5.2/python/bin/python.exe",
+    "python_sha256": "7d984ee02e70c22f04d5e26f1328865d75a5da14b677890896a294f35815d37a"
+  },
+  "provenance": {
+    "source_commit": "fbe6228777e7",
+    "evidence": [
+      "evidence/vulkan-zero-copy/20261017-offline-followup/decorated-symbols.json",
+      "evidence/vulkan-zero-copy/20261017-offline-followup/binary-disassembly.json",
+      "evidence/vulkan-zero-copy/20261017-contained-m0/drw-context-abi.json",
+      "evidence/vulkan-zero-copy/20261017-contained-m0/context-abi.json",
+      "research_notes/Vulkan zero copy/m0_native_probe.py",
+      "research_notes/Vulkan zero copy/m0_lifecycle_probe.py"
+    ],
+    "qualification": "exact-build M0 only; no M2 transport or production runtime acceptance",
+    "forbidden": [
+      "GPU_fence_wait (infinite wait)",
+      "IAT slots as callable addresses",
+      "pointer extraction during symbol resolution"
+    ]
+  }
+}
