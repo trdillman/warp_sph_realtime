@@ -6,8 +6,9 @@ M1 profiles/resolver implemented and verified (2026-10-18). M2–M4 implemented 
 headless-verified 2026-10-18 (pytest/ruff/pyright, two independent reviews). M5 v3 run
 2026-10-18 (dedicated upload submission): parity, images, lifecycle, fault matrix and mocked
 fatal PASS; latency gate FAILS (4194304 completed p95 11.66 ms vs ≤2 ms; ≤2.27 ms up to 2M).
-At 4M the copy queues behind the viewport's own GPU point rendering. Awaiting the owner's
-target decision. M6 blocked (no Linux hardware); M7 proposal drafted, not posted. Evidence:
+At 4M the copy queues behind the viewport's own GPU point rendering. M5 v4 rerun 2026-10-19
+(Codex review fixes + latency fix: one step in flight, redraw only on a new frame): same
+PASS/FAIL pattern; 4194304 completed p95 5.20 ms. Awaiting the owner's target decision. M6 blocked (no Linux hardware); M7 proposal drafted, not posted. Evidence:
 `evidence/vulkan-zero-copy/20261018-m5-fence/m5-verdict.json` (v2:
 `evidence/vulkan-zero-copy/20261018-m2plus/`).
 Owner: engineering. Parent: `docs/RELEASE_PLAN.md` P0.11/P0.11b.
@@ -434,6 +435,29 @@ verdict `m5-verdict.json`; benchmarks
   Options are a frame-budget target (e.g. completed ≤ one 60 Hz frame), gating 2 ms at ≤1M, or
   measuring with rendering excluded as a separate copy-only metric. Each is a reviewed target
   change, not a reinterpretation of this run.
+
+**M5 v4 result (2026-10-19, frozen manifest v4 `2cac72e3…c916`, archive `02bc2a77…`, same
+candidate).** Product changes since v3.1: the four Codex review fixes (commit 007d2f3) and the
+latency fix. `can_publish` is now False while a slot is WRITING, so at most one solver step is
+in flight. The modal tags a redraw only when the session has a new drawable frame
+(`TransportSession.take_new_frame`); the OpenGL path is unchanged. Protocol
+`evidence/vulkan-zero-copy/20261019-latency-fix/M5_PROTOCOL.md` (criteria unchanged; re-freeze
+note appended); verdict `m5-verdict.json`; benchmarks
+`reports/benchmarks/vulkan-zero-copy-m5-20261019-latency-fix.{json,md}`.
+- Parity, images, lifecycle, fault matrix and mocked fatal: PASS.
+- **Latency: FAIL.** Completed transport latency p50/p95 ms (3000 samples, zero drops): 0.5M
+  1.05/1.50, 1M 1.19/1.60, 2M 1.87/2.22, 4194304 3.80/5.20 (max 13.2). Timer uploads 3300/3300,
+  except 3299/3300 at 4M. The 4M p95 is less than half of v3.1's 11.66 ms but still above 2 ms.
+  Up to 1M it rose by about 0.15–0.35 ms and stays under 2 ms. Publish→draw p95 at 4M is 4.95 ms.
+- Observation, not a gate: Readback at 4M finished INCOMPLETE_SAMPLES in both lanes (Vulkan
+  2785, OpenGL 2998 of 3000), and its frame p50 was about 70 ms against about 56 ms in v3.1.
+  The only Readback code change is the added `newest_frame` accessor, so this is likely
+  machine variance. It is recorded rather than explained.
+- Live 4M demo rerun with the shipped product (`evidence/vulkan-zero-copy/20261019-live-demo-v4/`): Vulkan
+  18.06 steps/s, step→draw p50/p95 60.9/64.8 ms, tick host-block 0.04 ms. The baseline was 10.52 steps/s and
+  163/212 ms. Today's OpenGL runs were noisy (12.1–16.4 steps/s across archives, with other GPU apps open),
+  so the OpenGL-vs-Vulkan comparison should be redone on a quiet machine.
+- Next (owner): unchanged. The 4M target decision is still open.
 
 ### M6 — Linux after Windows qualification
 

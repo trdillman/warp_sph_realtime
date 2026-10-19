@@ -127,14 +127,16 @@ class VulkanInteropTransport:
 
     # -- public interface (P0.11) -------------------------------------------------------
     def can_publish(self) -> bool:
-        """Timer backpressure: False while both slots are still being produced or read."""
+        """Timer backpressure: False while a step is still being produced (one step in flight,
+        so a shown step is at most one solver step old) or both slots are being read."""
         if self._fatal or self._closed:
             return False
         with self._fatal_guard():
             for slot in self._slots:
                 self._poll(slot)
             self._promote()
-        available = not self._slots or any(s.state in (FREE, READY) for s in self._slots)
+        available = not self._slots or (all(s.state != WRITING for s in self._slots)
+                                         and any(s.state in (FREE, READY) for s in self._slots))
         self._polled = available  # the publish of this tick reuses this observation (C2 query budget)
         return available
 
@@ -186,6 +188,11 @@ class VulkanInteropTransport:
         if self._shown is None:
             return None
         return Frame(self._texture, self.count, self.width, self.height, self.generation, self._shown)
+
+    def newest_frame(self) -> int:
+        """Newest frame a draw can show (uploaded or ready to upload); -1 before the first."""
+        ready = [s.frame for s in self._slots if s.state in (READY, IN_FLIGHT)]
+        return max(ready + [-1 if self._shown is None else self._shown])
 
     def capabilities(self) -> Capabilities:
         reason = self._fatal or (f'closed: {self._closed}' if self._closed else '')

@@ -623,13 +623,13 @@ class FakeGpu:
 def test_readback_round_trip_and_label():
     rb = tr.ReadbackTransport(5, reason='interop unavailable', gpu_module=FakeGpu)
     assert rb.capabilities() == tr.Capabilities('READBACK', False, tr.MAX_COUNT, True, 'interop unavailable')
-    assert rb.positions_texture() is None
+    assert rb.positions_texture() is None and rb.newest_frame() == -1
     assert rb.publish(wp.array(positions(5), dtype=wp.vec3, device='cpu'))
     frame = rb.positions_texture()
     assert frame.texture['size'] == (4096, 1) and frame.frame == 0
     np.testing.assert_array_equal(frame.texture['data'][:5, :3], positions(5))
     assert not frame.texture['data'][5:].any()
-    assert rb.can_publish()
+    assert rb.can_publish() and rb.newest_frame() == 0
     assert rb.close() == tr.COMPLETED and rb.publish(None) is False and not rb.can_publish()
 
 
@@ -649,7 +649,7 @@ def test_queued_work_deadline_restarts_when_predecessor_completes():
     clock.t = 0.45
     t.can_publish()                    # A completes (and uploads); B's deadline restarts at 0.45
     clock.t = 0.8
-    assert t.can_publish()             # B pending 0.35 s: not overdue despite 0.5 s since record
+    assert not t.can_publish()         # B pending 0.35 s: in flight, not overdue despite 0.5 s since record
     clock.t = 1.0
     with pytest.raises(tr.FatalTransportError, match='500 ms'):
         t.can_publish()
@@ -657,15 +657,38 @@ def test_queued_work_deadline_restarts_when_predecessor_completes():
 
 def test_publish_reuses_can_publish_observation():
     t, native, _ = make(5)
-    native.event_results = [600]
-    t.publish(positions(5))            # A still WRITING
+    t.publish(positions(5))            # A uploaded, its fence still pending
     a = t._slots[0]
+    native.fence_results = [2] * 10
     native.calls.clear()
     native.event_results = [600, 600]
     assert t.can_publish()
     assert t.publish(positions(5))     # packs B; only its own producer wait queries B
-    queries = [c[1] for c in native.calls if c[0] == 'event_query']
-    assert queries.count(a.event) == 1 and len(queries) == 2  # C2: <= 1 query per other slot per tick
+    fences = [c[1] for c in native.calls if c[0] == 'fence_query']
+    assert fences.count(a.fence) == 1  # C2: <= 1 query per other slot per tick
+    assert {c[1] for c in native.calls if c[0] == 'event_query'} == {t._slots[1].event}
+
+
+def test_one_step_in_flight():
+    t, native, _ = make(5)
+    native.event_results = [600] * 5
+    assert t.publish(positions(5))     # A still WRITING after the producer wait
+    native.event_results = [600]
+    assert not t.can_publish()         # B is FREE, but a queued step would make the shown one older
+    assert t.newest_frame() == -1      # nothing drawable yet
+    assert t.can_publish()             # A done: uploaded from the timer, B may be produced
+    assert t.newest_frame() == 0
+
+
+def test_newest_frame_counts_ready_and_shown_frames():
+    t, native, _ = make(5)
+    assert t.newest_frame() == -1
+    native.windows = {WINDOW, 2}       # no timer scope: READY frames wait for the draw
+    t.publish(positions(5))
+    assert t.newest_frame() == 0
+    t.publish(positions(5, 1.0))
+    assert t.newest_frame() == 1
+    assert draw(t, native).frame == 1 and t.newest_frame() == 1
 
 
 def test_draw_between_can_publish_and_publish_forces_a_fresh_poll():

@@ -16,6 +16,9 @@ from warp_sph_realtime.render.transport import (
 ROOT = Path(__file__).resolve().parents[1]
 
 
+FRAME = SimpleNamespace(frame=-1)
+
+
 class FakeTransport:
     def __init__(self, zero_copy=True, reason=''):
         self.zero_copy, self.reason = zero_copy, reason
@@ -30,7 +33,10 @@ class FakeTransport:
         return True
 
     def positions_texture(self):
-        return 'frame'
+        return FRAME
+
+    def newest_frame(self):
+        return self.published - 1
 
     def capabilities(self):
         return Capabilities('VULKAN' if self.zero_copy else 'READBACK', self.zero_copy, 16, True, self.reason)
@@ -150,10 +156,26 @@ class SessionTickCloseTest(unittest.TestCase):
         self.assertIsInstance(info.exception.__cause__, RuntimeError)
         self.assertEqual(s.transport.published, 0)
 
+    def test_take_new_frame_once_per_drawable_frame(self):
+        s = ts.TransportSession(FakeTransport(), ['p'], FakeRenderer(), 'VULKAN')
+        self.assertFalse(s.take_new_frame())  # nothing published
+        s.tick(lambda out: None)
+        self.assertEqual((s.take_new_frame(), s.take_new_frame()), (True, False))
+        s.transport.ready = False
+        s.tick(lambda out: None)               # skipped: nothing new to redraw
+        self.assertFalse(s.take_new_frame())
+
+    def test_frame_shown_by_another_redraw_is_not_new(self):
+        s = ts.TransportSession(FakeTransport(), ['p'], FakeRenderer(), 'VULKAN')
+        s.tick(lambda out: None)
+        s.transport.positions_texture = lambda: SimpleNamespace(frame=0)
+        s.draw('settings')                     # e.g. a mouse-move redraw uploaded and showed it
+        self.assertFalse(s.take_new_frame())
+
     def test_draw_passes_adapter_frame(self):
         s = ts.TransportSession(FakeTransport(), [], FakeRenderer(), 'VULKAN')
         self.assertTrue(s.draw('settings'))
-        self.assertEqual(s.renderer.drawn, [('frame', 'settings')])
+        self.assertEqual(s.renderer.drawn, [(FRAME, 'settings')])
 
     def test_close_is_idempotent_and_keeps_quarantined_scratch(self):
         s = ts.TransportSession(FakeTransport(), ['p'], FakeRenderer(), 'VULKAN')
@@ -230,11 +252,14 @@ class Transport:
     def __init__(self, zero_copy, reason=''):
         self.zero_copy, self.reason, self.ready, self.closes = zero_copy, reason, True, 0
         self.close_result, self.publish_error, self.drops = 'completed', None, 0
+        self.frame = -1
         Transport.log.append(self)
     def can_publish(self): return self.ready
     def publish(self, positions):
         if self.publish_error: raise self.publish_error
+        self.frame += 1
         return True
+    def newest_frame(self): return self.frame
     def positions_texture(self): return None
     def capabilities(self): return Capabilities('X', self.zero_copy, 1 << 22, True, self.reason)
     @property
@@ -479,6 +504,17 @@ def step_once_survives_backpressure(ctx):
     RT.session.transport.ready = True
     assert op.modal(ctx, TIMER) == {'PASS_THROUGH'} and RT.solver.steps == 1 and not RT.step_once
     assert op.modal(ctx, TIMER) == {'PASS_THROUGH'} and RT.solver.steps == 1  # paused again
+
+@case
+def redraw_only_on_new_frame(ctx):
+    op, _ = start(ctx)
+    area = ctx.screen.areas[0]
+    before = area.redraws
+    assert op.modal(ctx, TIMER) == {'PASS_THROUGH'} and area.redraws == before + 1  # new step
+    RT.session.transport.ready = False  # step in flight: no new frame, no redraw contention
+    assert op.modal(ctx, TIMER) == {'PASS_THROUGH'} and area.redraws == before + 1
+    RT.session.transport.frame += 1     # the in-flight step became drawable on this tick's poll
+    assert op.modal(ctx, TIMER) == {'PASS_THROUGH'} and area.redraws == before + 2
 
 @case
 def priming_failure_with_failed_close_quarantines_solver(ctx):

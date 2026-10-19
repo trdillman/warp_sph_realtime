@@ -26,6 +26,7 @@ class TransportSession:
         self.reason = reason
         self.waits = 0
         self.close_result = ''
+        self._redrawn = -1
 
     @property
     def label(self) -> str:
@@ -46,9 +47,21 @@ class TransportSession:
             raise FatalTransportError(f'solver step failed; CUDA state unknown: {exc}') from exc
         return self.transport.publish(self.positions)
 
+    def take_new_frame(self) -> bool:
+        """Timer: True once per newly drawable frame. Redrawing only then keeps the viewport
+        from contending with the solver on ticks that skipped or are still producing."""
+        frame = self.transport.newest_frame()
+        if frame <= self._redrawn:
+            return False
+        self._redrawn = frame
+        return True
+
     def draw(self, settings) -> bool:
         """Viewport draw: the adapter rejects foreign windows/contexts and draws nothing."""
-        return self.renderer.draw(self.transport.positions_texture(), settings)
+        frame = self.transport.positions_texture()
+        if frame is not None:  # shown by Blender's own redraw: no extra redraw for it
+            self._redrawn = max(self._redrawn, frame.frame)
+        return self.renderer.draw(frame, settings)
 
     def close(self) -> str:
         """Idempotent; the transport result is authoritative (completed/quarantined/failed)."""

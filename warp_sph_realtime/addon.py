@@ -324,7 +324,7 @@ class WM_OT_warp_sph_start(bpy.types.Operator):
             try:
                 if RT.session is not None:
                     # No host sync: the adapter orders publication on the solver stream and
-                    # skips the step (backpressure) while both of its slots are busy.
+                    # skips the step (backpressure) while a step is in flight or both slots are busy.
                     stepped = RT.session.tick(lambda out: solver.step(out, use_graph=use_graph))
                 else:
                     pos_vbo_wp = RT.gl_buf.map_to_warp()
@@ -357,9 +357,11 @@ class WM_OT_warp_sph_start(bpy.types.Operator):
                 RT.step_count += 1
                 RT.step_once = False  # a single-step request survives a backpressure skip
 
-            for area in context.screen.areas:
-                if area.type == 'VIEW_3D':
-                    area.tag_redraw()
+            # GL draws synchronously after every step; a session redraws only for a new frame
+            if RT.session is None or RT.session.take_new_frame():
+                for area in context.screen.areas:
+                    if area.type == 'VIEW_3D':
+                        area.tag_redraw()
 
         return {'PASS_THROUGH'}
 

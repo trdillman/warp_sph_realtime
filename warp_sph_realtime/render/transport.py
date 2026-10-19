@@ -127,6 +127,9 @@ class ReadbackTransport:
             self._dirty = False
         return Frame(self._texture, self.count, self.width, self.height, 0, self._frame)
 
+    def newest_frame(self) -> int:
+        return self._frame  # publish is synchronous: every published frame is drawable
+
     def capabilities(self) -> Capabilities:
         return Capabilities('READBACK', False, MAX_COUNT, not self._closed, self._reason)
 

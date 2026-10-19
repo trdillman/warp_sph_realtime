@@ -1,0 +1,718 @@
+[
+ {
+  "kind": "interop",
+  "count": 500000,
+  "backend": "VULKAN",
+  "close": "completed",
+  "status": "COMPLETE",
+  "samples": 3000,
+  "warmup": 300,
+  "elapsed_s": 17.16,
+  "published": 3300,
+  "cadence": "one publish attempt per timer tick after the previous frame was drawn",
+  "slot_waits": 0,
+  "publish_false": 0,
+  "uploads": 3300,
+  "timer_uploads": 3300,
+  "drops": 0,
+  "never_shown": 0,
+  "cpu_submit_ms": {
+   "n": 3000,
+   "p50": 0.6061,
+   "p95": 0.8860599999999997,
+   "max": 2.0193,
+   "mean": 0.6243428333333333
+  },
+  "positions_texture_cpu_ms": {
+   "n": 3000,
+   "p50": 0.0638,
+   "p95": 0.10990499999999997,
+   "max": 0.4639,
+   "mean": 0.06840756666666667
+  },
+  "frame_time_ms": {
+   "n": 2999,
+   "p50": 4.9635,
+   "p95": 6.565659999999999,
+   "max": 32.3815,
+   "mean": 5.07384848282761
+  },
+  "publish_to_draw_ms": {
+   "n": 3000,
+   "p50": 2.8018,
+   "p95": 3.7885449999999996,
+   "max": 29.91,
+   "mean": 2.8725191333333333
+  },
+  "pack_gpu_ms": {
+   "n": 3000,
+   "p50": 0.1013759970664978,
+   "p95": 0.23045119643211337,
+   "max": 1.193984031677246,
+   "mean": 0.10950572810818751
+  },
+  "upload_gpu_ms": "NOT MEASURED (no GPU timestamp on the Blender upload)",
+  "completed_latency_ms": {
+   "n": 3000,
+   "p50": 1.0498,
+   "p95": 1.4961299999999997,
+   "max": 2.5942,
+   "mean": 1.0726205999999998
+  },
+  "completed_missing": 0,
+  "completion_codes": {
+   "0": 3300
+  },
+  "poll_observed_free_ms": {
+   "n": 3000,
+   "p50": 4.7491,
+   "p95": 6.2455849999999975,
+   "max": 56.3091,
+   "mean": 4.861288466666666
+  },
+  "lane": "vulkan"
+ },
+ {
+  "kind": "interop",
+  "count": 1000000,
+  "backend": "VULKAN",
+  "close": "completed",
+  "status": "COMPLETE",
+  "samples": 3000,
+  "warmup": 300,
+  "elapsed_s": 14.85,
+  "published": 3300,
+  "cadence": "one publish attempt per timer tick after the previous frame was drawn",
+  "slot_waits": 0,
+  "publish_false": 0,
+  "uploads": 3300,
+  "timer_uploads": 3300,
+  "drops": 0,
+  "never_shown": 0,
+  "cpu_submit_ms": {
+   "n": 3000,
+   "p50": 0.5869,
+   "p95": 0.8628149999999999,
+   "max": 1.7034,
+   "mean": 0.6089524666666666
+  },
+  "positions_texture_cpu_ms": {
+   "n": 3000,
+   "p50": 0.05395,
+   "p95": 0.0934,
+   "max": 0.4889,
+   "mean": 0.05803016666666666
+  },
+  "frame_time_ms": {
+   "n": 2999,
+   "p50": 4.3857,
+   "p95": 5.5327399999999995,
+   "max": 7.8123,
+   "mean": 4.427914104701567
+  },
+  "publish_to_draw_ms": {
+   "n": 3000,
+   "p50": 2.52435,
+   "p95": 3.22521,
+   "max": 5.1949,
+   "mean": 2.5473746999999998
+  },
+  "pack_gpu_ms": {
+   "n": 3000,
+   "p50": 0.030719999223947525,
+   "p95": 0.21401600539684296,
+   "max": 0.8458240032196045,
+   "mean": 0.08386804277449847
+  },
+  "upload_gpu_ms": "NOT MEASURED (no GPU timestamp on the Blender upload)",
+  "completed_latency_ms": {
+   "n": 3000,
+   "p50": 1.1902,
+   "p95": 1.6029699999999991,
+   "max": 3.2215,
+   "mean": 1.2226675666666666
+  },
+  "completed_missing": 0,
+  "completion_codes": {
+   "0": 3300
+  },
+  "poll_observed_free_ms": {
+   "n": 3000,
+   "p50": 4.193350000000001,
+   "p95": 5.2420149999999985,
+   "max": 55.9914,
+   "mean": 4.2446927
+  },
+  "lane": "vulkan"
+ },
+ {
+  "kind": "interop",
+  "count": 2000000,
+  "backend": "VULKAN",
+  "close": "completed",
+  "status": "COMPLETE",
+  "samples": 3000,
+  "warmup": 300,
+  "elapsed_s": 15.17,
+  "published": 3300,
+  "cadence": "one publish attempt per timer tick after the previous frame was drawn",
+  "slot_waits": 0,
+  "publish_false": 0,
+  "uploads": 3300,
+  "timer_uploads": 3300,
+  "drops": 0,
+  "never_shown": 0,
+  "cpu_submit_ms": {
+   "n": 3000,
+   "p50": 0.7140500000000001,
+   "p95": 1.2003849999999994,
+   "max": 1.8441,
+   "mean": 0.7670696000000001
+  },
+  "positions_texture_cpu_ms": {
+   "n": 3000,
+   "p50": 0.054,
+   "p95": 0.09420999999999995,
+   "max": 0.3219,
+   "mean": 0.0578199
+  },
+  "frame_time_ms": {
+   "n": 2999,
+   "p50": 4.4389,
+   "p95": 5.874619999999999,
+   "max": 10.586,
+   "mean": 4.568634344781594
+  },
+  "publish_to_draw_ms": {
+   "n": 3000,
+   "p50": 2.6186,
+   "p95": 3.5536899999999996,
+   "max": 7.4754,
+   "mean": 2.6949430666666667
+  },
+  "pack_gpu_ms": {
+   "n": 3000,
+   "p50": 0.04198399931192398,
+   "p95": 0.05632000043988228,
+   "max": 1.0178560018539429,
+   "mean": 0.06502745550125838
+  },
+  "upload_gpu_ms": "NOT MEASURED (no GPU timestamp on the Blender upload)",
+  "completed_latency_ms": {
+   "n": 3000,
+   "p50": 1.8655,
+   "p95": 2.2188599999999994,
+   "max": 4.0521,
+   "mean": 1.8809549
+  },
+  "completed_missing": 0,
+  "completion_codes": {
+   "0": 3300
+  },
+  "poll_observed_free_ms": {
+   "n": 3000,
+   "p50": 4.2945,
+   "p95": 5.60044,
+   "max": 56.6326,
+   "mean": 4.400264233333333
+  },
+  "lane": "vulkan"
+ },
+ {
+  "kind": "interop",
+  "count": 4194304,
+  "backend": "VULKAN",
+  "close": "completed",
+  "status": "COMPLETE",
+  "samples": 3000,
+  "warmup": 300,
+  "elapsed_s": 20.81,
+  "published": 3300,
+  "cadence": "one publish attempt per timer tick after the previous frame was drawn",
+  "slot_waits": 5,
+  "publish_false": 0,
+  "uploads": 3300,
+  "timer_uploads": 3299,
+  "drops": 0,
+  "never_shown": 0,
+  "cpu_submit_ms": {
+   "n": 3000,
+   "p50": 1.4986,
+   "p95": 1.945005,
+   "max": 2.5718,
+   "mean": 1.3717524333333333
+  },
+  "positions_texture_cpu_ms": {
+   "n": 3005,
+   "p50": 0.0668,
+   "p95": 0.11755999999999994,
+   "max": 0.3433,
+   "mean": 0.07200522462562396
+  },
+  "frame_time_ms": {
+   "n": 3004,
+   "p50": 6.16345,
+   "p95": 7.926855,
+   "max": 57.5117,
+   "mean": 6.112779860186417
+  },
+  "publish_to_draw_ms": {
+   "n": 3000,
+   "p50": 3.86085,
+   "p95": 4.95348,
+   "max": 55.3429,
+   "mean": 3.7920844999999996
+  },
+  "pack_gpu_ms": {
+   "n": 3000,
+   "p50": 0.1802240014076233,
+   "p95": 0.18636800348758698,
+   "max": 1.7285120487213135,
+   "mean": 0.19258771055440108
+  },
+  "upload_gpu_ms": "NOT MEASURED (no GPU timestamp on the Blender upload)",
+  "completed_latency_ms": {
+   "n": 3000,
+   "p50": 3.7978,
+   "p95": 5.203284999999999,
+   "max": 13.1992,
+   "mean": 3.9627068666666667
+  },
+  "completed_missing": 0,
+  "completion_codes": {
+   "0": 3300
+  },
+  "poll_observed_free_ms": {
+   "n": 3000,
+   "p50": 6.03575,
+   "p95": 9.432125,
+   "max": 58.1066,
+   "mean": 6.348575199999999
+  },
+  "lane": "vulkan"
+ },
+ {
+  "kind": "readback",
+  "count": 500000,
+  "backend": "VULKAN",
+  "close": "completed",
+  "status": "COMPLETE",
+  "samples": 3000,
+  "warmup": 300,
+  "elapsed_s": 36.61,
+  "published": 3300,
+  "cadence": "one publish attempt per timer tick after the previous frame was drawn",
+  "slot_waits": 0,
+  "publish_false": 0,
+  "uploads": null,
+  "timer_uploads": null,
+  "drops": 0,
+  "never_shown": 0,
+  "cpu_submit_ms": {
+   "n": 3000,
+   "p50": 4.543,
+   "p95": 7.717539999999996,
+   "max": 13.6853,
+   "mean": 4.9311042333333335
+  },
+  "positions_texture_cpu_ms": {
+   "n": 3000,
+   "p50": 1.2950499999999998,
+   "p95": 1.9331399999999999,
+   "max": 3.8958,
+   "mean": 1.3662271333333331
+  },
+  "frame_time_ms": {
+   "n": 2999,
+   "p50": 10.6358,
+   "p95": 14.51675,
+   "max": 20.477,
+   "mean": 11.018906535511837
+  },
+  "publish_to_draw_ms": {
+   "n": 3000,
+   "p50": 7.02955,
+   "p95": 10.524834999999998,
+   "max": 16.2478,
+   "mean": 7.423340866666667
+  },
+  "pack_gpu_ms": null,
+  "upload_gpu_ms": "NOT MEASURED (no GPU timestamp on the Blender upload)",
+  "completed_latency_ms": "NOT MEASURED (Readback has no completion fence)",
+  "completed_missing": null,
+  "completion_codes": {},
+  "poll_observed_free_ms": null,
+  "lane": "vulkan"
+ },
+ {
+  "kind": "readback",
+  "count": 1000000,
+  "backend": "VULKAN",
+  "close": "completed",
+  "status": "COMPLETE",
+  "samples": 3000,
+  "warmup": 300,
+  "elapsed_s": 98.96,
+  "published": 3300,
+  "cadence": "one publish attempt per timer tick after the previous frame was drawn",
+  "slot_waits": 0,
+  "publish_false": 0,
+  "uploads": null,
+  "timer_uploads": null,
+  "drops": 0,
+  "never_shown": 0,
+  "cpu_submit_ms": {
+   "n": 3000,
+   "p50": 10.40915,
+   "p95": 14.450639999999996,
+   "max": 21.2245,
+   "mean": 10.872064566666667
+  },
+  "positions_texture_cpu_ms": {
+   "n": 3000,
+   "p50": 9.10405,
+   "p95": 18.727044999999986,
+   "max": 26.993,
+   "mean": 10.6328144
+  },
+  "frame_time_ms": {
+   "n": 2999,
+   "p50": 28.9303,
+   "p95": 41.06049,
+   "max": 58.232,
+   "mean": 29.61465565188396
+  },
+  "publish_to_draw_ms": {
+   "n": 3000,
+   "p50": 15.1332,
+   "p95": 20.806465,
+   "max": 48.0136,
+   "mean": 15.832181933333333
+  },
+  "pack_gpu_ms": null,
+  "upload_gpu_ms": "NOT MEASURED (no GPU timestamp on the Blender upload)",
+  "completed_latency_ms": "NOT MEASURED (Readback has no completion fence)",
+  "completed_missing": null,
+  "completion_codes": {},
+  "poll_observed_free_ms": null,
+  "lane": "vulkan"
+ },
+ {
+  "kind": "readback",
+  "count": 2000000,
+  "backend": "VULKAN",
+  "close": "completed",
+  "status": "COMPLETE",
+  "samples": 3000,
+  "warmup": 300,
+  "elapsed_s": 142.69,
+  "published": 3300,
+  "cadence": "one publish attempt per timer tick after the previous frame was drawn",
+  "slot_waits": 0,
+  "publish_false": 0,
+  "uploads": null,
+  "timer_uploads": null,
+  "drops": 0,
+  "never_shown": 0,
+  "cpu_submit_ms": {
+   "n": 3000,
+   "p50": 19.04555,
+   "p95": 28.772745,
+   "max": 42.7647,
+   "mean": 20.292013166666667
+  },
+  "positions_texture_cpu_ms": {
+   "n": 3000,
+   "p50": 14.274750000000001,
+   "p95": 22.18530499999999,
+   "max": 53.1965,
+   "mean": 15.1577448
+  },
+  "frame_time_ms": {
+   "n": 2999,
+   "p50": 40.6644,
+   "p95": 60.617749999999994,
+   "max": 591.1652,
+   "mean": 43.339001600533514
+  },
+  "publish_to_draw_ms": {
+   "n": 3000,
+   "p50": 23.536749999999998,
+   "p95": 35.075424999999996,
+   "max": 575.0443,
+   "mean": 25.173045933333338
+  },
+  "pack_gpu_ms": null,
+  "upload_gpu_ms": "NOT MEASURED (no GPU timestamp on the Blender upload)",
+  "completed_latency_ms": "NOT MEASURED (Readback has no completion fence)",
+  "completed_missing": null,
+  "completion_codes": {},
+  "poll_observed_free_ms": null,
+  "lane": "vulkan"
+ },
+ {
+  "kind": "readback",
+  "count": 4194304,
+  "backend": "VULKAN",
+  "close": "completed",
+  "status": "INCOMPLETE_SAMPLES",
+  "samples": 2785,
+  "warmup": 300,
+  "elapsed_s": 240.07,
+  "published": 3085,
+  "cadence": "one publish attempt per timer tick after the previous frame was drawn",
+  "slot_waits": 0,
+  "publish_false": 0,
+  "uploads": null,
+  "timer_uploads": null,
+  "drops": 0,
+  "never_shown": 0,
+  "cpu_submit_ms": {
+   "n": 2785,
+   "p50": 43.1678,
+   "p95": 65.78887999999998,
+   "max": 86.9698,
+   "mean": 46.88125587073609
+  },
+  "positions_texture_cpu_ms": {
+   "n": 2785,
+   "p50": 20.294,
+   "p95": 32.25148,
+   "max": 121.9853,
+   "mean": 22.225177163375225
+  },
+  "frame_time_ms": {
+   "n": 2784,
+   "p50": 71.3031,
+   "p95": 108.469175,
+   "max": 206.2885,
+   "mean": 77.70038002873564
+  },
+  "publish_to_draw_ms": {
+   "n": 2785,
+   "p50": 48.1937,
+   "p95": 72.54823999999999,
+   "max": 93.0261,
+   "mean": 52.196754649910226
+  },
+  "pack_gpu_ms": null,
+  "upload_gpu_ms": "NOT MEASURED (no GPU timestamp on the Blender upload)",
+  "completed_latency_ms": "NOT MEASURED (Readback has no completion fence)",
+  "completed_missing": null,
+  "completion_codes": {},
+  "poll_observed_free_ms": null,
+  "lane": "vulkan"
+ },
+ {
+  "kind": "readback",
+  "count": 500000,
+  "backend": "OPENGL",
+  "close": "completed",
+  "status": "COMPLETE",
+  "samples": 3000,
+  "warmup": 300,
+  "elapsed_s": 59.6,
+  "published": 3300,
+  "cadence": "one publish attempt per timer tick after the previous frame was drawn",
+  "slot_waits": 0,
+  "publish_false": 0,
+  "uploads": null,
+  "timer_uploads": null,
+  "drops": 0,
+  "never_shown": 0,
+  "cpu_submit_ms": {
+   "n": 3000,
+   "p50": 4.48395,
+   "p95": 6.903304999999998,
+   "max": 10.2535,
+   "mean": 4.777637533333333
+  },
+  "positions_texture_cpu_ms": {
+   "n": 3000,
+   "p50": 1.91295,
+   "p95": 3.744804999999999,
+   "max": 5.8179,
+   "mean": 2.194403633333333
+  },
+  "frame_time_ms": {
+   "n": 2999,
+   "p50": 17.1646,
+   "p95": 23.37144,
+   "max": 89.3274,
+   "mean": 18.18271657219073
+  },
+  "publish_to_draw_ms": {
+   "n": 3000,
+   "p50": 8.8178,
+   "p95": 13.14415,
+   "max": 42.5133,
+   "mean": 9.411727266666666
+  },
+  "pack_gpu_ms": null,
+  "upload_gpu_ms": "NOT MEASURED (no GPU timestamp on the Blender upload)",
+  "completed_latency_ms": "NOT MEASURED (Readback has no completion fence)",
+  "completed_missing": null,
+  "completion_codes": {},
+  "poll_observed_free_ms": null,
+  "lane": "opengl"
+ },
+ {
+  "kind": "readback",
+  "count": 1000000,
+  "backend": "OPENGL",
+  "close": "completed",
+  "status": "COMPLETE",
+  "samples": 3000,
+  "warmup": 300,
+  "elapsed_s": 83.47,
+  "published": 3300,
+  "cadence": "one publish attempt per timer tick after the previous frame was drawn",
+  "slot_waits": 0,
+  "publish_false": 0,
+  "uploads": null,
+  "timer_uploads": null,
+  "drops": 0,
+  "never_shown": 0,
+  "cpu_submit_ms": {
+   "n": 3000,
+   "p50": 9.81955,
+   "p95": 14.733629999999998,
+   "max": 19.8466,
+   "mean": 10.4106964
+  },
+  "positions_texture_cpu_ms": {
+   "n": 3000,
+   "p50": 4.2122,
+   "p95": 7.853389999999999,
+   "max": 11.8884,
+   "mean": 4.689295733333334
+  },
+  "frame_time_ms": {
+   "n": 2999,
+   "p50": 24.029,
+   "p95": 36.82399,
+   "max": 49.7524,
+   "mean": 25.586577225741912
+  },
+  "publish_to_draw_ms": {
+   "n": 3000,
+   "p50": 14.754449999999999,
+   "p95": 22.02779,
+   "max": 37.1213,
+   "mean": 15.624992733333332
+  },
+  "pack_gpu_ms": null,
+  "upload_gpu_ms": "NOT MEASURED (no GPU timestamp on the Blender upload)",
+  "completed_latency_ms": "NOT MEASURED (Readback has no completion fence)",
+  "completed_missing": null,
+  "completion_codes": {},
+  "poll_observed_free_ms": null,
+  "lane": "opengl"
+ },
+ {
+  "kind": "readback",
+  "count": 2000000,
+  "backend": "OPENGL",
+  "close": "completed",
+  "status": "COMPLETE",
+  "samples": 3000,
+  "warmup": 300,
+  "elapsed_s": 145.52,
+  "published": 3300,
+  "cadence": "one publish attempt per timer tick after the previous frame was drawn",
+  "slot_waits": 0,
+  "publish_false": 0,
+  "uploads": null,
+  "timer_uploads": null,
+  "drops": 0,
+  "never_shown": 0,
+  "cpu_submit_ms": {
+   "n": 3000,
+   "p50": 20.813499999999998,
+   "p95": 30.761995,
+   "max": 50.7866,
+   "mean": 22.0953368
+  },
+  "positions_texture_cpu_ms": {
+   "n": 3000,
+   "p50": 10.010950000000001,
+   "p95": 16.235905,
+   "max": 25.8788,
+   "mean": 10.6688218
+  },
+  "frame_time_ms": {
+   "n": 2999,
+   "p50": 41.4681,
+   "p95": 61.49651,
+   "max": 142.1298,
+   "mean": 44.14960586862288
+  },
+  "publish_to_draw_ms": {
+   "n": 3000,
+   "p50": 26.1643,
+   "p95": 38.22795499999999,
+   "max": 68.3132,
+   "mean": 27.768958633333327
+  },
+  "pack_gpu_ms": null,
+  "upload_gpu_ms": "NOT MEASURED (no GPU timestamp on the Blender upload)",
+  "completed_latency_ms": "NOT MEASURED (Readback has no completion fence)",
+  "completed_missing": null,
+  "completion_codes": {},
+  "poll_observed_free_ms": null,
+  "lane": "opengl"
+ },
+ {
+  "kind": "readback",
+  "count": 4194304,
+  "backend": "OPENGL",
+  "close": "completed",
+  "status": "INCOMPLETE_SAMPLES",
+  "samples": 2998,
+  "warmup": 300,
+  "elapsed_s": 240.11,
+  "published": 3298,
+  "cadence": "one publish attempt per timer tick after the previous frame was drawn",
+  "slot_waits": 0,
+  "publish_false": 0,
+  "uploads": null,
+  "timer_uploads": null,
+  "drops": 0,
+  "never_shown": 0,
+  "cpu_submit_ms": {
+   "n": 2998,
+   "p50": 39.585,
+   "p95": 59.189440000000005,
+   "max": 76.6937,
+   "mean": 41.99177625083389
+  },
+  "positions_texture_cpu_ms": {
+   "n": 2998,
+   "p50": 17.514200000000002,
+   "p95": 31.429100000000002,
+   "max": 48.6697,
+   "mean": 18.89690617078052
+  },
+  "frame_time_ms": {
+   "n": 2997,
+   "p50": 69.2522,
+   "p95": 105.70017999999999,
+   "max": 133.3066,
+   "mean": 73.39273329996664
+  },
+  "publish_to_draw_ms": {
+   "n": 2998,
+   "p50": 46.60815,
+   "p95": 68.53359,
+   "max": 89.3003,
+   "mean": 49.22953188792528
+  },
+  "pack_gpu_ms": null,
+  "upload_gpu_ms": "NOT MEASURED (no GPU timestamp on the Blender upload)",
+  "completed_latency_ms": "NOT MEASURED (Readback has no completion fence)",
+  "completed_missing": null,
+  "completion_codes": {},
+  "poll_observed_free_ms": null,
+  "lane": "opengl"
+ }
+]
