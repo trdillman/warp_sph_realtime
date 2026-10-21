@@ -22,6 +22,14 @@ def _disk():
     return importlib.import_module(".cache.disk", __package__)
 
 
+def _output():
+    return importlib.import_module(".cache.output", __package__)
+
+
+def _blender_output():
+    return importlib.import_module(".cache.blender_output", __package__)
+
+
 def _session(context) -> sim_session.SimSession:
     return sim_session.get(context.scene)
 
@@ -177,7 +185,7 @@ class WM_OT_warp_sph_cache_playback(bpy.types.Operator):
     bl_idname = "wm.warp_sph_cache_playback"
     bl_label = "Show Cache"
     bl_description = ("Add a point cloud object that follows the timeline with the cached frames "
-                      "(renders in Cycles; has velocity and id attributes)")
+                      "(renders in Cycles; has velocity, id and age attributes)")
 
     show: bpy.props.BoolProperty(default=True, options={'SKIP_SAVE'})
 
@@ -185,6 +193,7 @@ class WM_OT_warp_sph_cache_playback(bpy.types.Operator):
         adapter = _adapter()
         scene = context.scene
         if not self.show:
+            _blender_output().remove_mesh_object(scene)  # the meshing object reads the point cloud
             adapter.remove_playback_object(scene)
             return {'FINISHED'}
         cached, _size = cache_status(_cache_dir(scene), max_age=0.0)
@@ -197,6 +206,95 @@ class WM_OT_warp_sph_cache_playback(bpy.types.Operator):
         except _disk().CacheError as exc:
             self.report({'ERROR'}, str(exc))
             return {'CANCELLED'}
+        return {'FINISHED'}
+
+
+def _ensure_playback(context):
+    """The scene's playback point cloud showing the current frame (created if missing); raises CacheError."""
+    adapter = _adapter()
+    scene = context.scene
+    obj = adapter.ensure_playback_object(scene)
+    adapter.show_frame(scene, scene.frame_current)
+    return obj
+
+
+class WM_OT_warp_sph_cache_mesh(bpy.types.Operator):
+    bl_idname = "wm.warp_sph_cache_mesh"
+    bl_label = "Add Mesh Preset"
+    bl_description = ("Add a mesh object that surfaces the cache point cloud with Geometry Nodes "
+                      "(points to volume to mesh). Radius, voxel size, threshold and smoothing are modifier inputs")
+
+    show: bpy.props.BoolProperty(default=True, options={'SKIP_SAVE'})
+
+    def execute(self, context):
+        scene = context.scene
+        blender_output = _blender_output()
+        if not self.show:
+            blender_output.remove_mesh_object(scene)
+            return {'FINISHED'}
+        directory = _cache_dir(scene)
+        cached, _size = cache_status(directory, max_age=0.0)
+        if cached is None:
+            self.report({'ERROR'}, "Nothing is cached yet: bake first")
+            return {'CANCELLED'}
+        try:
+            cloud = _ensure_playback(context)
+            output = _output()
+            manifest = _disk().DiskCache(directory).manifest()
+            settings = scene.warp_sph
+            spacing = output.particle_spacing(manifest, settings.particle_spacing, settings.particle_radius)
+            blender_output.ensure_mesh_object(scene, cloud, output.meshing_defaults(spacing))
+        except (_disk().CacheError, RuntimeError, TypeError) as exc:
+            self.report({'ERROR'}, f"Cannot add the mesh preset: {exc}")
+            return {'CANCELLED'}
+        return {'FINISHED'}
+
+
+class WM_OT_warp_sph_cache_export(bpy.types.Operator):
+    bl_idname = "wm.warp_sph_cache_export"
+    bl_label = "Export Meshed Sequence"
+    bl_description = ("Export the meshed fluid over the baked frames as USD or Alembic "
+                      "(adds the playback point cloud and mesh preset if missing)")
+
+    filepath: bpy.props.StringProperty(subtype='FILE_PATH')
+    filter_glob: bpy.props.StringProperty(default="*.usd;*.usdc;*.usda;*.abc", options={'HIDDEN'})
+    format: bpy.props.EnumProperty(
+        name="Format", items=(('USD', "USD", "Universal Scene Description (.usdc)"),
+                              ('ALEMBIC', "Alembic", "Alembic (.abc)")), default='USD')
+
+    @classmethod
+    def poll(cls, context):
+        return _session(context).bake is None
+
+    def invoke(self, context, event):
+        if not self.filepath:
+            scene = context.scene
+            default = _cache_dir(scene).parent / bpy.path.clean_name(scene.name)
+            self.filepath = str(_output().export_path(str(default), self.format))
+        context.window_manager.fileselect_add(self)
+        return {'RUNNING_MODAL'}
+
+    def execute(self, context):
+        scene = context.scene
+        output, blender_output = _output(), _blender_output()
+        if not self.filepath:
+            self.report({'ERROR'}, "Choose a file to export to")
+            return {'CANCELLED'}
+        cached, _size = cache_status(_cache_dir(scene), max_age=0.0)
+        try:
+            frames = output.export_frames(cached)  # only baked frames are exported
+            mesh = blender_output.find_mesh_object(scene)
+            if mesh is None:
+                bpy.ops.wm.warp_sph_cache_mesh()
+                mesh = blender_output.find_mesh_object(scene)
+            if mesh is None:
+                self.report({'ERROR'}, "The mesh preset could not be added")
+                return {'CANCELLED'}
+            target = blender_output.export_sequence(context, self.filepath, self.format, mesh, frames)
+        except (ValueError, RuntimeError, _disk().CacheError) as exc:
+            self.report({'ERROR'}, f"Export failed: {exc}")
+            return {'CANCELLED'}
+        self.report({'INFO'}, f"Exported frames {frames[0]}-{frames[1]} to {target}")
         return {'FINISHED'}
 
 
@@ -273,6 +371,26 @@ class VIEW3D_PT_warp_sph_cache(bpy.types.Panel):
         else:
             row.operator("wm.warp_sph_cache_playback", text="Hide Cache", icon='HIDE_ON').show = False
 
+        layout.separator()
+        layout.label(text="Output")
+        blender_output = _blender_output()
+        mesh = blender_output.find_mesh_object(scene)
+        row = layout.row(align=True)
+        if mesh is None:
+            row.enabled = cached is not None
+            row.operator("wm.warp_sph_cache_mesh", text="Add Mesh Preset", icon='MOD_FLUIDSIM').show = True
+        else:
+            row.operator("wm.warp_sph_cache_mesh", text="Remove Mesh", icon='X').show = False
+            col = layout.column(align=True)
+            for name in ("Radius", "Voxel Size", "Threshold", "Smooth Iterations", "Material"):
+                socket = blender_output.input_socket(mesh, name)
+                if socket is not None:
+                    col.prop(socket, "value", text=name)
+        row = layout.row(align=True)
+        row.enabled = cached is not None and baking is None
+        row.operator("wm.warp_sph_cache_export", text="Export USD", icon='EXPORT').format = 'USD'
+        row.operator("wm.warp_sph_cache_export", text="Export Alembic", icon='EXPORT').format = 'ALEMBIC'
+
 
 CLASSES = (
     WM_OT_warp_sph_bake,
@@ -280,6 +398,8 @@ CLASSES = (
     WM_OT_warp_sph_cache_invalidate,
     WM_OT_warp_sph_cache_clear,
     WM_OT_warp_sph_cache_playback,
+    WM_OT_warp_sph_cache_mesh,
+    WM_OT_warp_sph_cache_export,
     VIEW3D_PT_warp_sph_cache,
 )
 

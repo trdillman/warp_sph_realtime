@@ -187,6 +187,19 @@ class DiskCache:
             raise CacheError(f"frame {frame} has unexpected array shapes or types")
         return Frame(frame, position, velocity, ids)
 
+    def read_ids(self, frame: int) -> np.ndarray:
+        """Only the particle ids of one frame (the other members of the ``.npz`` are not read)."""
+        try:
+            with open(self.path(frame), "rb") as handle, np.load(handle, allow_pickle=False) as data:
+                ids = data["id"]
+        except FileNotFoundError as exc:
+            raise CacheError(f"frame {frame} is not cached") from exc
+        except (OSError, ValueError, KeyError, EOFError, zipfile.BadZipFile) as exc:
+            raise CacheError(f"frame {frame} is unreadable: {exc}") from exc
+        if ids.dtype != np.int32 or ids.ndim != 1:
+            raise CacheError(f"frame {frame} has unexpected id array")
+        return ids
+
     def frames(self) -> list[int]:
         """Cached frame numbers, sorted."""
         try:
@@ -195,6 +208,22 @@ class DiskCache:
             return []
         found = (_FRAME_RE.match(name) for name in entries)
         return sorted(int(m.group(1)) for m in found if m)
+
+    def frame_stamps(self) -> dict[int, int]:
+        """Modification time (ns) of every cached frame file, from one directory listing."""
+        stamps: dict[int, int] = {}
+        try:
+            with os.scandir(self.directory) as entries:
+                for entry in entries:
+                    found = _FRAME_RE.match(entry.name)
+                    if found:
+                        try:
+                            stamps[int(found.group(1))] = entry.stat().st_mtime_ns
+                        except OSError:
+                            pass  # removed while listing
+        except FileNotFoundError:
+            pass
+        return stamps
 
     def cached_range(self) -> tuple[int, int] | None:
         """(start, last) of the contiguous run of frames beginning at the manifest's start, or None."""

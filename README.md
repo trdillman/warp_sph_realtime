@@ -111,6 +111,14 @@ Open **Record / Bake Cache** under the main panel (the simulation need not be ru
 4. **Show Cache as Point Cloud** adds an object that follows the timeline (frames outside the cached range show the
    nearest cached frame). It has `velocity`, `id` and `radius` point attributes and renders in Cycles as spheres of the
    particle radius.
+5. **Output** (below the cache buttons). The point cloud's `age` attribute is the time in seconds since each particle first
+   appears in the cache (use it in a material through an Attribute node, or in Geometry Nodes). **Add Mesh Preset** adds a
+   *WarpSPH Mesh* object that turns the points into a surface with Geometry Nodes (Points to Volume, Volume to Mesh, then
+   smoothing): edit **Radius**, **Voxel Size** (smaller = finer and heavier), **Threshold**, **Smooth Iterations** and
+   **Material** in the panel or on the modifier. The defaults come from the particle spacing (radius 1.5x, voxel 0.5x);
+   the point cloud is hidden from renders while the mesh exists. **Export USD** / **Export Alembic** ask for a file and
+   write the mesh over the baked frames only (adding the preset first if needed). Blender 5.2 exports the meshed object;
+   it does not export point clouds. A 24-frame, 12,000-particle bake is about 65 MB as USD and 35 MB as Alembic.
 The solver state is the particle positions and velocities, so a resumed bake continues bit for bit like an uninterrupted one
 on the same GPU and driver. Changing the scene's objects after a bake is not detected: invalidate from frame 1.
 
@@ -139,7 +147,8 @@ warp_sph_realtime/          Blender extension package (the folder that is zipped
   props.py                  scene.warp_sph settings group, old-file migration, GPU memory estimate
   sim_session.py            Per-scene SimSession: runtime state, start/tick/stop/dispose, timer-driven bake
   cache_ui.py               Record / Bake Cache panel and operators
-  cache/                    Frame cache: disk format, VRAM ring, writer thread, bake planning, playback point cloud
+  cache/                    Frame cache: disk format, VRAM ring, writer thread, bake planning, playback point cloud,
+                            particle age, meshing preset and USD / Alembic export
   sim/                      WCSPH solver (sim_core)
   scene/                    Regime presets, demo scene initialisers
   render/                   OpenGL and Vulkan transports, gpu-module points/spheres/SSFR, legacy GL SSFR shaders, viewport drawing

@@ -36,12 +36,13 @@ graph TD
         GpuPoints["render/gpu_points.py<br/>(points / spheres via gpu module)"]
     end
 
-    subgraph Cache ["Frame cache: record, bake, playback (P1.6, P2.2)"]
+    subgraph Cache ["Frame cache: record, bake, playback, output (P1.6, P2.2, P2.3)"]
         CacheUI["cache_ui.py<br/>(Bake / Resume / Cancel / Invalidate, Show Cache)"]
         BakeJob["cache/bake.py<br/>(fresh or resume plan, chunked BakeJob)"]
         Store["cache/frame_store.py + gpu.py<br/>(VRAM ring, pinned async copy, writer thread)"]
         Disk["cache/disk.py<br/>(one .npz per frame, manifest, size estimate)"]
         Playback["cache/blender_adapter.py<br/>(point cloud object, frame_change_post)"]
+        Output["cache/age.py + output.py + blender_output.py<br/>(particle age, GN meshing preset, USD / Alembic export)"]
     end
 
     Manifest -.-> Init
@@ -88,7 +89,10 @@ They are not zero GPU copy; see the top of [`VULKAN_ZERO_COPY_PLAN.md`](./VULKAN
 | `cache/gpu.py` | `VramRing` (device snapshot slots, pinned host arrays, second stream and events) and `SolverSource` (steps the solver into a slot, restores a cached state for resume). Warp is passed in, never imported. Recording is an explicit user action: a host copy is allowed here and never in a live transport. |
 | `cache/frame_store.py` | `FrameStore`: ring + disk behind one writer thread. Non-blocking `acquire` / `pump`; files always form a prefix of the timeline. |
 | `cache/bake.py` | `plan_bake` (fresh or resume after the last intact frame, signature check) and `BakeJob`, a state machine doing a time-budgeted chunk per timer tick (never a blocking loop); cancel and failure leave whole frames only. |
-| `cache/blender_adapter.py` | The only `bpy` module in `cache/`: the playback `PointCloud` object (`velocity`, `id`, `radius`; renders in Cycles) and its `frame_change_post` handler. |
+| `cache/blender_adapter.py` | `bpy` module of `cache/`: the playback `PointCloud` object (`velocity`, `id`, `age`, `radius`; renders in Cycles) and its `frame_change_post` handler. |
+| `cache/age.py` | `EmissionIndex`: first cached frame of every particle id, scanned incrementally from the id arrays (no cache format change; rolled back when a frame file changes), and `seconds_per_frame` from the bake signature. NumPy only. |
+| `cache/output.py` | Pure numbers for output: meshing defaults from the particle spacing, export file extension and baked-only frame range. |
+| `cache/blender_output.py` | `bpy` module of `cache/`: the "WarpSPH Meshing" node group and mesh object (Object Info -> Points to Volume -> Volume to Mesh -> Blur Attribute -> Set Shade Smooth -> Set Material), and the USD / Alembic export of the baked range. |
 | `warp_installer.py`, `warp_runtime.py`, `warp_wheels.lock.json` | SHA-256-locked `warp-lang==1.17.0` (CUDA 12.9) install into extension storage and the runtime gate. `plan_install` (main thread, reads Blender) and `run_plan` (no `bpy`, cancellable: temp download or verified local-wheel copy, then atomic promotion) split the install; the Warp source (download / local wheel / existing folder, P1.11) selects the single directory Warp may be imported from, and the foreign-Warp guard accepts only that one. |
 | `install_job.py` | Pure-Python worker thread for `run_plan` with a lock-protected progress snapshot and a cancel flag (P1.4). |
 | `install_ui.py` | Preferences UI: Warp source, progress bar and Cancel (polled by a `bpy.app.timers` timer), first-run hardware check panel, install/cancel operators. The only `bpy` consumer of `install_job`. |

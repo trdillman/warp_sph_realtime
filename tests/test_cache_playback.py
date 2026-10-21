@@ -90,8 +90,17 @@ assert cloud.attributes["velocity"].data_type == "FLOAT_VECTOR" and cloud.attrib
 assert cloud.attributes["radius"].data_type == "FLOAT" and v["radius"]["value"].tolist() == [np.float32(0.02)] * 5
 print("exact_frame_ok")
 
-assert ba.show_frame(scene, 12) is False and cloud.updates == 1             # same frame, same file: no reload
-assert ba.show_frame(scene, 13) is True and cloud.updates == 2
+# age: seconds since the first cached frame (no dt in this signature: falls back to 24 fps); scrubbing back works
+assert cloud.attributes["age"].data_type == "FLOAT"
+assert np.allclose(v["age"]["value"], 2 / 24) and v["age"]["value"].dtype == np.float32
+assert ba.show_frame(scene, 13) is True and np.allclose(loaded(cloud)["age"]["value"], 3 / 24)
+assert ba.show_frame(scene, 10) is True and not loaded(cloud)["age"]["value"].any()
+assert ba.show_frame(scene, 12) is True and np.allclose(loaded(cloud)["age"]["value"], 2 / 24)
+print("age_ok")
+
+updates = cloud.updates
+assert ba.show_frame(scene, 12) is False and cloud.updates == updates       # same frame, same file: no reload
+assert ba.show_frame(scene, 13) is True and cloud.updates == updates + 1
 assert ba.show_frame(scene, 99) is False                                     # past the end: nearest (13) is already shown
 write(13)                                                                    # same bytes rewritten: mtime changes
 import os, time
@@ -148,7 +157,7 @@ class PlaybackAdapterTest(unittest.TestCase):
         result = subprocess.run([sys.executable, '-'], input=SCRIPT, cwd=str(ROOT),
                                 capture_output=True, text=True, timeout=120)
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-        for marker in ('exact_frame_ok', 'clamp_and_change_ok', 'range_ok', 'resize_ok', 'handler_ok', 'register_ok',
+        for marker in ('exact_frame_ok', 'age_ok', 'clamp_and_change_ok', 'range_ok', 'resize_ok', 'handler_ok', 'register_ok',
                        'PLAYBACK_OK'):
             self.assertIn(marker, result.stdout)
 

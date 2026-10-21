@@ -39,6 +39,18 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   **Advanced** sub-panel.
 
 ### Added
+- Output (P2.3). The playback point cloud has a per-particle **`age`** attribute (seconds since the particle first
+  appears in the cache; emitters release particles over time, so ages differ). It is derived from the cache, whose
+  format is unchanged, so existing caches work: `cache/age.py` finds each id's first cached frame in one incremental
+  pass over the id arrays and keeps it while you scrub, jump or play (a re-baked frame rolls the scan back, detected by
+  file timestamps). **Add Mesh Preset** adds a mesh object with a Geometry Nodes modifier (point cloud -> Points to
+  Volume -> Volume to Mesh -> Blur Attribute smoothing -> smooth shading -> Set Material) whose radius, voxel size,
+  threshold, smoothing and material are modifier inputs, defaulting to 1.5 / 0.5 times the particle spacing. **Export
+  USD** / **Export Alembic** write that mesh over exactly the baked frame range (re-imported in Blender 5.2: the same
+  vertex counts per frame). New `cache/age.py`, `cache/output.py` (pure) and `cache/blender_output.py` (`bpy`).
+  Blender 5.2 note: Geometry Nodes modifier inputs are set through `modifier.properties.inputs.<identifier>.value`
+  (ID-property access no longer works) and a Python edit needs `object.update_tag()` to re-evaluate. Point cloud
+  objects do not export to USD or Alembic in Blender 5.2, so the export is of the meshed object.
 - Particle ids for emitted particles (P1.6 with P2.1): each particle an emitter releases gets a fresh unique id, so
   cached frames keep one id per particle as the pool fills. A bake of an emitter scene records the live particle count
   per frame (frames grow), resume restores the emitters' progress and the clock, and bakes now feed animated-collider
