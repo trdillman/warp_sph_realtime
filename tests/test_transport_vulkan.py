@@ -620,6 +620,10 @@ class FakeGpu:
             return {'size': size, 'data': data.reshape(-1, 4)}
 
 
+_needs_cuda = pytest.mark.skipif(not wp.is_cuda_available(), reason='Readback stages through pinned host memory, which needs a CUDA driver')
+
+
+@_needs_cuda
 def test_readback_round_trip_and_label():
     rb = tr.ReadbackTransport(5, reason='interop unavailable', gpu_module=FakeGpu)
     assert rb.capabilities() == tr.Capabilities('READBACK', False, tr.MAX_COUNT, True, 'interop unavailable')
@@ -799,6 +803,7 @@ def test_quarantine_is_process_state():
     assert tv._QUARANTINE is tr.process_state().quarantine
 
 
+@_needs_cuda
 def test_readback_device_error_is_fatal(monkeypatch):
     rb = tr.ReadbackTransport(5, gpu_module=FakeGpu)
     src = wp.array(positions(5), dtype=wp.vec3, device='cpu')

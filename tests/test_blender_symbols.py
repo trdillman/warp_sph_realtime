@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 import struct
 import subprocess
+import sys
 from types import SimpleNamespace
 import uuid
 
@@ -287,7 +288,8 @@ def test_helper_has_isolated_local_environment(candidate, monkeypatch):
     assert '-I' in seen['args']
     assert Path(seen['args'][0]).name == 'python.exe'
     assert seen['timeout'] == 90.0
-    assert seen['creationflags'] == subprocess.CREATE_NO_WINDOW
+    if sys.platform == 'win32':  # the console-suppression flag only exists on Windows
+        assert seen['creationflags'] == subprocess.CREATE_NO_WINDOW
     assert not any(key in seen['env'] for key in ['_NT_SYMBOL_PATH', '_NT_ALT_SYMBOL_PATH', 'PYTHONPATH', 'DBGHELP_HOMEDIR'])
 
 
