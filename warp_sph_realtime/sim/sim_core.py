@@ -65,6 +65,31 @@ def wall_accel(d: float, v_into: float, r0: float, sound_speed: float) -> float:
 
 
 @wp.func
+def compliant_contact_accel(d: float, v_into: float, r0: float, sound_speed: float) -> float:
+    """C1 repulsion in a boundary layer, with smooth approach-only damping.
+
+    Unlike hard restitution, force goes to zero continuously at first contact.
+    Squaring the compact overlap also makes its first derivative zero there.
+    Mode 2 opts into this forward law; it is not a surrogate backward pass.
+    """
+    overlap = wp.max(1.0 - d / r0, 0.0)
+    approach = 0.5 * (v_into + wp.sqrt(v_into * v_into + 0.0001))
+    return (0.5 * sound_speed * sound_speed / r0 + sound_speed / r0 * approach) * overlap * overlap
+
+
+@wp.func
+def compliant_cylinder_accel(x: wp.vec3, v: wp.vec3, cx: float, cy: float,
+                             r0: float, sound_speed: float) -> wp.vec3:
+    diff = wp.vec3(x[0] - cx, x[1] - cy, 0.0)
+    radius = wp.length(diff)
+    normal = diff / wp.max(radius, 1e-6)
+    # C1 fade at the existing pillar top; the pouring case stays below it.
+    t = wp.clamp((2.2 - x[2]) / r0, 0.0, 1.0)
+    top_weight = t * t * (3.0 - 2.0 * t)
+    return normal * top_weight * compliant_contact_accel(radius - 0.18, -wp.dot(v, normal), r0, sound_speed)
+
+
+@wp.func
 def collide_cylinder_2d(
     x: wp.vec3,
     v: wp.vec3,
@@ -106,17 +131,11 @@ def k_reorder_soa(
     pos_sorted[tid] = pos_in[src_i]
     vel_sorted[tid] = vel_in[src_i]
 
-@wp.kernel
-def k_compute_density_coalesced(
-    grid: wp.uint64,
-    pos_sorted: wp.array[wp.vec3],
-    density_sorted: wp.array[float],
-    mass: float,
-    h: float,
-    rest_density: float
-):
-    tid = int(wp.tid())
-    xi = pos_sorted[tid]
+@wp.func
+def particle_density(grid: wp.uint64, pos_sorted: wp.array[wp.vec3], xi: wp.vec3,
+                     mass: float, h: float) -> float:
+    # Warp 1.17 must replay this dynamic accumulation before differentiating
+    # nonlinear consumers. A function boundary makes that replay explicit.
     rho = float(0.0)
 
     neighbors = wp.hash_grid_query(grid, xi, h)
@@ -124,28 +143,50 @@ def k_compute_density_coalesced(
         r = wp.length(xi - pos_sorted[j])
         if r < h:
             rho += mass * cubic_spline_kernel(r, h)
+    return rho
 
-    density_sorted[tid] = wp.max(rho, rest_density)
 
 @wp.kernel
-def k_wcsph_forces_and_copyback(
+def k_compute_density_coalesced(
+    grid: wp.uint64,
+    pos_sorted: wp.array[wp.vec3],
+    density_sorted: wp.array[float],
+    mass: float,
+    h: float,
+    rest_density: float,
+    contact_mode: int,
+):
+    tid = int(wp.tid())
+    rho = particle_density(grid, pos_sorted, pos_sorted[tid], mass, h)
+
+    if contact_mode == 2:
+        # C1 transition across 1% of rest density. Outside this narrow band the
+        # original constitutive law is exact; no straight-through derivative.
+        width = 0.01 * rest_density
+        delta = rho - rest_density
+        if delta <= -width:
+            density_sorted[tid] = rest_density
+        elif delta >= width:
+            density_sorted[tid] = rho
+        else:
+            density_sorted[tid] = rest_density + (delta + width) * (delta + width) / (4.0 * width)
+    else:
+        density_sorted[tid] = wp.max(rho, rest_density)
+
+@wp.func
+def particle_forces(
     grid: wp.uint64,
     pos_sorted: wp.array[wp.vec3],
     vel_sorted: wp.array[wp.vec3],
     density_sorted: wp.array[float],
-    pos_vbo_out: wp.array[wp.vec3],
-    vel_out: wp.array[wp.vec3],
     mass: float,
     h: float,
     rest_density: float,
     stiffness: float,
     viscosity: float,
-    dt: float,
-    domain_min: wp.vec3,
-    domain_max: wp.vec3,
-    enable_obstacles: int
-):
-    tid = int(wp.tid())
+    enable_obstacles: int,
+    tid: int,
+) -> tuple[wp.vec3, wp.vec3]:
     xi = pos_sorted[tid]
     vi = vel_sorted[tid]
     rho_i = density_sorted[tid]
@@ -174,11 +215,42 @@ def k_wcsph_forces_and_copyback(
             # Monaghan artificial viscosity: damps approaching pairs so impact shocks
             # cannot pump energy into the stiff gamma=7 EOS.
             vr = wp.dot(vi - vj, diff)
-            if vr < 0.0:
-                mu = h * vr / (r * r + 0.01 * h * h)
+            if vr < 0.0 or enable_obstacles == 2:
+                compression = vr
+                if enable_obstacles == 2:
+                    compression = 0.5 * (vr - wp.sqrt(vr * vr + 1e-8))
+                mu = h * compression / (r * r + 0.01 * h * h)
                 pi_ij = -ARTIFICIAL_VISCOSITY_ALPHA * sound_speed * mu / (0.5 * (rho_i + rho_j))
                 f_visc -= mass * mass * pi_ij * grad_w
 
+    return f_pressure, f_visc
+
+
+@wp.kernel
+def k_wcsph_forces_and_copyback(
+    grid: wp.uint64,
+    pos_sorted: wp.array[wp.vec3],
+    vel_sorted: wp.array[wp.vec3],
+    density_sorted: wp.array[float],
+    pos_vbo_out: wp.array[wp.vec3],
+    vel_out: wp.array[wp.vec3],
+    mass: float,
+    h: float,
+    rest_density: float,
+    stiffness: float,
+    viscosity: float,
+    dt: float,
+    domain_min: wp.vec3,
+    domain_max: wp.vec3,
+    enable_obstacles: int,
+):
+    tid = int(wp.tid())
+    xi = pos_sorted[tid]
+    vi = vel_sorted[tid]
+    # Keep loop-local adjoints separate from contact/integration adjoints.
+    f_pressure, f_visc = particle_forces(grid, pos_sorted, vel_sorted, density_sorted,
+                                       mass, h, rest_density, stiffness, viscosity, enable_obstacles, tid)
+    sound_speed = wp.sqrt(7.0 * stiffness / rest_density)
     gravity = wp.vec3(0.0, 0.0, -9.81)
     acc = (f_pressure + f_visc) / mass + gravity
 
@@ -193,11 +265,32 @@ def k_wcsph_forces_and_copyback(
         - wall_accel(domain_max[2] - xi[2], vi[2], r0, sound_speed),
     )
 
+    if enable_obstacles == 2:
+        # Replace the original wall force in this opt-in mode with the same C1
+        # law used by obstacles. Hard domain clamps below remain a safety net.
+        acc = (f_pressure + f_visc) / mass + gravity
+        acc += wp.vec3(
+            compliant_contact_accel(xi[0] - domain_min[0], -vi[0], r0, sound_speed)
+            - compliant_contact_accel(domain_max[0] - xi[0], vi[0], r0, sound_speed),
+            compliant_contact_accel(xi[1] - domain_min[1], -vi[1], r0, sound_speed)
+            - compliant_contact_accel(domain_max[1] - xi[1], vi[1], r0, sound_speed),
+            compliant_contact_accel(xi[2] - domain_min[2], -vi[2], r0, sound_speed)
+            - compliant_contact_accel(domain_max[2] - xi[2], vi[2], r0, sound_speed),
+        )
+        diff = xi - wp.vec3(0.0, 0.0, 0.55)
+        radius = wp.length(diff)
+        normal = diff / wp.max(radius, 1e-6)
+        acc += normal * compliant_contact_accel(radius - 0.55, -wp.dot(vi, normal), r0, sound_speed)
+        acc += compliant_cylinder_accel(xi, vi, -0.85, -0.55, r0, sound_speed)
+        acc += compliant_cylinder_accel(xi, vi, -0.85, 0.55, r0, sound_speed)
+        acc += compliant_cylinder_accel(xi, vi, 0.85, -0.55, r0, sound_speed)
+        acc += compliant_cylinder_accel(xi, vi, 0.85, 0.55, r0, sound_speed)
+
     v_next = vi + acc * dt
     x_next = xi + v_next * dt
 
     # Optional Scene 1 GPU SDF Obstacles (Central Sphere + 4 Vertical Pillars)
-    if enable_obstacles != 0:
+    if enable_obstacles == 1:
         sph_c = wp.vec3(0.0, 0.0, 0.55)
         sph_r = 0.55
         diff_s = x_next - sph_c
@@ -312,6 +405,7 @@ class RealtimeWCSPHSolver:
                     self.mass,
                     self.h,
                     self.rest_density,
+                    self.enable_obstacles,
                 ],
                 device="cuda:0",
             )
@@ -362,7 +456,8 @@ class RealtimeWCSPHSolver:
                 wp.launch(
                     kernel=k_compute_density_coalesced,
                     dim=self.num_particles,
-                    inputs=[self.grid.id, self.pos_sorted, self.density_sorted, self.mass, self.h, self.rest_density],
+                    inputs=[self.grid.id, self.pos_sorted, self.density_sorted,
+                            self.mass, self.h, self.rest_density, self.enable_obstacles],
                     device="cuda:0",
                 )
                 wp.launch(
