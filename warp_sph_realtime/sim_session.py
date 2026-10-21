@@ -17,6 +17,7 @@ from collections.abc import Callable
 
 import bpy
 
+from .props import stiffness_pa
 from .render import session as transport_session
 from .render.gpu_points import settings_from_scene
 from .render.transport import COMPLETED, FAILED, QUARANTINED, FatalTransportError, process_state
@@ -28,7 +29,7 @@ _LOG = logging.getLogger(__name__)
 GL_TEXTURE_MODES = ("POINTS",)
 _BACKEND_NAMES = {"VULKAN": "Vulkan", "OPENGL": "OpenGL"}
 
-# SimSession.active_demo while an authored (tagged-object) scene runs; never a warp_sph_demo_scene value.
+# SimSession.active_demo while an authored (tagged-object) scene runs; never a scene.warp_sph.demo_scene value.
 CUSTOM_SCENE = "CUSTOM"
 
 TIMER_INTERVAL_S = 0.001  # P0.5: 1 ms timer chosen by measured latency; do not change
@@ -60,6 +61,23 @@ runtime = Runtime()
 def gpu_backend() -> str:
     import gpu
     return gpu.platform.backend_type_get()
+
+
+_device_total_mb: list[float] = []
+
+
+def device_total_mb() -> float | None:
+    """Total memory of the simulation GPU in MB, once Warp is loaded (read once: each query is a CUDA call).
+    None before the first Start, after a fatal GPU error or if the query fails."""
+    if _device_total_mb:
+        return _device_total_mb[0]
+    if runtime.wp is None or process_state().restart_required:
+        return None
+    try:
+        _device_total_mb.append(runtime.wp.get_device("cuda:0").total_memory / 2**20)
+    except Exception:
+        return None
+    return _device_total_mb[0]
 
 
 def _scene_api():
@@ -131,7 +149,7 @@ class SimSession:
             # The texture interop failed earlier this process: the legacy VBO interop (no CPU copy)
             # beats Readback, and was the only OpenGL route before the texture adapter.
             return False
-        return getattr(scene, "warp_sph_render_mode", "SSFR_LIQUID") in GL_TEXTURE_MODES
+        return scene.warp_sph.render_mode in GL_TEXTURE_MODES
 
     # -- viewport draw -------------------------------------------------------------------------------
 
@@ -145,7 +163,7 @@ class SimSession:
                 runtime.draw_particles_viewport(self.gl_buf, self.running)
                 return
             scene = bpy.context.scene
-            if not self.running or not scene.warp_sph_show_particles:
+            if not self.running or not scene.warp_sph.show_particles:
                 return
             session.draw(settings_from_scene(scene, session.backend))
         except FatalTransportError as exc:
@@ -186,9 +204,10 @@ class SimSession:
         from .scene.description import SceneFillError, SceneValidationError
         try:
             desc = _scene_api().description_from_blender(scene, depsgraph)
+            settings = scene.warp_sph
             return runtime.RealtimeWCSPHSolver.from_scene(
-                desc, scene.warp_sph_particle_spacing, substeps=scene.warp_sph_substeps,
-                stiffness=scene.warp_sph_stiffness, cfl_factor=scene.warp_sph_time_step_scale)
+                desc, settings.particle_spacing, substeps=settings.substeps,
+                stiffness=stiffness_pa(settings), cfl_factor=settings.time_step_scale)
         except (SceneValidationError, SceneFillError) as exc:
             raise SceneSetupError(str(exc)) from exc
 
@@ -196,14 +215,15 @@ class SimSession:
         if demo_type == CUSTOM_SCENE:
             return self._custom_solver(
                 scene, depsgraph if depsgraph is not None else bpy.context.evaluated_depsgraph_get())
+        settings = scene.warp_sph
         solver = runtime.RealtimeWCSPHSolver(
             num_particles=num_p,
             h=0.04,
-            substeps=scene.warp_sph_substeps,
+            substeps=settings.substeps,
             enable_obstacles=1 if demo_type == "DOUBLE_DAM_PILLARS" else 0,
         )
-        solver.stiffness = scene.warp_sph_stiffness
-        solver.cfl_factor = scene.warp_sph_time_step_scale
+        solver.stiffness = stiffness_pa(settings)
+        solver.cfl_factor = settings.time_step_scale
         # Initialize GPU SoA particle distribution for the chosen demo
         runtime.launch_demo_scene_init(solver, demo_type)
         solver.rebuild_cuda_graph()
@@ -296,11 +316,12 @@ class SimSession:
         except Exception as exc:
             report({'ERROR'}, f"WarpSPH could not rebuild the scene: {exc}")
             if self.solver is not None:  # keep the running session; do not retry the same change
+                settings = self.scene.warp_sph
                 if self.active_demo == CUSTOM_SCENE:
-                    self.scene.warp_sph_scene_source = 'CUSTOM'
+                    settings.scene_source = 'CUSTOM'
                 else:
-                    self.scene.warp_sph_particle_count = self.solver.num_particles
-                    self.scene.warp_sph_demo_scene = self.active_demo
+                    settings.particle_count = self.solver.num_particles
+                    settings.demo_scene = self.active_demo
         return False
 
     # -- lifecycle -----------------------------------------------------------------------------------
@@ -319,10 +340,11 @@ class SimSession:
         try:
             activate()
             scene = self.scene
-            if scene.warp_sph_scene_source == 'CUSTOM':
+            settings = scene.warp_sph
+            if settings.scene_source == 'CUSTOM':
                 self.reallocate(scene, 0, CUSTOM_SCENE, context.window, depsgraph=context.evaluated_depsgraph_get())
             else:
-                self.reallocate(scene, scene.warp_sph_particle_count, scene.warp_sph_demo_scene, context.window)
+                self.reallocate(scene, settings.particle_count, settings.demo_scene, context.window)
         except SceneSetupError as exc:
             self.stop(context)
             self.last_error = f"Scene not valid: {exc}"
@@ -358,10 +380,10 @@ class SimSession:
             report({'WARNING'}, "WarpSPH stopped: its window has no 3D viewport")
             self.stop(context)
             return False
-        scene = self.scene
         try:
-            target_count = scene.warp_sph_particle_count
-            target_demo = scene.warp_sph_demo_scene
+            settings = self.scene.warp_sph
+            target_count = settings.particle_count
+            target_demo = settings.demo_scene
         except ReferenceError:  # the scene was deleted under the run
             report({'WARNING'}, "WarpSPH stopped: its scene was removed")
             self.stop(context)
@@ -377,11 +399,11 @@ class SimSession:
                     return False
                 _redraw_views(screen)  # kept the running session; no step this tick
                 return True
-        elif (self.solver.stiffness != scene.warp_sph_stiffness
-              or self.solver.cfl_factor != scene.warp_sph_time_step_scale):
+        elif (self.solver.stiffness != stiffness_pa(settings)
+              or self.solver.cfl_factor != settings.time_step_scale):
             try:
-                self.solver.stiffness = scene.warp_sph_stiffness
-                self.solver.cfl_factor = scene.warp_sph_time_step_scale
+                self.solver.stiffness = stiffness_pa(settings)
+                self.solver.cfl_factor = settings.time_step_scale
                 self.solver.update_time_step()
                 self.solver.rebuild_cuda_graph()
             except Exception as exc:
@@ -399,8 +421,8 @@ class SimSession:
 
         t0 = time.perf_counter()
 
-        self.solver.substeps = scene.warp_sph_substeps
-        solver, use_graph = self.solver, scene.warp_sph_use_cuda_graph
+        self.solver.substeps = settings.substeps
+        solver, use_graph = self.solver, settings.use_cuda_graph
         try:
             if self.session is not None:
                 # No host sync: the adapter orders publication on the solver stream and

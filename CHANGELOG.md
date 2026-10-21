@@ -16,6 +16,16 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   start/tick/stop/dispose; `addon.py` is now thin UI. Behaviour is unchanged for a single scene. One run per
   Blender process: Start in a second scene while another runs reports which scene to stop first, and the
   panel there says so. A run whose scene is deleted stops with a warning.
+- Scene settings moved from 17 flat `scene.warp_sph_*` properties into one settings group, `scene.warp_sph`
+  (`props.py`); the per-object role stays on objects. Files saved by earlier versions are migrated once when
+  opened (or when the add-on is enabled with such a file open): saved values are copied and the old ones
+  removed; a missing or unusable value keeps the default; an old value never overwrites one already set in
+  the group.
+- Fluid stiffness is shown and stored in thousands (default 90 = 90,000; range 10 to 400), so each slider step
+  is 1,000 instead of the previous 500,000 step over a 10,000 to 400,000 range. Old values are divided by
+  1,000 on migration; the solver receives the same value as before.
+- Stiffness, CUDA Graph capture and the SSFR filter and absorption settings moved to a new, collapsed
+  **Advanced** sub-panel.
 
 ### Added
 - Warp install runs in the background (P1.4): the download, checksum check and extraction run on a worker thread
@@ -33,6 +43,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   "Allow uncertified version (unsupported)" is ticked, which shows a persistent warning. The foreign-Warp guard
   accepts only the chosen folder, switching back to Download restores the owned install, and only Download needs
   Blender's Allow Online Access. Copy Diagnostics reports which source is in use.
+- GPU memory warning under the particle count (Demo) and spacing (Custom): about 150 bytes per particle plus
+  32 MB, measured on Warp 1.17; it warns above half of the GPU's memory (read once after the first Start) or
+  above 4 GB while that is unknown. The Custom estimate is an upper bound from the fluid objects' bounding
+  boxes.
 - Scene authoring: mark meshes as **Domain**, **Fluid** or **Collider** (object `warp_sph.role`, sidebar buttons and
   a Properties > Physics panel), choose **Custom** as the scene source, set the particle spacing, and press Start;
   the fluid volumes are filled and the colliders built from the evaluated meshes. **Add Fluid Scene** creates a

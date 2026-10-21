@@ -331,11 +331,9 @@ RT = _Current()
 
 def make_context(areas=('VIEW_3D',)):
     scene = Scene()
-    for k, v in dict(warp_sph_particle_count=1000, warp_sph_demo_scene='DOUBLE_DAM_PILLARS',
-                     warp_sph_substeps=2, warp_sph_stiffness=1.0, warp_sph_time_step_scale=0.4,
-                     warp_sph_use_cuda_graph=True, warp_sph_show_particles=True,
-                     warp_sph_scene_source='DEMO', warp_sph_particle_spacing=0.02).items():
-        setattr(scene, k, v)
+    scene.warp_sph = NS(particle_count=1000, demo_scene='DOUBLE_DAM_PILLARS', substeps=2, stiffness=1.0,
+                        time_step_scale=0.4, use_cuda_graph=True, show_particles=True, scene_source='DEMO',
+                        particle_spacing=0.02, render_mode='SSFR_LIQUID')  # the real defaults
     return NS(scene=scene, window=Window(), window_manager=WM(), screen=NS(areas=[Area(a) for a in areas]),
               evaluated_depsgraph_get=lambda: 'depsgraph')
 bpy.context = make_context()
@@ -511,13 +509,13 @@ def fatal_tick_stops_without_cleanup(ctx):
 def transactional_resize(ctx):
     op, _ = start(ctx)
     old = RT.session
-    ctx.scene.warp_sph_particle_count = 2000
+    ctx.scene.warp_sph.particle_count = 2000
     FACTORY.open_error = RuntimeError('oom')
     assert op.modal(ctx, TIMER) == {'PASS_THROUGH'}  # keeps running on the old session
-    assert RT.session is old and old.transport.closes == 0 and ctx.scene.warp_sph_particle_count == 1000
+    assert RT.session is old and old.transport.closes == 0 and ctx.scene.warp_sph.particle_count == 1000
     assert RT.solver.steps == 0 and RT.step_count == 0  # no solver step in the failed tick
     FACTORY.open_error = None
-    ctx.scene.warp_sph_particle_count = 2000
+    ctx.scene.warp_sph.particle_count = 2000
     assert op.modal(ctx, TIMER) == {'PASS_THROUGH'}
     assert RT.session is not old and old.transport.closes == 1 and RT.solver.num_particles == 2000
 
@@ -527,7 +525,7 @@ def load_demo_while_running_uses_transaction(ctx):
     FACTORY.open_error = RuntimeError('oom')
     op = addon.WM_OT_warp_sph_load_demo()
     op.demo_id = 'BLOCK_FLOP_SPLASH'
-    assert op.execute(ctx) == {'CANCELLED'} and ctx.scene.warp_sph_demo_scene == 'DOUBLE_DAM_PILLARS'
+    assert op.execute(ctx) == {'CANCELLED'} and ctx.scene.warp_sph.demo_scene == 'DOUBLE_DAM_PILLARS'
 
 @case
 def solver_step_error_is_fatal(ctx):
@@ -543,7 +541,7 @@ def graph_rebuild_error_is_fatal(ctx):
     op, _ = start(ctx)
     session, solver = RT.session, RT.solver
     Solver.rebuild_error = RuntimeError('graph capture failed')
-    ctx.scene.warp_sph_stiffness = 2.0
+    ctx.scene.warp_sph.stiffness = 2.0
     assert op.modal(ctx, TIMER) == {'CANCELLED'} and not RT.running and RT.session is None
     assert 'graph rebuild failed' in RT.restart_required and solver.steps == 0
     assert session in sim_session._QUARANTINE and solver in sim_session._QUARANTINE and session.transport.closes == 0
@@ -597,9 +595,9 @@ def gl_resize_commits_solver_with_buffer(ctx):
     RUNTIME.wp.synchronize_device = lambda device: None
     try:
         op, _ = start(ctx)
-        ctx.scene.warp_sph_particle_count = 2000
+        ctx.scene.warp_sph.particle_count = 2000
         assert op.modal(ctx, TIMER) == {'PASS_THROUGH'}  # failed after the commit point
-        assert RT.gl_buf.n == RT.solver.num_particles == ctx.scene.warp_sph_particle_count == 2000
+        assert RT.gl_buf.n == RT.solver.num_particles == ctx.scene.warp_sph.particle_count == 2000
         assert op.modal(ctx, TIMER) == {'PASS_THROUGH'} and RT.solver.steps == 1
     finally:
         RT.stop(ctx)
@@ -624,15 +622,15 @@ class GLBackend:
 
 @case
 def opengl_points_runs_through_gl_texture_session(ctx):
-    ctx.scene.warp_sph_render_mode = 'POINTS'
+    ctx.scene.warp_sph.render_mode = 'POINTS'
     with GLBackend():
         op, result = start(ctx)
         assert result == {'RUNNING_MODAL'} and RT.gl_buf is None and RT.session.backend == 'OPENGL'
         assert RT.session.label == ts.GL_LABEL and FACTORY.resolves == 0 and not RT.interop_unavailable
         assert op.modal(ctx, TIMER) == {'PASS_THROUGH'} and RT.solver.steps == 1
         # the route is fixed for the run: a mode flip plus a resize stays on the session
-        ctx.scene.warp_sph_render_mode = 'SSFR_LIQUID'
-        ctx.scene.warp_sph_particle_count = 2000
+        ctx.scene.warp_sph.render_mode = 'SSFR_LIQUID'
+        ctx.scene.warp_sph.particle_count = 2000
         old = RT.session
         assert op.modal(ctx, TIMER) == {'PASS_THROUGH'}
         assert RT.gl_buf is None and RT.session is not old and old.transport.closes == 1
@@ -644,7 +642,7 @@ def opengl_ssfr_and_spheres_keep_the_legacy_vbo_path(ctx):
     with GLBackend():
         for mode in ('SSFR_LIQUID', 'SPHERES'):
             ctx = reset()
-            ctx.scene.warp_sph_render_mode = mode
+            ctx.scene.warp_sph.render_mode = mode
             op, result = start(ctx)
             assert result == {'RUNNING_MODAL'} and RT.session is None and RT.gl_buf is not None, mode
             assert op.modal(ctx, TIMER) == {'PASS_THROUGH'} and RT.solver.steps == 1
@@ -656,7 +654,7 @@ def opengl_ssfr_and_spheres_keep_the_legacy_vbo_path(ctx):
 @case
 def opengl_texture_failure_falls_back_once_then_uses_legacy_vbo(ctx):
     FACTORY.gl_error = RecoverableTransportError('cudaGraphicsGLRegisterImage failed')
-    ctx.scene.warp_sph_render_mode = 'POINTS'
+    ctx.scene.warp_sph.render_mode = 'POINTS'
     with GLBackend():
         start(ctx)
         assert RT.session.label == ts.READBACK_LABEL and RT.gl_buf is None
@@ -665,19 +663,19 @@ def opengl_texture_failure_falls_back_once_then_uses_legacy_vbo(ctx):
         RT.stop(ctx)
         FACTORY.gl_error = None
         ctx = bpy.context = make_context()
-        ctx.scene.warp_sph_render_mode = 'POINTS'
+        ctx.scene.warp_sph.render_mode = 'POINTS'
         start(ctx)
         # no texture retry until restart; later Points runs use the legacy VBO interop, not Readback
         assert RT.session is None and RT.gl_buf is not None
         RT.stop(ctx)
-        ctx.scene.warp_sph_render_mode = 'SSFR_LIQUID'        # legacy modes ignore the interop flag
+        ctx.scene.warp_sph.render_mode = 'SSFR_LIQUID'        # legacy modes ignore the interop flag
         start(ctx)
         assert RT.session is None and RT.gl_buf is not None
 
 @case
 def opengl_texture_fatal_failure_requires_restart(ctx):
     FACTORY.open_error = FatalTransportError('cuda context lost')
-    ctx.scene.warp_sph_render_mode = 'POINTS'
+    ctx.scene.warp_sph.render_mode = 'POINTS'
     with GLBackend():
         assert start(ctx)[1] == {'CANCELLED'} and RT.restart_required == 'cuda context lost'
         assert RT.gl_buf is None and RT.session is None
@@ -686,10 +684,10 @@ def opengl_texture_fatal_failure_requires_restart(ctx):
 def resize_never_downgrades_interop(ctx):
     op, _ = start(ctx)
     old = RT.session
-    ctx.scene.warp_sph_particle_count = 2000
+    ctx.scene.warp_sph.particle_count = 2000
     FACTORY.vulkan_error = RecoverableTransportError('needs more VRAM')
     assert op.modal(ctx, TIMER) == {'PASS_THROUGH'}
-    assert RT.session is old and old.transport.closes == 0 and ctx.scene.warp_sph_particle_count == 1000
+    assert RT.session is old and old.transport.closes == 0 and ctx.scene.warp_sph.particle_count == 1000
     assert not RT.interop_unavailable and Transport.log[-1].closes == 1  # new Readback released
     assert 'Vulkan interop' in op.reports[-1][1]
 
@@ -698,7 +696,7 @@ def resize_failed_old_close_quarantines_everything(ctx):
     op, _ = start(ctx)
     old, old_solver = RT.session, RT.solver
     old.transport.close_result = 'failed'
-    ctx.scene.warp_sph_particle_count = 2000
+    ctx.scene.warp_sph.particle_count = 2000
     assert op.modal(ctx, TIMER) == {'CANCELLED'}
     assert RT.restart_required == 'fatal' and RT.session is None and RT.solver is None
     new = Transport.log[-1]
@@ -832,9 +830,9 @@ def panel_offers_opengl_only_for_running_readback(ctx):
         ops = []
         panel = addon.VIEW3D_PT_warp_sph()
         panel.layout = Layout(ops)
-        for k, v in dict(warp_sph_render_mode='POINTS', warp_sph_depth_test=True, warp_sph_point_size=2.0,
-                         warp_sph_particle_radius=0.02, warp_sph_particle_color=(1, 1, 1, 1)).items():
-            setattr(ctx.scene, k, v)
+        for k, v in dict(render_mode='POINTS', depth_test=True, point_size=2.0,
+                         particle_radius=0.02, particle_color=(1, 1, 1, 1)).items():
+            setattr(ctx.scene.warp_sph, k, v)
         panel.draw(ctx)
         return ops
     assert 'wm.warp_sph_use_opengl' not in panel_ops()        # idle
@@ -847,19 +845,19 @@ def panel_offers_opengl_only_for_running_readback(ctx):
 
 @case
 def custom_start_builds_solver_from_description(ctx):
-    ctx.scene.warp_sph_scene_source = 'CUSTOM'
-    ctx.scene.warp_sph_particle_spacing = 0.025
+    ctx.scene.warp_sph.scene_source = 'CUSTOM'
+    ctx.scene.warp_sph.particle_spacing = 0.025
     op, result = start(ctx)
     assert result == {'RUNNING_MODAL'} and RT.running and RT.active_demo == addon.CUSTOM_SCENE, result
     assert DESC.calls == [(ctx.scene, 'depsgraph')]                     # evaluated depsgraph
-    assert Solver.from_scene_calls == [('desc', 0.025, 2, 1.0, 0.4)]   # spacing + speed settings
+    assert Solver.from_scene_calls == [('desc', 0.025, 2, 1000.0, 0.4)]  # spacing + speed; stiffness x1000
     assert RT.solver.num_particles == 777 and FACTORY.counts == [777]  # output sized from the fill
     assert HELPERS == ['removed']                                       # no demo wireframes
     session = RT.session
-    assert ctx.scene.warp_sph_particle_count == 1000                    # demo slider is not the count
+    assert ctx.scene.warp_sph.particle_count == 1000                    # demo slider is not the count
     assert op.modal(ctx, TIMER) == {'PASS_THROUGH'} and RT.solver.steps == 1 and RT.session is session
     assert ctx.window_manager.steps == [0.001]
-    ctx.scene.warp_sph_scene_source = 'DEMO'   # a source change while running applies on the next Start
+    ctx.scene.warp_sph.scene_source = 'DEMO'   # a source change while running applies on the next Start
     assert op.modal(ctx, TIMER) == {'PASS_THROUGH'} and RT.solver.steps == 2 and RT.session is session
 
 @case
@@ -867,7 +865,7 @@ def custom_scene_errors_are_reported_and_leave_nothing_behind(ctx):
     for kind, message in (('validation', 'exactly one DOMAIN object is required; found 0 (none)'),
                           ('fill', 'fluid volumes contain no particles at spacing 0.02')):
         ctx = reset()
-        ctx.scene.warp_sph_scene_source = 'CUSTOM'
+        ctx.scene.warp_sph.scene_source = 'CUSTOM'
         if kind == 'validation':
             DESC.error = SceneValidationError(message)
         else:
@@ -880,7 +878,7 @@ def custom_scene_errors_are_reported_and_leave_nothing_behind(ctx):
         assert not Transport.log and not sim_session._QUARANTINE and not RT.restart_required and not handles
         assert not ctx.window_manager.timers and not ctx.window_manager.modals
     ctx = reset()
-    ctx.scene.warp_sph_scene_source = 'CUSTOM'
+    ctx.scene.warp_sph.scene_source = 'CUSTOM'
     op, result = start(ctx)                    # the next valid Start clears the message
     assert result == {'RUNNING_MODAL'} and RT.last_error == ''
 
@@ -896,7 +894,7 @@ def custom_start_on_legacy_gl_sizes_vbo_from_fill(ctx):
     gpu.platform.backend_type_get, RUNTIME.ZeroCopyGLBuffer52 = (lambda: 'OPENGL'), GLBuffer
     RUNTIME.wp.synchronize_device = lambda device: None
     try:
-        ctx.scene.warp_sph_scene_source = 'CUSTOM'
+        ctx.scene.warp_sph.scene_source = 'CUSTOM'
         op, result = start(ctx)
         assert result == {'RUNNING_MODAL'} and RT.session is None
         assert RT.gl_buf.n == RT.solver.num_particles == 777
@@ -905,7 +903,7 @@ def custom_start_on_legacy_gl_sizes_vbo_from_fill(ctx):
         assert made[0].destroys == 1
         DESC.error = SceneValidationError('fluid volume extends outside the domain')
         ctx = make_context()
-        ctx.scene.warp_sph_scene_source = 'CUSTOM'
+        ctx.scene.warp_sph.scene_source = 'CUSTOM'
         op, result = start(ctx)
         assert result == {'CANCELLED'} and len(made) == 1 and RT.gl_buf is None  # no VBO for a bad scene
     finally:
@@ -921,17 +919,17 @@ def demo_start_never_reads_tagged_objects(ctx):
 
 @case
 def load_demo_while_custom_runs(ctx):
-    ctx.scene.warp_sph_scene_source = 'CUSTOM'
+    ctx.scene.warp_sph.scene_source = 'CUSTOM'
     start(ctx)
     FACTORY.open_error = RuntimeError('oom')
     op = addon.WM_OT_warp_sph_load_demo()
     op.demo_id = 'BLOCK_FLOP_SPLASH'
     assert op.execute(ctx) == {'CANCELLED'}
-    assert ctx.scene.warp_sph_scene_source == 'CUSTOM' and RT.active_demo == addon.CUSTOM_SCENE  # kept running
-    assert ctx.scene.warp_sph_particle_count == 1000
+    assert ctx.scene.warp_sph.scene_source == 'CUSTOM' and RT.active_demo == addon.CUSTOM_SCENE  # kept running
+    assert ctx.scene.warp_sph.particle_count == 1000
     FACTORY.open_error = None
     assert op.execute(ctx) == {'FINISHED'}
-    assert ctx.scene.warp_sph_scene_source == 'DEMO' and RT.active_demo == 'BLOCK_FLOP_SPLASH'
+    assert ctx.scene.warp_sph.scene_source == 'DEMO' and RT.active_demo == 'BLOCK_FLOP_SPLASH'
     assert RT.solver.num_particles == 1000
 
 @case

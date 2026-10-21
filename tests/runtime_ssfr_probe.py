@@ -58,8 +58,9 @@ def run():
     check_fb = fn('glCheckFramebufferStatus', c.c_uint, [c.c_uint])
     gl_finish = fn('glFinish', None, [])
     renderer = v.SSFRViewportRenderer()
-    scene = SimpleNamespace(warp_sph_particle_radius=.2, warp_sph_particle_color=(.12,.68,1,1),
-                            warp_sph_depth_test=True, warp_sph_filter_iterations=2)
+    scene = SimpleNamespace(warp_sph=SimpleNamespace(particle_radius=.2, particle_color=(.12,.68,1,1),
+                                                     depth_test=True, filter_iterations=2,
+                                                     filter_sigma=4.0, absorption=(0.85, 0.22, 0.05)))
     buf = None
     @v._preserve_gl_state
     def controlled():

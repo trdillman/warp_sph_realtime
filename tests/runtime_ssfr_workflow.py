@@ -36,9 +36,9 @@ rv.view_location=(0,0,1.3);rv.view_distance=9
 rv.view_rotation=Vector((.8,-1,.65)).to_track_quat('Z','Y')
 area.spaces.active.shading.type='SOLID'
 area.spaces.active.overlay.show_overlays=False
-R['workload']={k:getattr(scene,k) for k in ('warp_sph_particle_count','warp_sph_substeps',
-                  'warp_sph_use_cuda_graph','warp_sph_stiffness','warp_sph_time_step_scale')}
-assert scene.warp_sph_particle_count==1_000_000
+R['workload']={k:getattr(scene.warp_sph,k) for k in ('particle_count','substeps',
+                  'use_cuda_graph','stiffness','time_step_scale')}
+assert scene.warp_sph.particle_count==1_000_000
 CASES=[('SSFR_LIQUID','PERSP'),('SSFR_LIQUID','ORTHO'),('SPHERES','ORTHO'),
        ('POINTS','PERSP'),('SSFR_LIQUID','PERSP')]*3
 idx=-1
@@ -86,7 +86,7 @@ def tick():
                 result=bpy.ops.wm.warp_sph_start()
                 assert 'RUNNING_MODAL' in result
                 phase='case';idx+=1;draws=[];deadline=time.monotonic()+20
-                scene.warp_sph_render_mode,rv.view_perspective=CASES[idx]
+                scene.warp_sph.render_mode,rv.view_perspective=CASES[idx]
                 area.tag_redraw()
                 return .3
             if phase=='stopping':
@@ -114,7 +114,7 @@ def tick():
                 bpy.ops.wm.warp_sph_stop();phase='stopping';deadline=time.monotonic()+20
                 save();return .3
             idx+=1;draws=[];deadline=time.monotonic()+20
-            scene.warp_sph_render_mode,rv.view_perspective=CASES[idx]
+            scene.warp_sph.render_mode,rv.view_perspective=CASES[idx]
             # Resize the actual VIEW_3D by changing the header layout via area split.
             if idx==1:
                 bpy.ops.screen.area_split(direction='VERTICAL',factor=.7)

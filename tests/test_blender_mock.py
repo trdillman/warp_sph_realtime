@@ -82,45 +82,55 @@ class TestBlenderIntegrationAndDemos(unittest.TestCase):
 
     def test_extension_register_and_unregister(self):
         """Verifies full extension lifecycle: register creates UI panel & scene props, unregister cleans up."""
+        from warp_sph_realtime import props
         extension_module.register()
         expected_props = [
-            "warp_sph_demo_scene",
-            "warp_sph_particle_count",
-            "warp_sph_substeps",
-            "warp_sph_point_size",
-            "warp_sph_use_cuda_graph",
-            "warp_sph_time_step_scale",
-            "warp_sph_stiffness",
-            "warp_sph_show_particles",
-            "warp_sph_render_mode",
-            "warp_sph_particle_radius",
-            "warp_sph_filter_iterations",
-            "warp_sph_filter_sigma",
-            "warp_sph_absorption",
-            "warp_sph_particle_color",
-            "warp_sph_depth_test",
-            "warp_sph_scene_source",
-            "warp_sph_particle_spacing",
+            "demo_scene",
+            "particle_count",
+            "substeps",
+            "point_size",
+            "use_cuda_graph",
+            "time_step_scale",
+            "stiffness",
+            "show_particles",
+            "render_mode",
+            "particle_radius",
+            "filter_iterations",
+            "filter_sigma",
+            "absorption",
+            "particle_color",
+            "depth_test",
+            "scene_source",
+            "particle_spacing",
         ]
-        for prop in expected_props:
-            self.assertTrue(hasattr(bpy_mock.types.Scene, prop), f"Missing scene property {prop}")
+        self.assertIs(bpy_mock.types.Scene.warp_sph["type"], props.WARPSPH_SceneSettings)
+        settings = props.WARPSPH_SceneSettings.__annotations__
+        self.assertEqual(sorted(settings), sorted(expected_props))
+        self.assertEqual(sorted(props.LEGACY_NAMES), sorted(expected_props))  # every old flat setting migrates
+        self.assertFalse([n for n in vars(bpy_mock.types.Scene) if n.startswith("warp_sph_")])
         self.assertTrue(hasattr(bpy_mock.types.Object, "warp_sph"))
         registered = {cls.__name__ for cls in _registered_classes}
         for op in ("WM_OT_warp_sph_pause", "WM_OT_warp_sph_step_frame", "WARPSPH_ObjectSettings",
-                   "OBJECT_OT_warp_sph_set_role", "OBJECT_OT_warp_sph_add_fluid_scene", "OBJECT_PT_warp_sph"):
+                   "WARPSPH_SceneSettings", "OBJECT_OT_warp_sph_set_role", "OBJECT_OT_warp_sph_add_fluid_scene",
+                   "OBJECT_PT_warp_sph", "VIEW3D_PT_warp_sph_advanced"):
             self.assertIn(op, registered)
         # Small-range values need fine click steps (Blender step is in 1/100 units)
-        radius = bpy_mock.types.Scene.warp_sph_particle_radius
+        radius = settings["particle_radius"]
         self.assertLessEqual(radius["step"] / 100.0, 0.0005)
         self.assertGreaterEqual(radius["precision"], 4)
+        # Blender float steps must be 1..100 hundredths: stiffness is in thousands, one click = 1,000
+        stiffness = settings["stiffness"]
+        self.assertLessEqual(stiffness["step"], 100)
+        self.assertEqual((stiffness["min"], stiffness["default"], stiffness["max"]), (10.0, 90.0, 400.0))
+        self.assertEqual(props.stiffness_pa(types.SimpleNamespace(stiffness=90.0)), 90000.0)
 
         extension_module.unregister()
         registered = {cls.__name__ for cls in _registered_classes}
         self.assertNotIn("WM_OT_warp_sph_pause", registered)
         self.assertNotIn("WARPSPH_ObjectSettings", registered)
         self.assertFalse(hasattr(bpy_mock.types.Object, "warp_sph"))
-        for prop in expected_props:
-            self.assertFalse(hasattr(bpy_mock.types.Scene, prop), f"Property {prop} not cleaned up after unregister")
+        self.assertNotIn("WARPSPH_SceneSettings", registered)
+        self.assertFalse(hasattr(bpy_mock.types.Scene, "warp_sph"), "scene settings not cleaned up after unregister")
 
     def test_interop_bridge_interface(self):
         """Verifies that ZeroCopyGLBuffer52 class and OpenGL methods are properly exposed."""

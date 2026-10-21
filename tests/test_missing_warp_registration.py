@@ -47,14 +47,14 @@ addon.register()
 assert "warp" not in sys.modules
 assert any(c.__name__ == "WARPSPH_Preferences" for c in registered)
 assert any(c.__name__ == "WM_OT_warp_sph_install" for c in registered)
-assert hasattr(bpy.types.Scene,"warp_sph_particle_count")
+assert hasattr(bpy.types.Scene,"warp_sph")
 state=warp_runtime.status()
 assert state.available is False
 addon.unregister()
 assert "warp" not in sys.modules
 assert len(registered) == 0
-assert not hasattr(bpy.types.Scene,"warp_sph_particle_count")
-assert not hasattr(bpy.types.Object,"warp_sph") and not hasattr(bpy.types.Scene,"warp_sph_scene_source")
+assert not hasattr(bpy.types.Scene,"warp_sph")
+assert not hasattr(bpy.types.Object,"warp_sph")
 print("MISSING_WARP_REGISTRATION_OK")
 '''
 

@@ -1,9 +1,9 @@
-"""Blender operators, panels, scene properties and the modal timer: thin UI over ``sim_session``.
+"""Blender operators, panels and the modal timer: thin UI over ``sim_session`` and ``props``.
 
 All runtime state lives in one ``sim_session.SimSession`` per scene; operators, panels and the timer
-call it. NVIDIA Warp and every CUDA-dependent module are imported only in ``_activate_runtime()``,
-after the owned/version/device checks, so the extension registers (and can install Warp) on machines
-without it.
+call it. Scene settings are the ``props.WARPSPH_SceneSettings`` group at ``scene.warp_sph``. NVIDIA
+Warp and every CUDA-dependent module are imported only in ``_activate_runtime()``, after the
+owned/version/device checks, so the extension registers (and can install Warp) on machines without it.
 """
 
 from __future__ import annotations
@@ -11,9 +11,9 @@ from __future__ import annotations
 import importlib
 
 import bpy
-from bpy.props import BoolProperty, EnumProperty, FloatProperty, FloatVectorProperty, IntProperty, PointerProperty
+from bpy.props import EnumProperty, PointerProperty
 
-from . import diagnostics, install_ui, sim_session, warp_installer, warp_runtime
+from . import diagnostics, install_ui, props, sim_session, warp_installer, warp_runtime
 from .render.gpu_points import settings_from_scene
 from .render.transport import COMPLETED
 from .sim_session import CUSTOM_SCENE
@@ -139,12 +139,12 @@ class WM_OT_warp_sph_load_demo(bpy.types.Operator):
     demo_id: bpy.props.StringProperty(default="DOUBLE_DAM_PILLARS")
 
     def execute(self, context):
-        scene = context.scene
-        scene.warp_sph_scene_source = 'DEMO'
-        scene.warp_sph_demo_scene = self.demo_id
+        settings = context.scene.warp_sph
+        settings.scene_source = 'DEMO'
+        settings.demo_scene = self.demo_id
         session = _session(context)
         if session.running:
-            if not session.apply_scene(context, scene.warp_sph_particle_count, self.demo_id, self.report):
+            if not session.apply_scene(context, settings.particle_count, self.demo_id, self.report):
                 return {'CANCELLED'}
         else:
             bpy.ops.wm.warp_sph_start()
@@ -328,7 +328,7 @@ class OBJECT_OT_warp_sph_add_fluid_scene(bpy.types.Operator):
             return {'CANCELLED'}
         for name, size, location, rotation_z, role in _STARTER_SCENE:
             _assign_role(_add_box(collection, name, size, location, rotation_z), role)
-        context.scene.warp_sph_scene_source = 'CUSTOM'
+        context.scene.warp_sph.scene_source = 'CUSTOM'
         self.report({'INFO'}, "Added a WarpSPH domain, fluid and collider; press Start Realtime Sim")
         return {'FINISHED'}
 
@@ -368,31 +368,41 @@ class OBJECT_PT_warp_sph(bpy.types.Panel):
         layout.label(text=help_text, icon='INFO')
         if obj.warp_sph.role == "NONE" and role is not None:
             layout.label(text=f"Role {role} from the legacy 'warp_sph_role' property")
-        if context.scene.warp_sph_scene_source != 'CUSTOM':
+        if context.scene.warp_sph.scene_source != 'CUSTOM':
             layout.label(text="Roles are used when the WarpSPH scene source is Custom")
         session = _session(context)
         if session.running and session.active_demo == CUSTOM_SCENE:
             layout.label(text="Running: Stop and Start to apply role or geometry changes", icon='INFO')
 
 
+def _draw_vram_warning(layout, particles: int):
+    warning = props.vram_warning(particles, sim_session.device_total_mb())
+    if warning:
+        layout.label(text=warning, icon='ERROR')
+
+
 def _draw_custom_scene(box, scene, session):
+    settings = scene.warp_sph
+    try:
+        by_role = _scene_api().objects_by_role(scene)
+        warnings = _scene_api().scene_warnings(scene)
+    except Exception as exc:  # never break the panel; Start reports the full validation
+        by_role, warnings = {}, [f"Cannot read scene roles: {exc}"]
     col = box.column(align=True)
-    col.prop(scene, "warp_sph_particle_spacing")
+    col.prop(settings, "particle_spacing")
     solver = session.solver
     custom_running = session.running and session.active_demo == CUSTOM_SCENE and solver is not None
     if custom_running:
         col.label(text=f"Particles: {solver.num_particles:,} (from the fill)")
+        _draw_vram_warning(col, solver.num_particles)
+    else:
+        _draw_vram_warning(col, props.custom_particle_estimate(by_role.get("FLUID", []), settings.particle_spacing))
     box.operator("object.warp_sph_add_fluid_scene", icon='ADD')
     box.label(text="Set selected objects as:")
     row = box.row(align=True)
     for role, text, icon in (("DOMAIN", "Domain", 'MESH_CUBE'), ("FLUID", "Fluid", 'MOD_FLUIDSIM'),
                              ("COLLIDER", "Collider", 'PHYSICS'), ("NONE", "Clear", 'X')):
         row.operator("object.warp_sph_set_role", text=text, icon=icon).role = role
-    try:
-        by_role = _scene_api().objects_by_role(scene)
-        warnings = _scene_api().scene_warnings(scene)
-    except Exception as exc:  # never break the panel; Start reports the full validation
-        by_role, warnings = {}, [f"Cannot read scene roles: {exc}"]
     col = box.column(align=True)
     for role, title in (("DOMAIN", "Domain"), ("FLUID", "Fluid"), ("COLLIDER", "Colliders")):
         objs = by_role.get(role, [])
@@ -404,15 +414,16 @@ def _draw_custom_scene(box, scene, session):
         box.label(text="Running: Stop and Start to apply scene changes", icon='INFO')
 
 
-def _draw_demo_scene(box, scene):
+def _draw_demo_scene(box, settings):
     col_demo = box.column(align=True)
     op1 = col_demo.operator("wm.warp_sph_load_demo", icon='MOD_FLUIDSIM', text="Demo 1: Double Dam + Pillars")
     op1.demo_id = "DOUBLE_DAM_PILLARS"
     op2 = col_demo.operator("wm.warp_sph_load_demo", icon='FORCE_TURBULENCE', text="Demo 2: Block Flop Crown Splash")
     op2.demo_id = "BLOCK_FLOP_SPLASH"
     col = box.column(align=True)
-    col.prop(scene, "warp_sph_demo_scene", text="Demo")
-    col.prop(scene, "warp_sph_particle_count", slider=True)
+    col.prop(settings, "demo_scene", text="Demo")
+    col.prop(settings, "particle_count", slider=True)
+    _draw_vram_warning(col, settings.particle_count)
 
 
 class VIEW3D_PT_warp_sph(bpy.types.Panel):
@@ -462,25 +473,22 @@ class VIEW3D_PT_warp_sph(bpy.types.Panel):
                              icon='INFO')
         status_box.operator("wm.warp_sph_copy_diagnostics", icon='COPYDOWN')
 
+        settings = scene.warp_sph
         box_demo = layout.box()
         box_demo.label(text="Scene", icon='SCENE_DATA')
-        box_demo.row().prop(scene, "warp_sph_scene_source", expand=True)
-        if scene.warp_sph_scene_source == 'CUSTOM':
+        box_demo.row().prop(settings, "scene_source", expand=True)
+        if settings.scene_source == 'CUSTOM':
             _draw_custom_scene(box_demo, scene, session)
         else:
-            _draw_demo_scene(box_demo, scene)
-        if session.running and (session.active_demo == CUSTOM_SCENE) != (scene.warp_sph_scene_source == 'CUSTOM'):
+            _draw_demo_scene(box_demo, settings)
+        if session.running and (session.active_demo == CUSTOM_SCENE) != (settings.scene_source == 'CUSTOM'):
             box_demo.label(text="Scene source changes apply on the next Start", icon='INFO')
-
-        layout.separator()
-        layout.prop(scene, "warp_sph_use_cuda_graph")
 
         box_speed = layout.box()
         box_speed.label(text="Simulation Speed vs. Stability", icon='TIME')
         col_speed = box_speed.column(align=True)
-        col_speed.prop(scene, "warp_sph_substeps")
-        col_speed.prop(scene, "warp_sph_time_step_scale", slider=True)
-        col_speed.prop(scene, "warp_sph_stiffness")
+        col_speed.prop(settings, "substeps")
+        col_speed.prop(settings, "time_step_scale", slider=True)
         if session.solver:
             col_speed.label(
                 text=f"dt = {session.solver.dt * 1000:.3f} ms  |  sim speed ≈ "
@@ -488,26 +496,20 @@ class VIEW3D_PT_warp_sph(bpy.types.Panel):
             )
 
         box_vis = layout.box()
-        box_vis.label(text="Viewport Display & SSFR", icon='SHADING_RENDERED')
+        box_vis.label(text="Viewport Display", icon='SHADING_RENDERED')
         col_vis = box_vis.column(align=True)
-        col_vis.prop(scene, "warp_sph_show_particles")
-        col_vis.prop(scene, "warp_sph_render_mode", text="Mode")
-        col_vis.prop(scene, "warp_sph_particle_color", text="")
-        col_vis.prop(scene, "warp_sph_depth_test")
+        col_vis.prop(settings, "show_particles")
+        col_vis.prop(settings, "render_mode", text="Mode")
+        col_vis.prop(settings, "particle_color", text="")
+        col_vis.prop(settings, "depth_test")
         if session.session is not None:
             note = settings_from_scene(scene, session.session.backend).note
             if note:
                 col_vis.label(text=note, icon='INFO')
-
-        if scene.warp_sph_render_mode == "POINTS":
-            col_vis.prop(scene, "warp_sph_point_size")
-        elif scene.warp_sph_render_mode == "SPHERES":
-            col_vis.prop(scene, "warp_sph_particle_radius")
+        if settings.render_mode == "POINTS":
+            col_vis.prop(settings, "point_size")
         else:
-            col_vis.prop(scene, "warp_sph_particle_radius")
-            col_vis.prop(scene, "warp_sph_filter_iterations")
-            col_vis.prop(scene, "warp_sph_filter_sigma")
-            col_vis.prop(scene, "warp_sph_absorption")
+            col_vis.prop(settings, "particle_radius")
 
         layout.separator()
         row = layout.row(align=True)
@@ -544,6 +546,29 @@ class VIEW3D_PT_warp_sph(bpy.types.Panel):
             col_stat.label(text=f"Transport waits: {session.session.waits}  |  drops: {drops}")
 
 
+class VIEW3D_PT_warp_sph_advanced(bpy.types.Panel):
+    """Solver and SSFR tuning most users never need: collapsed under the main panel."""
+    bl_space_type = 'VIEW_3D'
+    bl_region_type = 'UI'
+    bl_category = "WarpSPH"
+    bl_label = "Advanced"
+    bl_parent_id = "VIEW3D_PT_warp_sph"
+    bl_options = {'DEFAULT_CLOSED'}
+
+    def draw(self, context):
+        layout = self.layout
+        settings = context.scene.warp_sph
+        col = layout.column(align=True)
+        col.prop(settings, "stiffness")
+        col.prop(settings, "use_cuda_graph")
+        if settings.render_mode == "SSFR_LIQUID":
+            col = layout.column(align=True)
+            col.label(text="SSFR Liquid", icon='SHADING_RENDERED')
+            col.prop(settings, "filter_iterations")
+            col.prop(settings, "filter_sigma")
+            col.prop(settings, "absorption")
+
+
 _STOP_HANDLERS = ("load_pre", "exit_pre", "undo_pre", "redo_pre")
 
 
@@ -557,8 +582,42 @@ def _on_load_pre(*_args):
     sim_session.stop_all(getattr(bpy, "context", None))
 
 
+def _migrate_open_file():
+    """Move the flat ``warp_sph_*`` settings of a file saved by an older version into ``scene.warp_sph``.
+    Returns None, so it also serves as a one-shot ``bpy.app.timers`` callback."""
+    try:
+        scenes = list(bpy.data.scenes)
+    except AttributeError:  # bpy.data is restricted (add-on registration, Blender start-up)
+        return None
+    props.migrate_scenes(scenes)
+    return None
+
+
+def _on_load_post(*_args):
+    _migrate_open_file()
+
+
+def _schedule_open_file_migration():
+    """register() runs with bpy.data restricted (addon_utils' RestrictBlend), so the file that is open
+    when the add-on is enabled or updated is migrated right after registration, from a timer."""
+    timers = getattr(getattr(bpy, "app", None), "timers", None)
+    if timers is not None and not timers.is_registered(_migrate_open_file):
+        timers.register(_migrate_open_file, first_interval=0.0)
+
+
+def _cancel_open_file_migration():
+    timers = getattr(getattr(bpy, "app", None), "timers", None)
+    if timers is not None and timers.is_registered(_migrate_open_file):
+        timers.unregister(_migrate_open_file)
+
+
 def _app_handlers():
     return getattr(getattr(bpy, "app", None), "handlers", None)
+
+
+def _hooks():
+    """(handler, app.handlers list names) pairs this add-on installs."""
+    return ((_on_load_pre, _STOP_HANDLERS), (_on_load_post, ("load_post",)))
 
 
 def _install_handlers():
@@ -566,22 +625,24 @@ def _install_handlers():
     if handlers is None:
         return
     persistent = getattr(handlers, "persistent", None)
-    if persistent is not None and not getattr(_on_load_pre, "_bpy_persistent", False):
-        persistent(_on_load_pre)
-    for name in _STOP_HANDLERS:
-        hooks = getattr(handlers, name, None)
-        if hooks is not None and _on_load_pre not in hooks:
-            hooks.append(_on_load_pre)
+    for handler, names in _hooks():
+        if persistent is not None and not getattr(handler, "_bpy_persistent", False):
+            persistent(handler)
+        for name in names:
+            hooks = getattr(handlers, name, None)
+            if hooks is not None and handler not in hooks:
+                hooks.append(handler)
 
 
 def _remove_handlers():
     handlers = _app_handlers()
     if handlers is None:
         return
-    for name in _STOP_HANDLERS:
-        hooks = getattr(handlers, name, None)
-        while hooks is not None and _on_load_pre in hooks:
-            hooks.remove(_on_load_pre)
+    for handler, names in _hooks():
+        for name in names:
+            hooks = getattr(handlers, name, None)
+            while hooks is not None and handler in hooks:
+                hooks.remove(handler)
 
 
 def register():
@@ -593,146 +654,8 @@ def register():
         _startup_error = str(exc)
     bpy.utils.register_class(WARPSPH_ObjectSettings)
     bpy.types.Object.warp_sph = PointerProperty(type=WARPSPH_ObjectSettings)
-    bpy.types.Scene.warp_sph_scene_source = EnumProperty(
-        name="Scene Source",
-        items=[
-            ("DEMO", "Demo", "Run one of the built-in demo scenes"),
-            ("CUSTOM", "Custom", "Build the simulation from objects marked Domain, Fluid and Collider"),
-        ],
-        default="DEMO",
-    )
-    bpy.types.Scene.warp_sph_particle_spacing = FloatProperty(
-        name="Particle Spacing (m)",
-        description="Distance between fluid particles in a Custom scene. Smaller = more particles "
-                    "(about fluid volume / spacing^3) and finer detail; the smoothing length is twice this",
-        default=0.02,
-        min=0.004,
-        max=0.2,
-        soft_min=0.01,
-        soft_max=0.05,
-        step=0.1,        # 0.001 m per click
-        precision=4,
-    )
-    bpy.types.Scene.warp_sph_demo_scene = EnumProperty(
-        name="Demo Scene",
-        items=[
-            ("DOUBLE_DAM_PILLARS", "Demo 1: Double Dam + Pillars", "Two opposing fluid columns colliding with a central sphere and 4 pillar obstacles"),
-            ("BLOCK_FLOP_SPLASH", "Demo 2: Block Flop Crown Splash", "Heavy elevated fluid cube dropping into a shallow resting puddle basin"),
-        ],
-        default="DOUBLE_DAM_PILLARS",
-    )
-    bpy.types.Scene.warp_sph_particle_count = IntProperty(
-        name="Particles",
-        description="Total fluid particles (dynamically reallocates GPU SoA buffers on change)",
-        default=1_000_000,
-        min=100_000,
-        max=4_000_000,
-        step=100_000,
-    )
-    bpy.types.Scene.warp_sph_substeps = IntProperty(
-        name="Sub-steps / Frame",
-        description="Physics sub-steps executed per viewport redraw",
-        default=2,
-        min=1,
-        max=10,
-    )
-    bpy.types.Scene.warp_sph_time_step_scale = FloatProperty(
-        name="Time Step (CFL)",
-        description="Physics time step as a fraction of the stability limit. Higher = faster simulation, "
-                    "but above ~0.5 high-speed impacts can blow up",
-        default=0.4,
-        min=0.1,
-        max=1.0,
-        step=1,          # Blender steps are 1/100 units: 0.01 per click
-        precision=3,
-    )
-    bpy.types.Scene.warp_sph_stiffness = FloatProperty(
-        name="Fluid Stiffness",
-        description="Pressure stiffness (sets sound speed). Lower = larger time step and faster simulation, "
-                    "but more compressible and less stable on impacts",
-        default=90000.0,
-        min=10000.0,
-        max=400000.0,
-        step=500000,
-    )
-    bpy.types.Scene.warp_sph_show_particles = BoolProperty(
-        name="Show Particles",
-        default=True,
-    )
-    bpy.types.Scene.warp_sph_render_mode = EnumProperty(
-        name="Render Mode",
-        items=[
-            ("SSFR_LIQUID", "SSFR Liquid (Narrow-Range + Beer-Lambert)", "5-pass Screen-Space Fluid Renderer with Truong & Yuksel Narrow-Range Filter and Fresnel shading"),
-            ("SPHERES", "Shaded Sphere Impostors", "Single-pass eye-space shaded 3D spheres with per-fragment depth correction"),
-            ("POINTS", "Raw Points (Max FPS)", "Fastest raw GL_POINTS mode for telemetry benchmarking"),
-        ],
-        default="SSFR_LIQUID",
-    )
-    bpy.types.Scene.warp_sph_point_size = FloatProperty(
-        name="Point Size",
-        description="Particle point size in screen pixels (Raw Points mode)",
-        default=2.5,
-        min=1.0,
-        max=20.0,
-        step=10,         # 0.1 px per click
-        precision=1,
-    )
-    bpy.types.Scene.warp_sph_particle_radius = FloatProperty(
-        name="Particle Radius (m)",
-        description="World-space sphere radius for SSFR and Sphere Impostor modes",
-        default=0.022,
-        min=0.002,
-        max=0.10,
-        soft_min=0.004,  # narrow drag range so mouse travel maps to useful radii
-        soft_max=0.04,
-        step=0.05,       # 0.0005 m (0.5 mm) per click
-        precision=4,
-    )
-    bpy.types.Scene.warp_sph_filter_iterations = IntProperty(
-        name="Narrow-Range Filter Passes",
-        description="Number of 1D separable Horizontal + Vertical Narrow-Range smoothing iterations",
-        default=2,
-        min=1,
-        max=5,
-    )
-    bpy.types.Scene.warp_sph_filter_sigma = FloatProperty(
-        name="Filter Sigma (px)",
-        description="Screen-space Gaussian standard deviation inside the Narrow-Range depth window",
-        default=4.0,
-        min=1.0,
-        max=12.0,
-        step=10,         # 0.1 px per click
-        precision=1,
-    )
-    bpy.types.Scene.warp_sph_absorption = FloatVectorProperty(
-        name="Beer-Lambert Absorption (RGB)",
-        description="Wavelength-dependent light extinction coefficients exp(-a * thickness)",
-        size=3,
-        default=(0.85, 0.22, 0.05),
-        min=0.0,
-        max=5.0,
-        soft_max=2.0,
-        step=1,          # 0.01 per click
-        precision=3,
-    )
-    bpy.types.Scene.warp_sph_particle_color = FloatVectorProperty(
-        name="Particle Color",
-        subtype='COLOR',
-        size=4,
-        default=(0.12, 0.68, 1.0, 1.0),
-        min=0.0,
-        max=1.0,
-    )
-    bpy.types.Scene.warp_sph_depth_test = BoolProperty(
-        name="Hide Behind Objects",
-        description="Particles are hidden behind scene geometry (off = always draw on top)",
-        default=True,
-    )
-    bpy.types.Scene.warp_sph_use_cuda_graph = BoolProperty(
-        name="Warp 1.17 CUDA Graph Capture",
-        description="Execute Coalesced Density + WCSPH Force + Copy-back via captured CUDA Graph",
-        default=True,
-    )
+    bpy.utils.register_class(props.WARPSPH_SceneSettings)
+    bpy.types.Scene.warp_sph = PointerProperty(type=props.WARPSPH_SceneSettings)
     bpy.utils.register_class(WM_OT_warp_sph_start)
     bpy.utils.register_class(WM_OT_warp_sph_load_demo)
     bpy.utils.register_class(WM_OT_warp_sph_stop)
@@ -746,8 +669,10 @@ def register():
         is_running=lambda: sim_session.active() is not None, startup_error=lambda: _startup_error,
         active_warp=lambda: sim_session.runtime.wp)
     bpy.utils.register_class(VIEW3D_PT_warp_sph)
+    bpy.utils.register_class(VIEW3D_PT_warp_sph_advanced)
     bpy.utils.register_class(OBJECT_PT_warp_sph)
     _install_handlers()
+    _schedule_open_file_migration()  # enabling or updating the add-on with an older file already open
     try:
         diagnostics.setup_logging(_log_dir())
     except Exception:  # logging is best effort and must not block registration
@@ -757,8 +682,10 @@ def register():
 def unregister():
     diagnostics.teardown_logging()
     _remove_handlers()
+    _cancel_open_file_migration()
     sim_session.dispose_all(getattr(bpy, "context", None))
     bpy.utils.unregister_class(OBJECT_PT_warp_sph)
+    bpy.utils.unregister_class(VIEW3D_PT_warp_sph_advanced)
     bpy.utils.unregister_class(VIEW3D_PT_warp_sph)
     bpy.utils.unregister_class(WM_OT_warp_sph_step_frame)
     bpy.utils.unregister_class(WM_OT_warp_sph_pause)
@@ -770,22 +697,7 @@ def unregister():
     bpy.utils.unregister_class(WM_OT_warp_sph_stop)
     bpy.utils.unregister_class(WM_OT_warp_sph_load_demo)
     bpy.utils.unregister_class(WM_OT_warp_sph_start)
-    del bpy.types.Scene.warp_sph_use_cuda_graph
-    del bpy.types.Scene.warp_sph_depth_test
-    del bpy.types.Scene.warp_sph_particle_color
-    del bpy.types.Scene.warp_sph_absorption
-    del bpy.types.Scene.warp_sph_filter_sigma
-    del bpy.types.Scene.warp_sph_filter_iterations
-    del bpy.types.Scene.warp_sph_particle_radius
-    del bpy.types.Scene.warp_sph_point_size
-    del bpy.types.Scene.warp_sph_render_mode
-    del bpy.types.Scene.warp_sph_show_particles
-    del bpy.types.Scene.warp_sph_stiffness
-    del bpy.types.Scene.warp_sph_time_step_scale
-    del bpy.types.Scene.warp_sph_substeps
-    del bpy.types.Scene.warp_sph_particle_count
-    del bpy.types.Scene.warp_sph_demo_scene
-    del bpy.types.Scene.warp_sph_particle_spacing
-    del bpy.types.Scene.warp_sph_scene_source
+    del bpy.types.Scene.warp_sph
+    bpy.utils.unregister_class(props.WARPSPH_SceneSettings)
     del bpy.types.Object.warp_sph
     bpy.utils.unregister_class(WARPSPH_ObjectSettings)
