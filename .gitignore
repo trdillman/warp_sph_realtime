@@ -11,3 +11,20 @@ dist/
 .codex/context/
 .ruff_cache/
 evidence/
+
+# graft's local graph cache — regenerable, not committed (run `graft build`).
+/graft/
+.codex/poc-type-stubs/
+reports/review-project-progress/
+.claude/worktrees/
+
+# Owner-private business research and tracker notes (public repo: keep local)
+research_notes/Warp SPH addon commercial readiness/
+research_notes/opportunity-assessment-20261017/
+research_notes/simulation-market-20261017/
+reports/Warp SPH addon commercial readiness.md
+docs/OPPORTUNITY_ASSESSMENT.md
+docs/SIMULATION_MARKET_ASSESSMENT.md
+docs/PRODUCT_DELIVERY.md
+docs/TRACKER_UPDATE_PENDING.md
+docs/PROJECT_TRACKER_SNAPSHOT.md

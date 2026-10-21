@@ -617,6 +617,22 @@ def cleanup_viewport_renderer():
     _SSFR_RENDERER.destroy()
 
 
+@_preserve_gl_state
+def _draw_raw_points(gl_buf: ZeroCopyGLBuffer52, scene):
+    """Raw-points pass; the decorator restores GL state even if the draw fails."""
+    shader = gpu.shader.from_builtin('UNIFORM_COLOR')
+    shader.bind()
+    mvp = gpu.matrix.get_projection_matrix() @ gpu.matrix.get_model_view_matrix()
+    shader.uniform_float("ModelViewProjectionMatrix", mvp)
+    color = tuple(getattr(scene, "warp_sph_particle_color", (0.12, 0.68, 1.0, 1.0)))
+    shader.uniform_float("color", color)
+    gl_buf.draw_points(
+        getattr(scene, "warp_sph_point_size", 2.5),
+        depth_test=getattr(scene, "warp_sph_depth_test", True),
+        blend=color[3] < 1.0,
+    )
+
+
 def draw_particles_viewport(gl_buf: ZeroCopyGLBuffer52, running: bool):
     """Zero-copy OpenGL Core Profile draw pass for Blender 5.2+ 3D Viewport."""
     if _SSFR_RENDERER._pending_destroy:
@@ -632,17 +648,7 @@ def draw_particles_viewport(gl_buf: ZeroCopyGLBuffer52, running: bool):
     render_mode = getattr(scene, "warp_sph_render_mode", "SSFR_LIQUID")
 
     if render_mode == "POINTS":
-        shader = gpu.shader.from_builtin('UNIFORM_COLOR')
-        shader.bind()
-        mvp = gpu.matrix.get_projection_matrix() @ gpu.matrix.get_model_view_matrix()
-        shader.uniform_float("ModelViewProjectionMatrix", mvp)
-        color = tuple(getattr(scene, "warp_sph_particle_color", (0.12, 0.68, 1.0, 1.0)))
-        shader.uniform_float("color", color)
-        gl_buf.draw_points(
-            getattr(scene, "warp_sph_point_size", 2.5),
-            depth_test=getattr(scene, "warp_sph_depth_test", True),
-            blend=color[3] < 1.0,
-        )
+        _draw_raw_points(gl_buf, scene)
         return
 
     # Query current 3D Viewport pixel rectangle

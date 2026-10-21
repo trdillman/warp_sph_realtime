@@ -1,0 +1,26 @@
+schema_version: 1
+default_preset: default
+defaults:
+  executable: 'C:\Users\Tyler\Downloads\blender-5.2.0-windows-x64\blender-5.2.0-windows-x64\blender.exe'
+  working_directory: 'C:\Users\Tyler\Downloads\warp_sph_realtime (1)\warp_sph_realtime'
+  profile_root: 'C:\Users\Tyler\Downloads\warp_sph_realtime (1)\warp_sph_realtime\evidence\vulkan-zero-copy\20261017-m0\sessions'
+  profile_seed_root: null
+  profile_seed_mode: copy
+  mcp_addon_source: 'C:\Users\Tyler\AppData\Roaming\Blender Foundation\Blender\5.1\scripts\addons\blender_mcp'
+  host: 127.0.0.1
+  port: auto
+  port_range: [9899, 9939]
+  autoexec: disabled
+  online_mode: offline
+  wait_for_ready_sec: 120
+  addons: []
+  addon_sources: []
+  python_dependencies:
+    - module: warp
+      path: 'C:\Users\Tyler\Downloads\warp_sph_realtime (1)\warp_sph_realtime\evidence\vulkan-zero-copy\20261017-m0\runtime'
+      version: '1.17.0'
+  trusted_python_files: []
+  before_file_args: []
+  after_file_args: []
+presets:
+  default: {}

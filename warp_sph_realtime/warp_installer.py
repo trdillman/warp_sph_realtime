@@ -344,13 +344,35 @@ def _owned_candidates() -> list[Path]:
     return candidates
 
 
+def _same_path(a: Path, b: Path) -> bool:
+    try:
+        return a.resolve() == b.resolve()
+    except OSError:
+        return False
+
+
+def _foreign_warp_version(init_file: Path) -> str:
+    """Best-effort version of a Warp we do not own; never imports or executes it."""
+    module = sys.modules.get("warp")
+    module_file = getattr(module, "__file__", None)
+    if module_file and _same_path(Path(module_file), init_file):
+        version = getattr(module, "__version__", None)
+        if version:
+            return str(version)
+    for entry in sorted(init_file.parent.parent.glob("warp_lang-*.dist-info")):
+        stem = entry.name[: -len(".dist-info")]
+        if "-" in stem:
+            return stem.split("-", 1)[1]
+    return "unknown version"
+
+
 def foreign_warp_block_reason() -> str | None:
     """Return why WarpSPH will not write, or ``None`` when no foreign Warp is present."""
     user_site = _user_site_warp_path()
     if user_site is not None:
         return (
-            "Warp is already installed in Blender's user site-packages "
-            f"({user_site.parent}). Remove that copy, then press Install Warp. "
+            f"Warp {_foreign_warp_version(user_site)} is already installed in Blender's "
+            f"user site-packages ({user_site.parent}). Remove that copy, then press Install Warp. "
             "WarpSPH will not change it."
         )
     owned_list = _owned_candidates()
@@ -362,7 +384,7 @@ def foreign_warp_block_reason() -> str | None:
     loaded = _importable_warp_file()
     if loaded is not None and not any(_is_relative_to(loaded, owned) for owned in owned_list):
         return (
-            f"Warp is already loaded from {loaded}, which WarpSPH does not own. "
+            f"Warp {_foreign_warp_version(loaded)} is already loaded from {loaded}, which WarpSPH does not own. "
             "Remove that copy, then press Install Warp. WarpSPH will not change it."
         )
     return None
@@ -739,7 +761,7 @@ def install_warp(
             return InstallResult(
                 success=False,
                 message=(
-                    f"Warp is already loaded from {loaded}, which WarpSPH does not own. "
+                    f"Warp {_foreign_warp_version(loaded)} is already loaded from {loaded}, which WarpSPH does not own. "
                     "Remove that copy, then press Install Warp. WarpSPH will not change it."
                 ),
             )
