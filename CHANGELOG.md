@@ -5,6 +5,15 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+- User manual in `docs/manual/` (install, first run, authoring a scene, physics settings and presets, viewport
+  display and transports, record / bake / export, known limits) and an FAQ for GPU, driver, Warp install, backend,
+  Readback, VRAM and performance problems, quoting the add-on's own messages (P2.8).
+- `examples/`: four Blender Python scripts that build a Custom scene (pour into a box, dam break, moving paddle,
+  viscous drop); `tests/test_examples.py` checks that every setting, operator and enum value they use exists.
+- The Time Step (CFL) tooltip now says what the README says: above 0.4 hard impacts can blow up at high particle
+  counts.
+
 ### Changed
 - **Particle Spacing** is now a length in scene units (`subtype='DISTANCE'`, `unit='LENGTH'`, range 0.0001 to 1000),
   shown and typed with the scene's units and Unit Scale like the objects, instead of a number of metres. It is
