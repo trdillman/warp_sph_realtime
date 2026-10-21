@@ -129,7 +129,8 @@ class DrawContracts(unittest.TestCase):
         self.gl.framebuffers.update((100, 101))
         self.gl.draw_binding, self.gl.read_binding = 100, 101
         self.renderer = v.SSFRViewportRenderer()
-        self.scene = SimpleNamespace(warp_sph_particle_color=(.1,.3,.8,1), warp_sph_depth_test=True)
+        self.scene = SimpleNamespace(warp_sph=SimpleNamespace(particle_color=(.1,.3,.8,1), depth_test=True,
+            particle_radius=0.022, filter_sigma=4.0, filter_iterations=2, absorption=(0.85, 0.22, 0.05)))
         self.buf = SimpleNamespace(bind_vao=lambda:self.gl.glBindVertexArray(90),
                                    unbind_vao=lambda:self.gl.glBindVertexArray(0), num_particles=5)
         matrix = [[int(i==j) for j in range(4)] for i in range(4)]
@@ -154,8 +155,8 @@ class DrawContracts(unittest.TestCase):
         buffer = v._ig.ZeroCopyGLBuffer52.__new__(v._ig.ZeroCopyGLBuffer52)
         buffer.vbo, buffer.vaos, buffer.num_particles = ctypes.c_uint(72), {}, 5
         shader = Mock()
-        scene = SimpleNamespace(warp_sph_render_mode='POINTS', warp_sph_show_particles=True, warp_sph_depth_test=False,
-                                warp_sph_particle_color=(.1, .3, .8, .5), warp_sph_point_size=3.0)
+        scene = SimpleNamespace(warp_sph=SimpleNamespace(render_mode='POINTS', show_particles=True, depth_test=False,
+                                                         particle_color=(.1, .3, .8, .5), point_size=3.0))
         before = self.snapshot()
         with patch.object(v._ig, '_GLInterop', self.gl), \
                 patch.object(v.bpy, 'context', SimpleNamespace(scene=scene), create=True), \

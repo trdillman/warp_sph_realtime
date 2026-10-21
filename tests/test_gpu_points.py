@@ -136,18 +136,17 @@ def test_uniforms_use_camera_axes_from_view_rows():
 
 
 def test_scene_mapping_ssfr_is_portable():
-    scene = SimpleNamespace(warp_sph_render_mode='SSFR_LIQUID', warp_sph_particle_radius=0.03,
-                            warp_sph_particle_color=(0.1, 0.2, 0.3, 1.0), warp_sph_depth_test=False,
-                            warp_sph_filter_sigma=5.5, warp_sph_filter_iterations=3,
-                            warp_sph_absorption=(0.5, 0.25, 0.125))
+    scene = SimpleNamespace(warp_sph=SimpleNamespace(
+        render_mode='SSFR_LIQUID', particle_radius=0.03, particle_color=(0.1, 0.2, 0.3, 1.0), depth_test=False,
+        filter_sigma=5.5, filter_iterations=3, absorption=(0.5, 0.25, 0.125)))
     s = gp.settings_from_scene(scene, 'VULKAN')
     assert s.mode == gp.SSFR and s.size == 0.03 and not s.depth_test and s.note == ''
     assert (s.filter_sigma, s.filter_iterations, s.absorption) == (5.5, 3, (0.5, 0.25, 0.125))
-    scene.warp_sph_render_mode = 'SPHERES'
+    scene.warp_sph.render_mode = 'SPHERES'
     s = gp.settings_from_scene(scene, 'VULKAN')
     assert s.mode == gp.SPHERES and s.size == 0.03 and s.note == ''
-    scene.warp_sph_render_mode = 'POINTS'
-    scene.warp_sph_point_size = 6.0
+    scene.warp_sph.render_mode = 'POINTS'
+    scene.warp_sph.point_size = 6.0
     s = gp.settings_from_scene(scene, 'VULKAN')
     assert s.mode == gp.POINTS and s.size == 6.0 and s.note == ''
 

@@ -41,7 +41,7 @@ gpu.platform = NS(backend_type_get=lambda: 'VULKAN')
 sys.modules['gpu'] = gpu
 
 import warp_sph_realtime as ext
-from warp_sph_realtime import addon
+from warp_sph_realtime import addon, sim_session
 from warp_sph_realtime.scene.description import MeshData, validate_closed_mesh
 
 class FakeMesh:
@@ -66,14 +66,11 @@ class Collection:
 def make_context(objects=(), selected=()):
     scene = Scene()
     scene.objects = list(objects)
-    scene.warp_sph_scene_source = 'DEMO'
-    scene.warp_sph_particle_spacing = 0.02
-    for k, v in dict(warp_sph_particle_count=1000, warp_sph_demo_scene='DOUBLE_DAM_PILLARS',
-                     warp_sph_substeps=2, warp_sph_stiffness=1.0, warp_sph_time_step_scale=0.4,
-                     warp_sph_use_cuda_graph=True, warp_sph_show_particles=True, warp_sph_render_mode='POINTS',
-                     warp_sph_depth_test=True, warp_sph_point_size=2.0, warp_sph_particle_radius=0.02,
-                     warp_sph_particle_color=(1, 1, 1, 1)).items():
-        setattr(scene, k, v)
+    scene.warp_sph = NS(scene_source='DEMO', particle_spacing=0.02, particle_count=1000,
+                        demo_scene='DOUBLE_DAM_PILLARS', substeps=2, stiffness=90.0, time_step_scale=0.4,
+                        use_cuda_graph=True, show_particles=True, render_mode='POINTS', depth_test=True,
+                        point_size=2.0, particle_radius=0.02, particle_color=(1, 1, 1, 1), filter_iterations=2,
+                        filter_sigma=4.0, absorption=(0.85, 0.22, 0.05))
     collection = Collection(scene)
     collection.linked = []
     return NS(scene=scene, selected_objects=list(selected), collection=collection, object=None)
@@ -87,12 +84,19 @@ def case(fn):
 # -- registration ---------------------------------------------------------------------------------
 ext.register()
 names = [c.__name__ for c in registered]
-for cls in ('WARPSPH_ObjectSettings', 'OBJECT_OT_warp_sph_set_role', 'OBJECT_OT_warp_sph_add_fluid_scene',
-            'OBJECT_PT_warp_sph', 'VIEW3D_PT_warp_sph'):
+for cls in ('WARPSPH_ObjectSettings', 'WARPSPH_SceneSettings', 'OBJECT_OT_warp_sph_set_role',
+            'OBJECT_OT_warp_sph_add_fluid_scene', 'OBJECT_PT_warp_sph', 'VIEW3D_PT_warp_sph',
+            'VIEW3D_PT_warp_sph_advanced'):
     assert cls in names, cls
 assert pointer_calls and 'WARPSPH_ObjectSettings' in pointer_calls[0]  # group registered before the pointer
+assert 'WARPSPH_SceneSettings' in pointer_calls[1]
 assert Object.warp_sph['type'] is addon.WARPSPH_ObjectSettings
-assert Scene.warp_sph_scene_source == 'DEMO' and Scene.warp_sph_particle_spacing == 0.02
+from warp_sph_realtime import props
+assert Scene.warp_sph['type'] is props.WARPSPH_SceneSettings
+assert names.index('VIEW3D_PT_warp_sph') < names.index('VIEW3D_PT_warp_sph_advanced')  # parent first
+assert addon.VIEW3D_PT_warp_sph_advanced.bl_parent_id == 'VIEW3D_PT_warp_sph'
+assert addon.VIEW3D_PT_warp_sph_advanced.bl_options == {'DEFAULT_CLOSED'}
+assert not [n for n in dir(Scene) if n.startswith('warp_sph_')]   # no flat scene properties any more
 assert addon.OBJECT_OT_warp_sph_set_role.bl_idname == 'object.warp_sph_set_role'
 assert addon.OBJECT_PT_warp_sph.bl_context == 'physics'
 assert 'numpy' not in sys.modules or True  # registration itself never needs the scene helpers
@@ -143,7 +147,7 @@ def world_box(obj, mesh):
 def add_fluid_scene_creates_three_roled_closed_boxes():
     ctx = make_context()
     op = addon.OBJECT_OT_warp_sph_add_fluid_scene()
-    assert op.execute(ctx) == {'FINISHED'} and ctx.scene.warp_sph_scene_source == 'CUSTOM'
+    assert op.execute(ctx) == {'FINISHED'} and ctx.scene.warp_sph.scene_source == 'CUSTOM'
     objs = {o.warp_sph.role: o for o in ctx.collection.linked}
     assert sorted(objs) == ['COLLIDER', 'DOMAIN', 'FLUID'] and len(ctx.collection.linked) == 3
     assert ctx.scene.objects == ctx.collection.linked
@@ -180,11 +184,12 @@ def draw_panel(ctx):
 def view3d_panel_scene_box():
     ctx = make_context()
     log = draw_panel(ctx)
-    assert ('prop', 'warp_sph_scene_source') in log and ('prop', 'warp_sph_particle_count') in log
+    assert ('prop', 'scene_source') in log and ('prop', 'particle_count') in log
+    assert ('prop', 'stiffness') not in log and ('prop', 'use_cuda_graph') not in log   # in Advanced
     assert ('op', 'object.warp_sph_set_role', 'Domain') not in log                 # Demo source
-    ctx.scene.warp_sph_scene_source = 'CUSTOM'
+    ctx.scene.warp_sph.scene_source = 'CUSTOM'
     log = draw_panel(ctx)
-    assert ('prop', 'warp_sph_particle_spacing') in log and ('prop', 'warp_sph_particle_count') not in log
+    assert ('prop', 'particle_spacing') in log and ('prop', 'particle_count') not in log
     assert [e[2] for e in log if e[:2] == ('op', 'object.warp_sph_set_role')] == ['Domain', 'Fluid', 'Collider', 'Clear']
     assert ('op', 'object.warp_sph_add_fluid_scene', None) in log
     errors = [e[1] for e in log if e[0] == 'label' and e[2] == 'ERROR' and not e[1].startswith('Runtime')]
@@ -193,14 +198,20 @@ def view3d_panel_scene_box():
     labels = [e[1] for e in draw_panel(ctx) if e[0] == 'label']
     assert 'Domain (1): WarpSPH Domain' in labels and 'Colliders (1): WarpSPH Collider' in labels
     assert not [e for e in draw_panel(ctx) if e[0] == 'label' and e[2] == 'ERROR' and not e[1].startswith('Runtime')]
-    addon.RT.running, addon.RT.active_demo = True, addon.CUSTOM_SCENE           # running: changes need restart
-    addon.RT.solver = NS(num_particles=90000, dt=0.001, substeps=2)
+    session = sim_session.get(ctx.scene)
+    session.running, session.active_demo = True, addon.CUSTOM_SCENE             # running: changes need restart
+    session.solver = NS(num_particles=90000, dt=0.001, substeps=2)
     try:
         labels = [e[1] for e in draw_panel(ctx) if e[0] == 'label']
         assert 'Particles: 90,000 (from the fill)' in labels
         assert 'Running: Stop and Start to apply scene changes' in labels
+        ctx.scene.name = 'Main'
+        other = make_context()                                                  # another scene: one run per process
+        labels = [e[1] for e in draw_panel(other) if e[0] == 'label']
+        assert "Running in scene 'Main': stop it there first" in labels
+        assert 'Particles: 90,000 (from the fill)' not in labels                # the other scene's own session
     finally:
-        addon.RT.running, addon.RT.solver, addon.RT.active_demo = False, None, 'DOUBLE_DAM_PILLARS'
+        session.running, session.solver, session.active_demo = False, None, 'DOUBLE_DAM_PILLARS'
 
 @case
 def object_panel_shows_role():
@@ -218,9 +229,50 @@ def object_panel_shows_role():
     panel.draw(ctx)
     assert ('prop', 'role') in log and any('static obstacle' in e[1] for e in log if e[0] == 'label')
 
+def draw_advanced(ctx):
+    log = []
+    panel = addon.VIEW3D_PT_warp_sph_advanced()
+    panel.layout = Layout(log)
+    panel.draw(ctx)
+    return log
+
+@case
+def advanced_panel_holds_solver_and_ssfr_tuning():
+    ctx = make_context()
+    log = draw_advanced(ctx)
+    assert ('prop', 'stiffness') in log and ('prop', 'use_cuda_graph') in log
+    assert ('prop', 'filter_sigma') not in log                                     # Raw Points mode
+    ctx.scene.warp_sph.render_mode = 'SSFR_LIQUID'
+    log = draw_advanced(ctx)
+    for name in ('filter_iterations', 'filter_sigma', 'absorption'):
+        assert ('prop', name) in log, name
+
+def vram_warnings(log):
+    return [e[1] for e in log if e[0] == 'label' and e[2] == 'ERROR' and 'may not fit' in e[1]]
+
+@case
+def vram_warning_follows_the_particle_estimate():
+    ctx = make_context()
+    ctx.scene.warp_sph.particle_count = 4_000_000
+    assert not vram_warnings(draw_panel(ctx))                     # ~0.6 GB: under the 4 GB unknown-GPU limit
+    sim_session._device_total_mb[:] = [1024.0]                    # a 1 GB GPU: warn above half of it
+    try:
+        assert vram_warnings(draw_panel(ctx)) == ["Needs about 0.6 GB of this GPU's 1 GB: may not fit"]
+        ctx.scene.warp_sph.particle_count = 1_000_000
+        assert not vram_warnings(draw_panel(ctx))
+    finally:
+        sim_session._device_total_mb.clear()
+    ctx.scene.warp_sph.scene_source = 'CUSTOM'
+    addon.OBJECT_OT_warp_sph_add_fluid_scene().execute(ctx)
+    fluid = next(o for o in ctx.scene.objects if o.warp_sph.role == 'FLUID')
+    fluid.dimensions = (2.0, 2.0, 2.0)
+    ctx.scene.warp_sph.particle_spacing = 0.005                   # 8 m^3 / 0.005^3 = 64M particles
+    assert vram_warnings(draw_panel(ctx)) == ['Needs about 9.0 GB of GPU memory: may not fit']
+    ctx.scene.warp_sph.particle_spacing = 0.02                    # 1M particles
+    assert not vram_warnings(draw_panel(ctx))
+
 ext.unregister()
-assert registered == [] and not hasattr(Object, 'warp_sph')
-assert not hasattr(Scene, 'warp_sph_scene_source') and not hasattr(Scene, 'warp_sph_particle_spacing')
+assert registered == [] and not hasattr(Object, 'warp_sph') and not hasattr(Scene, 'warp_sph')
 print('AUTHORING_OK')
 '''
 

@@ -1,69 +1,44 @@
-"""Blender operators, panel, scene properties, and the modal simulation runtime.
+"""Blender operators, panels and the modal timer: thin UI over ``sim_session`` and ``props``.
 
-NVIDIA Warp and every CUDA-dependent module are imported only in
-``_activate_runtime()``, after the owned/version/device checks, so the
-extension registers (and can install Warp) on machines without it.
+All runtime state lives in one ``sim_session.SimSession`` per scene; operators, panels and the timer
+call it. Scene settings are the ``props.WARPSPH_SceneSettings`` group at ``scene.warp_sph``. NVIDIA
+Warp and every CUDA-dependent module are imported only in ``_activate_runtime()``, after the
+owned/version/device checks, so the extension registers (and can install Warp) on machines without it.
 """
 
 from __future__ import annotations
 
 import importlib
-import logging
-import time
 
 import bpy
-from bpy.props import BoolProperty, EnumProperty, FloatProperty, FloatVectorProperty, IntProperty, PointerProperty
+from bpy.props import EnumProperty, PointerProperty
 
-from . import diagnostics, install_ui, warp_installer, warp_runtime
-from .render import session as transport_session
+from . import diagnostics, install_ui, props, sim_session, warp_installer, warp_runtime
 from .render.gpu_points import settings_from_scene
-from .render.transport import COMPLETED, FAILED, QUARANTINED, FatalTransportError, process_state
+from .render.transport import COMPLETED
+from .sim_session import CUSTOM_SCENE
 
-_LOG = logging.getLogger(__name__)
-
-# OpenGL display modes drawn from the GLInterop texture (session) path. SSFR and sphere impostors
-# stay on the legacy raw-GL VBO path until P0.13.
-GL_TEXTURE_MODES = ("POINTS",)
-_BACKEND_NAMES = {"VULKAN": "Vulkan", "OPENGL": "OpenGL"}
-
-wp = None
-ZeroCopyGLBuffer52 = None
-RealtimeWCSPHSolver = None
-build_blender_demo_helpers = None
-remove_blender_demo_helpers = None
-launch_demo_scene_init = None
-cleanup_viewport_renderer = None
-draw_particles_viewport = None
 _startup_error = ""
 
 
 def _activate_runtime():
     """Import CUDA-dependent modules only after owned/version/device checks."""
-    global wp, ZeroCopyGLBuffer52, RealtimeWCSPHSolver
-    global build_blender_demo_helpers, remove_blender_demo_helpers, launch_demo_scene_init
-    global cleanup_viewport_renderer, draw_particles_viewport
-    if wp is not None:
+    runtime = sim_session.runtime
+    if runtime.wp is not None:
         return  # already active; keep existing bindings
     loaded = warp_runtime.require_cuda_runtime()
     bridge = importlib.import_module(".render.interop_bridge", __package__)
     viewport = importlib.import_module(".render.viewport_draw", __package__)
     solver = importlib.import_module(".sim.sim_core", __package__)
     demos = importlib.import_module(".scene.demo_scenes", __package__)
-    wp = loaded
-    ZeroCopyGLBuffer52 = bridge.ZeroCopyGLBuffer52
-    RealtimeWCSPHSolver = solver.RealtimeWCSPHSolver
-    build_blender_demo_helpers = demos.build_blender_demo_helpers
-    remove_blender_demo_helpers = demos.remove_blender_demo_helpers
-    launch_demo_scene_init = demos.launch_demo_scene_init
-    cleanup_viewport_renderer = viewport.cleanup_viewport_renderer
-    draw_particles_viewport = viewport.draw_particles_viewport
-
-# RT.active_demo while an authored (tagged-object) scene runs; never a warp_sph_demo_scene value.
-CUSTOM_SCENE = "CUSTOM"
-
-
-class SceneSetupError(Exception):
-    """The authored scene cannot be simulated as it stands (bad roles, geometry or spacing)."""
+    runtime.wp = loaded
+    runtime.ZeroCopyGLBuffer52 = bridge.ZeroCopyGLBuffer52
+    runtime.RealtimeWCSPHSolver = solver.RealtimeWCSPHSolver
+    runtime.build_blender_demo_helpers = demos.build_blender_demo_helpers
+    runtime.remove_blender_demo_helpers = demos.remove_blender_demo_helpers
+    runtime.launch_demo_scene_init = demos.launch_demo_scene_init
+    runtime.cleanup_viewport_renderer = viewport.cleanup_viewport_renderer
+    runtime.draw_particles_viewport = viewport.draw_particles_viewport
 
 
 def _scene_api():
@@ -72,51 +47,9 @@ def _scene_api():
     return importlib.import_module(".scene.blender_scene", __package__)
 
 
-class _SimRuntime:
-    gl_buf: ZeroCopyGLBuffer52 | None = None   # legacy OpenGL VBO path (SSFR, spheres)
-    session: transport_session.TransportSession | None = None  # Vulkan/other backends; OpenGL Points
-    solver: RealtimeWCSPHSolver | None = None
-    draw_handle = None
-    timer = None
-    token: int = 0            # bumped on every start/stop; orphaned modals exit
-    running: bool = False
-    paused: bool = False      # physics frozen; GPU state and drawing kept alive
-    step_once: bool = False   # advance exactly one frame while paused
-    active_demo: str = "DOUBLE_DAM_PILLARS"
-    fps_avg: float = 0.0
-    frame_time_ms: float = 0.0
-    vram_mb: float = 0.0
-    step_count: int = 0
-    last_tick: float = 0.0
-    last_close: str = ""
-    last_error: str = ""
-    draw_errors: set = set()  # distinct draw failures already logged this run
-
-    # Process-lifetime flags: they outlive add-on disable/enable (module reload).
-    @property
-    def restart_required(self) -> str:  # fatal GPU/CUDA state: no further CUDA work this process
-        return process_state().restart_required
-
-    @restart_required.setter
-    def restart_required(self, value: str):
-        process_state().restart_required = value
-
-    @property
-    def interop_unavailable(self) -> str:  # recoverable interop failure: Readback until restart
-        return process_state().interop_unavailable
-
-    @interop_unavailable.setter
-    def interop_unavailable(self, value: str):
-        process_state().interop_unavailable = value
-
-
-RT = _SimRuntime()
-_QUARANTINE: list = process_state().quarantine  # objects never freed until exit, across reloads
-
-
-def _gpu_backend() -> str:
-    import gpu
-    return gpu.platform.backend_type_get()
+def _session(context) -> sim_session.SimSession:
+    """The session of the context's scene."""
+    return sim_session.get(context.scene)
 
 
 def _log_dir():
@@ -134,405 +67,69 @@ def _warp_owner() -> str:
     return warp_installer.describe_source()
 
 
-def _diagnostics_report() -> str:
+def _diagnostics_report(session: sim_session.SimSession) -> str:
     """Never raises; every probe is isolated (see diagnostics.build_report)."""
+    wp = sim_session.runtime.wp
     data = {**diagnostics.system_probes(), **diagnostics.warp_probes(wp)}
     data.update(
         addon_version=_addon_version,
         blender_version=lambda: bpy.app.version_string,
         blender_build_hash=lambda: bpy.app.build_hash.decode(errors="replace"),
-        gpu_backend=_gpu_backend,
+        gpu_backend=sim_session.gpu_backend,
         warp_source=_warp_owner,
-        transport=lambda: RT.session.label if RT.session is not None else "none",
-        last_error=RT.last_error,
-        last_close=RT.last_close,
-        interop_unavailable=RT.interop_unavailable,
+        transport=lambda: session.session.label if session.session is not None else "none",
+        last_error=session.last_error,
+        last_close=session.last_close,
+        interop_unavailable=session.interop_unavailable,
     )
     if wp is None:
         data["warp_version"] = lambda: warp_runtime.status().version or "not loaded (GPU details need one Start)"
     return diagnostics.build_report(data, lambda: diagnostics.read_log_tail(diagnostics.log_path()))
 
 
-def _gl_uses_texture(scene) -> bool:
-    """OpenGL route, fixed for a run: chosen from the display mode at Start, kept through resizes."""
-    if RT.session is not None or RT.gl_buf is not None:
-        return RT.session is not None
-    if RT.interop_unavailable:
-        # The texture interop failed earlier this process: the legacy VBO interop (no CPU copy)
-        # beats Readback, and was the only OpenGL route before the texture adapter.
-        return False
-    return getattr(scene, "warp_sph_render_mode", "SSFR_LIQUID") in GL_TEXTURE_MODES
-
-
-def _report_draw_failure(exc: Exception):
-    """Stop the run and log each distinct draw failure once, never once per redraw."""
-    RT.last_error = f"Viewport draw failed: {exc}"
-    RT.running = False  # the modal timer stops the session; never raise every redraw
-    key = f"{type(exc).__name__}: {exc}"
-    if key not in RT.draw_errors:
-        RT.draw_errors.add(key)
-        _LOG.error("WarpSPH viewport draw failed (logged once per distinct error): %s", key, exc_info=exc)
-
-
-def draw_particles_blender52():
-    session = RT.session
-    try:
-        if session is None:
-            # Legacy OpenGL path: the SSFR/sphere passes restore GL state in a finally block
-            # (_preserve_gl_state) and draw_points restores its own, so a failure leaves none behind.
-            draw_particles_viewport(RT.gl_buf, RT.running)
-            return
-        scene = bpy.context.scene
-        if not RT.running or not scene.warp_sph_show_particles:
-            return
-        session.draw(settings_from_scene(scene, session.backend))
-    except FatalTransportError as exc:
-        _mark_fatal(str(exc))
-    except Exception as exc:
-        _report_draw_failure(exc)
-
-
-def _mark_fatal(reason: str):
-    RT.restart_required = RT.restart_required or reason
-    RT.running = False
-
-
-def _retire_session(session):
-    result = session.close()
-    RT.last_close = result
-    if result != COMPLETED:
-        _QUARANTINE.append(session)
-    if result == QUARANTINED:  # Blender objects retained: do not create more interop objects
-        RT.interop_unavailable = RT.interop_unavailable or \
-            f"{_BACKEND_NAMES.get(session.backend, session.backend)} interop cleanup was quarantined (no GPU-context route)"
-    if result == FAILED:
-        _mark_fatal(session.fatal_reason or "transport cleanup did not complete; ownership retained")
-
-
-def _custom_solver(scene, depsgraph):
-    """Solver for the tagged objects; the particle count comes from the fill at the scene's spacing."""
-    from .scene.description import SceneFillError, SceneValidationError
-    try:
-        desc = _scene_api().description_from_blender(scene, depsgraph)
-        return RealtimeWCSPHSolver.from_scene(
-            desc, scene.warp_sph_particle_spacing, substeps=scene.warp_sph_substeps,
-            stiffness=scene.warp_sph_stiffness, cfl_factor=scene.warp_sph_time_step_scale)
-    except (SceneValidationError, SceneFillError) as exc:
-        raise SceneSetupError(str(exc)) from exc
-
-
-def _new_solver(scene, num_p: int, demo_type: str, depsgraph=None):
-    if demo_type == CUSTOM_SCENE:
-        return _custom_solver(scene, depsgraph if depsgraph is not None else bpy.context.evaluated_depsgraph_get())
-    solver = RealtimeWCSPHSolver(
-        num_particles=num_p,
-        h=0.04,
-        substeps=scene.warp_sph_substeps,
-        enable_obstacles=1 if demo_type == "DOUBLE_DAM_PILLARS" else 0,
-    )
-    solver.stiffness = scene.warp_sph_stiffness
-    solver.cfl_factor = scene.warp_sph_time_step_scale
-    # Initialize GPU SoA particle distribution for the chosen demo
-    launch_demo_scene_init(solver, demo_type)
-    solver.rebuild_cuda_graph()
-    return solver
-
-
-def _reallocate_and_init_scene(scene, num_p: int, demo_type: str, window=None, depsgraph=None):
-    """Transactional: the new output and solver are built while the old ones stay live;
-    on failure the new ones are released and the running session is untouched.
-
-    demo_type CUSTOM_SCENE builds the authored scene from tagged objects; num_p is then ignored and
-    every output is sized from the solver's fill count."""
-    backend = _gpu_backend()
-    if backend == 'OPENGL' and not _gl_uses_texture(scene):
-        # An authored scene's particle count is known only after the fill, so its solver comes first.
-        solver = _new_solver(scene, num_p, demo_type, depsgraph) if demo_type == CUSTOM_SCENE else None
-        gl_buf = ZeroCopyGLBuffer52(solver.num_particles if solver is not None else num_p)
-        try:
-            if solver is None:
-                solver = _new_solver(scene, num_p, demo_type)
-            with gl_buf.mapped() as pos_vbo_wp:
-                wp.copy(pos_vbo_wp, solver.pos_sim)
-        except BaseException:
-            gl_buf.destroy()
-            raise
-        # Commit point: output and solver switch together, before the old output is released.
-        old_buf, RT.gl_buf = RT.gl_buf, gl_buf
-        RT.solver, RT.active_demo = solver, demo_type
-        if old_buf:
-            old_buf.destroy()
-    else:
-        solver = _new_solver(scene, num_p, demo_type, depsgraph)
-        window = window or bpy.context.window
-        try:
-            session = transport_session.open_session(
-                backend, solver.num_particles, window.as_pointer(), interop_unavailable=RT.interop_unavailable)
-        except FatalTransportError:
-            _QUARANTINE.append(solver)
-            raise
-        try:
-            session.tick(lambda out: wp.copy(out, solver.pos_sim))  # publish before first draw
-        except FatalTransportError:
-            _QUARANTINE.extend((solver, session))  # no CUDA cleanup after a fatal error
-            raise
-        except BaseException:
-            _retire_session(session)
-            if RT.restart_required:  # its cleanup failed: CUDA state unknown, keep the solver too
-                _QUARANTINE.append(solver)
-            raise
-        zero_copy = session.transport.capabilities().zero_copy
-        old_session, old_solver = RT.session, RT.solver
-        if backend in _BACKEND_NAMES and not zero_copy:
-            if old_session is not None and old_session.transport.capabilities().zero_copy:
-                # A resize must not silently downgrade a working interop session.
-                _retire_session(session)
-                if RT.restart_required:
-                    _QUARANTINE.append(solver)
-                    raise FatalTransportError(RT.restart_required)
-                raise RuntimeError(
-                    f"new size cannot use {_BACKEND_NAMES[backend]} interop ({session.reason}); kept the current size")
-            RT.interop_unavailable = session.reason  # fall back once; no interop retries
-        # Commit point: output and solver switch together, before the old session is retired.
-        RT.session = session
-        RT.solver, RT.active_demo = solver, demo_type
-        if old_session is not None:
-            _retire_session(old_session)
-            if RT.restart_required:  # old cleanup failed: stop; _stop_session quarantines the new pair
-                _QUARANTINE.append(old_solver)
-                raise FatalTransportError(RT.restart_required)
-
-    RT.vram_mb = solver.get_vram_usage_mb()
-    RT.step_count = 0
-    RT.last_tick = 0.0
-    if demo_type == CUSTOM_SCENE:
-        if remove_blender_demo_helpers is not None:
-            remove_blender_demo_helpers()  # demo wireframes would only confuse an authored scene
-    else:
-        # Spawn matching Blender 3D viewport wireframe domain & obstacle collider meshes
-        build_blender_demo_helpers(demo_type)
-
-
-def _stop_session(context=None):
-    """Idempotent teardown for stop, cancel, unregister, file load and viewport loss."""
-    context = context or getattr(bpy, "context", None)
-    RT.running = False
-    RT.paused = False
-    RT.step_once = False
-    RT.token += 1
-    if RT.timer is not None:
-        wm = getattr(context, "window_manager", None)
-        if wm is not None:
-            try:
-                wm.event_timer_remove(RT.timer)
-            except (ReferenceError, RuntimeError, ValueError):
-                pass  # already freed with its window
-        RT.timer = None
-    if RT.draw_handle:
-        bpy.types.SpaceView3D.draw_handler_remove(RT.draw_handle, 'WINDOW')
-        RT.draw_handle = None
-    session, solver = RT.session, RT.solver
-    RT.session = None
-    RT.solver = None
-    if session is not None:
-        if RT.restart_required:
-            _QUARANTINE.append(session)  # no speculative CUDA cleanup after a fatal error
-        else:
-            _retire_session(session)
-    if RT.restart_required and solver is not None:
-        _QUARANTINE.append(solver)  # dropping it would free CUDA allocations
-    if RT.gl_buf:
-        if cleanup_viewport_renderer is not None:
-            cleanup_viewport_renderer()
-        RT.gl_buf.destroy()
-        RT.gl_buf = None
-    screen = getattr(context, "screen", None)
-    for area in getattr(screen, "areas", ()):
-        if area.type == 'VIEW_3D':
-            area.tag_redraw()
-
-
-def _apply_scene(op, context, count: int, demo: str) -> bool:
-    try:
-        _reallocate_and_init_scene(context.scene, count, demo, context.window)
-        return True
-    except FatalTransportError as exc:
-        _mark_fatal(str(exc))
-        op.report({'ERROR'}, f"WarpSPH GPU transport failed; restart Blender: {exc}")
-    except Exception as exc:
-        op.report({'ERROR'}, f"WarpSPH could not rebuild the scene: {exc}")
-        if RT.solver is not None:  # keep the running session; do not retry the same change
-            if RT.active_demo == CUSTOM_SCENE:
-                context.scene.warp_sph_scene_source = 'CUSTOM'
-            else:
-                context.scene.warp_sph_particle_count = RT.solver.num_particles
-                context.scene.warp_sph_demo_scene = RT.active_demo
-    return False
-
-
 class WM_OT_warp_sph_start(bpy.types.Operator):
     bl_idname = "wm.warp_sph_start"
     bl_label = "Start WarpSPH Realtime"
     _token = -1
+    _session: sim_session.SimSession | None = None
 
     def modal(self, context, event):
-        if self._token != RT.token:
+        session = self._session
+        if session is None or self._token != session.token:
             return {'CANCELLED'}  # already stopped by unregister, file load or cancel
-        if not RT.running or event.type == 'ESC':
-            self.cleanup(context)
+        if not session.running or event.type == 'ESC':
+            session.stop(context)
             return {'CANCELLED'}
-
-        if event.type == 'TIMER':
-            screen = context.screen
-            if screen is None or not any(area.type == 'VIEW_3D' for area in screen.areas):
-                self.report({'WARNING'}, "WarpSPH stopped: its window has no 3D viewport")
-                self.cleanup(context)
-                return {'CANCELLED'}
-            scene = context.scene
-            target_count = scene.warp_sph_particle_count
-            target_demo = scene.warp_sph_demo_scene
-
-            # Dynamic Buffer & Demo Manager: reallocate/reset on-the-fly if slider or demo changed.
-            # An authored scene is fixed for the run: role or geometry changes need Stop + Start.
-            if RT.active_demo != CUSTOM_SCENE and (
-                    RT.solver.num_particles != target_count or RT.active_demo != target_demo):
-                if not _apply_scene(self, context, target_count, target_demo):
-                    if not RT.running:
-                        self.cleanup(context)
-                        return {'CANCELLED'}
-                    for area in context.screen.areas:  # kept the running session; no step this tick
-                        if area.type == 'VIEW_3D':
-                            area.tag_redraw()
-                    return {'PASS_THROUGH'}
-            elif (RT.solver.stiffness != scene.warp_sph_stiffness
-                  or RT.solver.cfl_factor != scene.warp_sph_time_step_scale):
-                try:
-                    RT.solver.stiffness = scene.warp_sph_stiffness
-                    RT.solver.cfl_factor = scene.warp_sph_time_step_scale
-                    RT.solver.update_time_step()
-                    RT.solver.rebuild_cuda_graph()
-                except Exception as exc:
-                    if RT.session is not None:  # as a failed step (session.tick): CUDA state unknown
-                        _mark_fatal(f"CUDA graph rebuild failed; CUDA state unknown: {exc}")
-                        self.report({'ERROR'}, f"WarpSPH GPU transport failed; restart Blender: {exc}")
-                    else:
-                        self.report({'ERROR'}, f"WarpSPH stopped: {exc}")
-                    self.cleanup(context)
-                    return {'CANCELLED'}
-
-            if RT.paused and not RT.step_once:
-                # Keep redrawing so display settings stay live on the frozen frame
-                for area in context.screen.areas:
-                    if area.type == 'VIEW_3D':
-                        area.tag_redraw()
-                return {'PASS_THROUGH'}
-
-            t0 = time.perf_counter()
-
-            RT.solver.substeps = scene.warp_sph_substeps
-            solver, use_graph = RT.solver, scene.warp_sph_use_cuda_graph
-            try:
-                if RT.session is not None:
-                    # No host sync: the adapter orders publication on the solver stream and
-                    # skips the step (backpressure) while a step is in flight or both slots are busy.
-                    stepped = RT.session.tick(lambda out: solver.step(out, use_graph=use_graph))
-                else:
-                    with RT.gl_buf.mapped() as pos_vbo_wp:
-                        solver.step(pos_vbo_wp, use_graph=use_graph)
-                    wp.synchronize_device("cuda:0")
-                    stepped = True
-            except FatalTransportError as exc:
-                _mark_fatal(str(exc))
-                self.report({'ERROR'}, f"WarpSPH GPU transport failed; restart Blender: {exc}")
-                self.cleanup(context)
-                return {'CANCELLED'}
-            except Exception as exc:
-                self.report({'ERROR'}, f"WarpSPH stopped: {exc}")
-                self.cleanup(context)
-                return {'CANCELLED'}
-            now = time.perf_counter()
-            if RT.session is None:
-                dt_ms = (now - t0) * 1000.0
-            elif stepped and RT.last_tick:
-                dt_ms = (now - RT.last_tick) * 1000.0  # asynchronous: wall-clock step interval
-            else:
-                dt_ms = None
-            if stepped and RT.session is not None:
-                RT.last_tick = now
-            if dt_ms is not None:
-                RT.frame_time_ms = 0.9 * RT.frame_time_ms + 0.1 * dt_ms if RT.step_count > 0 else dt_ms
-                RT.fps_avg = 1000.0 / max(RT.frame_time_ms, 0.001)
-            if stepped:
-                RT.step_count += 1
-                RT.step_once = False  # a single-step request survives a backpressure skip
-
-            # GL draws synchronously after every step; a session redraws only for a new frame
-            if RT.session is None or RT.session.take_new_frame():
-                for area in context.screen.areas:
-                    if area.type == 'VIEW_3D':
-                        area.tag_redraw()
-
+        if event.type == 'TIMER' and not session.tick(context, self.report):
+            return {'CANCELLED'}  # the session stopped itself and reported why
         return {'PASS_THROUGH'}
 
     def execute(self, context):
-        if RT.running:
+        session = _session(context)
+        if session.running:
             return {'FINISHED'}
-        if RT.restart_required:
-            self.report({'ERROR'}, f"WarpSPH needs a Blender restart: {RT.restart_required}")
+        other = sim_session.active()
+        if other is not None:  # one run per process: the solver, timer and draw handler are shared
+            self.report({'ERROR'}, f"WarpSPH is already running in scene '{sim_session.scene_name(other.scene)}'; "
+                                   "stop it first")
             return {'CANCELLED'}
-
-        RT.last_error = ""
-        RT.draw_errors.clear()
+        token = session.start(context, self.report, _activate_runtime)
+        if token is None:
+            return {'CANCELLED'}
         try:
-            _activate_runtime()
-            scene = context.scene
-            if scene.warp_sph_scene_source == 'CUSTOM':
-                _reallocate_and_init_scene(scene, 0, CUSTOM_SCENE, context.window,
-                                           depsgraph=context.evaluated_depsgraph_get())
-            else:
-                _reallocate_and_init_scene(scene, scene.warp_sph_particle_count, scene.warp_sph_demo_scene,
-                                           context.window)
-        except SceneSetupError as exc:
-            _stop_session(context)
-            RT.last_error = f"Scene not valid: {exc}"
-            self.report({'ERROR'}, f"WarpSPH cannot start this scene: {exc}")
-            return {'CANCELLED'}
-        except FatalTransportError as exc:
-            _mark_fatal(str(exc))
-            _stop_session(context)
-            self.report({'ERROR'}, f"WarpSPH GPU transport failed; restart Blender: {exc}")
-            return {'CANCELLED'}
+            context.window_manager.modal_handler_add(self)
         except Exception as exc:
-            _stop_session(context)
+            session.stop(context)
             self.report({'ERROR'}, f"WarpSPH cannot start: {exc}")
             return {'CANCELLED'}
-
-        RT.running = True
-        RT.paused = False
-        RT.step_once = False
-        RT.token += 1
-        self._token = RT.token
-        try:
-            RT.draw_handle = bpy.types.SpaceView3D.draw_handler_add(
-                draw_particles_blender52, (), 'WINDOW', 'POST_VIEW'
-            )
-            wm = context.window_manager
-            RT.timer = wm.event_timer_add(0.001, window=context.window)
-            wm.modal_handler_add(self)
-        except Exception as exc:
-            _stop_session(context)
-            self.report({'ERROR'}, f"WarpSPH cannot start: {exc}")
-            return {'CANCELLED'}
+        self._session, self._token = session, token
         return {'RUNNING_MODAL'}
 
     def cancel(self, context):
         # Blender cancels the modal (window close, file load); the owner window may be gone,
         # in which case the transport releases CUDA objects and quarantines Blender ones.
-        if self._token == RT.token:
-            _stop_session(context)
-
-    def cleanup(self, context):
-        _stop_session(context)
+        if self._session is not None and self._token == self._session.token:
+            self._session.stop(context)
 
 
 class WM_OT_warp_sph_load_demo(bpy.types.Operator):
@@ -542,11 +139,12 @@ class WM_OT_warp_sph_load_demo(bpy.types.Operator):
     demo_id: bpy.props.StringProperty(default="DOUBLE_DAM_PILLARS")
 
     def execute(self, context):
-        scene = context.scene
-        scene.warp_sph_scene_source = 'DEMO'
-        scene.warp_sph_demo_scene = self.demo_id
-        if RT.running:
-            if not _apply_scene(self, context, scene.warp_sph_particle_count, self.demo_id):
+        settings = context.scene.warp_sph
+        settings.scene_source = 'DEMO'
+        settings.demo_scene = self.demo_id
+        session = _session(context)
+        if session.running:
+            if not session.apply_scene(context, settings.particle_count, self.demo_id, self.report):
                 return {'CANCELLED'}
         else:
             bpy.ops.wm.warp_sph_start()
@@ -558,7 +156,7 @@ class WM_OT_warp_sph_stop(bpy.types.Operator):
     bl_label = "Stop Simulation"
 
     def execute(self, context):
-        RT.running = False
+        _session(context).running = False  # the modal timer tears the session down
         return {'FINISHED'}
 
 
@@ -569,10 +167,11 @@ class WM_OT_warp_sph_pause(bpy.types.Operator):
 
     @classmethod
     def poll(cls, context):
-        return RT.running
+        return _session(context).running
 
     def execute(self, context):
-        RT.paused = not RT.paused
+        session = _session(context)
+        session.paused = not session.paused
         return {'FINISHED'}
 
 
@@ -583,18 +182,13 @@ class WM_OT_warp_sph_step_frame(bpy.types.Operator):
 
     @classmethod
     def poll(cls, context):
-        return RT.running
+        return _session(context).running
 
     def execute(self, context):
-        RT.paused = True
-        RT.step_once = True
+        session = _session(context)
+        session.paused = True
+        session.step_once = True
         return {'FINISHED'}
-
-
-def _readback_active() -> bool:
-    """True while Readback runs on a backend where OpenGL would help (from what runs, not prefs)."""
-    session = RT.session
-    return session is not None and session.backend != 'OPENGL' and not session.transport.capabilities().zero_copy
 
 
 class WM_OT_warp_sph_use_opengl(bpy.types.Operator):
@@ -605,7 +199,7 @@ class WM_OT_warp_sph_use_opengl(bpy.types.Operator):
 
     @classmethod
     def poll(cls, context):
-        return _readback_active()
+        return _session(context).readback_active()
 
     def invoke(self, context, event):
         return context.window_manager.invoke_confirm(
@@ -688,7 +282,8 @@ class OBJECT_OT_warp_sph_set_role(bpy.types.Operator):
         message = f"WarpSPH role {label}: {', '.join(o.name for o in meshes)}"
         if len(meshes) < len(selected):
             message += f" ({len(selected) - len(meshes)} non-mesh object(s) skipped)"
-        if RT.running and RT.active_demo == CUSTOM_SCENE:
+        session = _session(context)
+        if session.running and session.active_demo == CUSTOM_SCENE:
             message += "; Stop and Start to apply"
         self.report({'INFO'}, message)
         return {'FINISHED'}
@@ -733,7 +328,7 @@ class OBJECT_OT_warp_sph_add_fluid_scene(bpy.types.Operator):
             return {'CANCELLED'}
         for name, size, location, rotation_z, role in _STARTER_SCENE:
             _assign_role(_add_box(collection, name, size, location, rotation_z), role)
-        context.scene.warp_sph_scene_source = 'CUSTOM'
+        context.scene.warp_sph.scene_source = 'CUSTOM'
         self.report({'INFO'}, "Added a WarpSPH domain, fluid and collider; press Start Realtime Sim")
         return {'FINISHED'}
 
@@ -744,7 +339,7 @@ class WM_OT_warp_sph_copy_diagnostics(bpy.types.Operator):
     bl_description = "Copy GPU, driver, Warp, Blender and recent error details to the clipboard for bug reports"
 
     def execute(self, context):
-        context.window_manager.clipboard = _diagnostics_report()
+        context.window_manager.clipboard = _diagnostics_report(sim_session.active() or _session(context))
         self.report({'INFO'}, "WarpSPH diagnostics copied to the clipboard")
         return {'FINISHED'}
 
@@ -773,29 +368,41 @@ class OBJECT_PT_warp_sph(bpy.types.Panel):
         layout.label(text=help_text, icon='INFO')
         if obj.warp_sph.role == "NONE" and role is not None:
             layout.label(text=f"Role {role} from the legacy 'warp_sph_role' property")
-        if context.scene.warp_sph_scene_source != 'CUSTOM':
+        if context.scene.warp_sph.scene_source != 'CUSTOM':
             layout.label(text="Roles are used when the WarpSPH scene source is Custom")
-        if RT.running and RT.active_demo == CUSTOM_SCENE:
+        session = _session(context)
+        if session.running and session.active_demo == CUSTOM_SCENE:
             layout.label(text="Running: Stop and Start to apply role or geometry changes", icon='INFO')
 
 
-def _draw_custom_scene(box, scene):
+def _draw_vram_warning(layout, particles: int):
+    warning = props.vram_warning(particles, sim_session.device_total_mb())
+    if warning:
+        layout.label(text=warning, icon='ERROR')
+
+
+def _draw_custom_scene(box, scene, session):
+    settings = scene.warp_sph
+    try:
+        by_role = _scene_api().objects_by_role(scene)
+        warnings = _scene_api().scene_warnings(scene)
+    except Exception as exc:  # never break the panel; Start reports the full validation
+        by_role, warnings = {}, [f"Cannot read scene roles: {exc}"]
     col = box.column(align=True)
-    col.prop(scene, "warp_sph_particle_spacing")
-    custom_running = RT.running and RT.active_demo == CUSTOM_SCENE and RT.solver is not None
+    col.prop(settings, "particle_spacing")
+    solver = session.solver
+    custom_running = session.running and session.active_demo == CUSTOM_SCENE and solver is not None
     if custom_running:
-        col.label(text=f"Particles: {RT.solver.num_particles:,} (from the fill)")
+        col.label(text=f"Particles: {solver.num_particles:,} (from the fill)")
+        _draw_vram_warning(col, solver.num_particles)
+    else:
+        _draw_vram_warning(col, props.custom_particle_estimate(by_role.get("FLUID", []), settings.particle_spacing))
     box.operator("object.warp_sph_add_fluid_scene", icon='ADD')
     box.label(text="Set selected objects as:")
     row = box.row(align=True)
     for role, text, icon in (("DOMAIN", "Domain", 'MESH_CUBE'), ("FLUID", "Fluid", 'MOD_FLUIDSIM'),
                              ("COLLIDER", "Collider", 'PHYSICS'), ("NONE", "Clear", 'X')):
         row.operator("object.warp_sph_set_role", text=text, icon=icon).role = role
-    try:
-        by_role = _scene_api().objects_by_role(scene)
-        warnings = _scene_api().scene_warnings(scene)
-    except Exception as exc:  # never break the panel; Start reports the full validation
-        by_role, warnings = {}, [f"Cannot read scene roles: {exc}"]
     col = box.column(align=True)
     for role, title in (("DOMAIN", "Domain"), ("FLUID", "Fluid"), ("COLLIDER", "Colliders")):
         objs = by_role.get(role, [])
@@ -807,15 +414,16 @@ def _draw_custom_scene(box, scene):
         box.label(text="Running: Stop and Start to apply scene changes", icon='INFO')
 
 
-def _draw_demo_scene(box, scene):
+def _draw_demo_scene(box, settings):
     col_demo = box.column(align=True)
     op1 = col_demo.operator("wm.warp_sph_load_demo", icon='MOD_FLUIDSIM', text="Demo 1: Double Dam + Pillars")
     op1.demo_id = "DOUBLE_DAM_PILLARS"
     op2 = col_demo.operator("wm.warp_sph_load_demo", icon='FORCE_TURBULENCE', text="Demo 2: Block Flop Crown Splash")
     op2.demo_id = "BLOCK_FLOP_SPLASH"
     col = box.column(align=True)
-    col.prop(scene, "warp_sph_demo_scene", text="Demo")
-    col.prop(scene, "warp_sph_particle_count", slider=True)
+    col.prop(settings, "demo_scene", text="Demo")
+    col.prop(settings, "particle_count", slider=True)
+    _draw_vram_warning(col, settings.particle_count)
 
 
 class VIEW3D_PT_warp_sph(bpy.types.Panel):
@@ -827,6 +435,10 @@ class VIEW3D_PT_warp_sph(bpy.types.Panel):
     def draw(self, context):
         layout = self.layout
         scene = context.scene
+        session = _session(context)
+        other = sim_session.active()
+        if other is session:
+            other = None
         state = warp_runtime.status()
         status_box = layout.box()
         status_box.label(text="Runtime: " + ("Installed (GPU check on Start)" if state.available else "Not ready"), icon='CHECKMARK' if state.available else 'ERROR')
@@ -840,78 +452,73 @@ class VIEW3D_PT_warp_sph(bpy.types.Panel):
                 status_box.operator("wm.warp_sph_install", text="Install NVIDIA Warp", icon='IMPORT')
             op = status_box.operator("wm.warp_sph_install", text="Repair Warp", icon='FILE_REFRESH')
             op.repair = True
-        if RT.restart_required:
+        if session.restart_required:
             status_box.label(text="GPU transport failed: restart Blender to run WarpSPH again", icon='ERROR')
-            status_box.label(text=RT.restart_required)
-        if RT.session is not None:
-            status_box.label(text="Transport: " + RT.session.label,
-                             icon='CHECKMARK' if RT.session.transport.capabilities().zero_copy else 'INFO')
-            if RT.session.reason:
-                status_box.label(text=RT.session.reason)
-            if _readback_active():
+            status_box.label(text=session.restart_required)
+        if session.session is not None:
+            status_box.label(text="Transport: " + session.session.label,
+                             icon='CHECKMARK' if session.session.transport.capabilities().zero_copy else 'INFO')
+            if session.session.reason:
+                status_box.label(text=session.session.reason)
+            if session.readback_active():
                 status_box.operator("wm.warp_sph_use_opengl", icon='PREFERENCES')
-        elif RT.interop_unavailable and RT.gl_buf is None:
-            status_box.label(text=RT.interop_unavailable + " (Readback until restart)", icon='INFO')
-        if RT.last_close and RT.last_close != COMPLETED:
-            status_box.label(text=f"Last GPU cleanup: {RT.last_close} (retained until exit)", icon='ERROR')
-        if RT.last_error:
-            status_box.label(text=RT.last_error, icon='ERROR')
+        elif session.interop_unavailable and session.gl_buf is None:
+            status_box.label(text=session.interop_unavailable + " (Readback until restart)", icon='INFO')
+        if session.last_close and session.last_close != COMPLETED:
+            status_box.label(text=f"Last GPU cleanup: {session.last_close} (retained until exit)", icon='ERROR')
+        if session.last_error:
+            status_box.label(text=session.last_error, icon='ERROR')
+        if other is not None:
+            status_box.label(text=f"Running in scene '{sim_session.scene_name(other.scene)}': stop it there first",
+                             icon='INFO')
         status_box.operator("wm.warp_sph_copy_diagnostics", icon='COPYDOWN')
 
+        settings = scene.warp_sph
         box_demo = layout.box()
         box_demo.label(text="Scene", icon='SCENE_DATA')
-        box_demo.row().prop(scene, "warp_sph_scene_source", expand=True)
-        if scene.warp_sph_scene_source == 'CUSTOM':
-            _draw_custom_scene(box_demo, scene)
+        box_demo.row().prop(settings, "scene_source", expand=True)
+        if settings.scene_source == 'CUSTOM':
+            _draw_custom_scene(box_demo, scene, session)
         else:
-            _draw_demo_scene(box_demo, scene)
-        if RT.running and (RT.active_demo == CUSTOM_SCENE) != (scene.warp_sph_scene_source == 'CUSTOM'):
+            _draw_demo_scene(box_demo, settings)
+        if session.running and (session.active_demo == CUSTOM_SCENE) != (settings.scene_source == 'CUSTOM'):
             box_demo.label(text="Scene source changes apply on the next Start", icon='INFO')
-
-        layout.separator()
-        layout.prop(scene, "warp_sph_use_cuda_graph")
 
         box_speed = layout.box()
         box_speed.label(text="Simulation Speed vs. Stability", icon='TIME')
         col_speed = box_speed.column(align=True)
-        col_speed.prop(scene, "warp_sph_substeps")
-        col_speed.prop(scene, "warp_sph_time_step_scale", slider=True)
-        col_speed.prop(scene, "warp_sph_stiffness")
-        if RT.solver:
+        col_speed.prop(settings, "substeps")
+        col_speed.prop(settings, "time_step_scale", slider=True)
+        if session.solver:
             col_speed.label(
-                text=f"dt = {RT.solver.dt * 1000:.3f} ms  |  sim speed ≈ "
-                     f"{RT.solver.dt * RT.solver.substeps * RT.fps_avg:.2f}x real time"
+                text=f"dt = {session.solver.dt * 1000:.3f} ms  |  sim speed ≈ "
+                     f"{session.solver.dt * session.solver.substeps * session.fps_avg:.2f}x real time"
             )
 
         box_vis = layout.box()
-        box_vis.label(text="Viewport Display & SSFR", icon='SHADING_RENDERED')
+        box_vis.label(text="Viewport Display", icon='SHADING_RENDERED')
         col_vis = box_vis.column(align=True)
-        col_vis.prop(scene, "warp_sph_show_particles")
-        col_vis.prop(scene, "warp_sph_render_mode", text="Mode")
-        col_vis.prop(scene, "warp_sph_particle_color", text="")
-        col_vis.prop(scene, "warp_sph_depth_test")
-        if RT.session is not None:
-            note = settings_from_scene(scene, RT.session.backend).note
+        col_vis.prop(settings, "show_particles")
+        col_vis.prop(settings, "render_mode", text="Mode")
+        col_vis.prop(settings, "particle_color", text="")
+        col_vis.prop(settings, "depth_test")
+        if session.session is not None:
+            note = settings_from_scene(scene, session.session.backend).note
             if note:
                 col_vis.label(text=note, icon='INFO')
-
-        if scene.warp_sph_render_mode == "POINTS":
-            col_vis.prop(scene, "warp_sph_point_size")
-        elif scene.warp_sph_render_mode == "SPHERES":
-            col_vis.prop(scene, "warp_sph_particle_radius")
+        if settings.render_mode == "POINTS":
+            col_vis.prop(settings, "point_size")
         else:
-            col_vis.prop(scene, "warp_sph_particle_radius")
-            col_vis.prop(scene, "warp_sph_filter_iterations")
-            col_vis.prop(scene, "warp_sph_filter_sigma")
-            col_vis.prop(scene, "warp_sph_absorption")
+            col_vis.prop(settings, "particle_radius")
 
         layout.separator()
         row = layout.row(align=True)
-        if not RT.running:
-            row.enabled = state.available and not bool(_startup_error) and not RT.restart_required
+        if not session.running:
+            row.enabled = (state.available and not bool(_startup_error) and not session.restart_required
+                           and other is None)
             row.operator("wm.warp_sph_start", icon='PLAY', text="Start Realtime Sim")
         else:
-            if RT.paused:
+            if session.paused:
                 row.operator("wm.warp_sph_pause", icon='PLAY', text="Resume")
             else:
                 row.operator("wm.warp_sph_pause", icon='PAUSE', text="Pause")
@@ -922,21 +529,44 @@ class VIEW3D_PT_warp_sph(bpy.types.Panel):
         box = layout.box()
         box.label(text="GPU Performance Telemetry", icon='PREFERENCES')
         col_stat = box.column(align=True)
-        status = 'IDLE' if not RT.running else ('PAUSED' if RT.paused else 'RUNNING')
+        status = 'IDLE' if not session.running else ('PAUSED' if session.paused else 'RUNNING')
         col_stat.label(text=f"Status: {status}")
-        if RT.active_demo == CUSTOM_SCENE:
+        if session.active_demo == CUSTOM_SCENE:
             col_stat.label(text="Active Scene: Custom (tagged objects)")
         else:
-            col_stat.label(text=f"Active Demo: {RT.active_demo}")
-        col_stat.label(text=f"FPS Avg: {RT.fps_avg:.1f} FPS")
-        col_stat.label(text=f"Frame Time: {RT.frame_time_ms:.2f} ms")
-        col_stat.label(text=f"SoA VRAM Footprint: {RT.vram_mb:.1f} MB")
-        if RT.running and RT.solver:
-            throughput = (RT.solver.num_particles / max(RT.frame_time_ms, 0.001))
+            col_stat.label(text=f"Active Demo: {session.active_demo}")
+        col_stat.label(text=f"FPS Avg: {session.fps_avg:.1f} FPS")
+        col_stat.label(text=f"Frame Time: {session.frame_time_ms:.2f} ms")
+        col_stat.label(text=f"SoA VRAM Footprint: {session.vram_mb:.1f} MB")
+        if session.running and session.solver:
+            throughput = (session.solver.num_particles / max(session.frame_time_ms, 0.001))
             col_stat.label(text=f"Throughput: {throughput:,.0f} particles/ms")
-        if RT.running and RT.session is not None:
-            drops = getattr(RT.session.transport, "drops", 0)
-            col_stat.label(text=f"Transport waits: {RT.session.waits}  |  drops: {drops}")
+        if session.running and session.session is not None:
+            drops = getattr(session.session.transport, "drops", 0)
+            col_stat.label(text=f"Transport waits: {session.session.waits}  |  drops: {drops}")
+
+
+class VIEW3D_PT_warp_sph_advanced(bpy.types.Panel):
+    """Solver and SSFR tuning most users never need: collapsed under the main panel."""
+    bl_space_type = 'VIEW_3D'
+    bl_region_type = 'UI'
+    bl_category = "WarpSPH"
+    bl_label = "Advanced"
+    bl_parent_id = "VIEW3D_PT_warp_sph"
+    bl_options = {'DEFAULT_CLOSED'}
+
+    def draw(self, context):
+        layout = self.layout
+        settings = context.scene.warp_sph
+        col = layout.column(align=True)
+        col.prop(settings, "stiffness")
+        col.prop(settings, "use_cuda_graph")
+        if settings.render_mode == "SSFR_LIQUID":
+            col = layout.column(align=True)
+            col.label(text="SSFR Liquid", icon='SHADING_RENDERED')
+            col.prop(settings, "filter_iterations")
+            col.prop(settings, "filter_sigma")
+            col.prop(settings, "absorption")
 
 
 _STOP_HANDLERS = ("load_pre", "exit_pre", "undo_pre", "redo_pre")
@@ -949,11 +579,45 @@ def _on_load_pre(*_args):
     scene state (properties, helper objects) under a running solver and its window-bound
     session, and no ordering guarantee makes keeping the run alive provably safe.
     """
-    _stop_session(getattr(bpy, "context", None))
+    sim_session.stop_all(getattr(bpy, "context", None))
+
+
+def _migrate_open_file():
+    """Move the flat ``warp_sph_*`` settings of a file saved by an older version into ``scene.warp_sph``.
+    Returns None, so it also serves as a one-shot ``bpy.app.timers`` callback."""
+    try:
+        scenes = list(bpy.data.scenes)
+    except AttributeError:  # bpy.data is restricted (add-on registration, Blender start-up)
+        return None
+    props.migrate_scenes(scenes)
+    return None
+
+
+def _on_load_post(*_args):
+    _migrate_open_file()
+
+
+def _schedule_open_file_migration():
+    """register() runs with bpy.data restricted (addon_utils' RestrictBlend), so the file that is open
+    when the add-on is enabled or updated is migrated right after registration, from a timer."""
+    timers = getattr(getattr(bpy, "app", None), "timers", None)
+    if timers is not None and not timers.is_registered(_migrate_open_file):
+        timers.register(_migrate_open_file, first_interval=0.0)
+
+
+def _cancel_open_file_migration():
+    timers = getattr(getattr(bpy, "app", None), "timers", None)
+    if timers is not None and timers.is_registered(_migrate_open_file):
+        timers.unregister(_migrate_open_file)
 
 
 def _app_handlers():
     return getattr(getattr(bpy, "app", None), "handlers", None)
+
+
+def _hooks():
+    """(handler, app.handlers list names) pairs this add-on installs."""
+    return ((_on_load_pre, _STOP_HANDLERS), (_on_load_post, ("load_post",)))
 
 
 def _install_handlers():
@@ -961,22 +625,24 @@ def _install_handlers():
     if handlers is None:
         return
     persistent = getattr(handlers, "persistent", None)
-    if persistent is not None and not getattr(_on_load_pre, "_bpy_persistent", False):
-        persistent(_on_load_pre)
-    for name in _STOP_HANDLERS:
-        hooks = getattr(handlers, name, None)
-        if hooks is not None and _on_load_pre not in hooks:
-            hooks.append(_on_load_pre)
+    for handler, names in _hooks():
+        if persistent is not None and not getattr(handler, "_bpy_persistent", False):
+            persistent(handler)
+        for name in names:
+            hooks = getattr(handlers, name, None)
+            if hooks is not None and handler not in hooks:
+                hooks.append(handler)
 
 
 def _remove_handlers():
     handlers = _app_handlers()
     if handlers is None:
         return
-    for name in _STOP_HANDLERS:
-        hooks = getattr(handlers, name, None)
-        while hooks is not None and _on_load_pre in hooks:
-            hooks.remove(_on_load_pre)
+    for handler, names in _hooks():
+        for name in names:
+            hooks = getattr(handlers, name, None)
+            while hooks is not None and handler in hooks:
+                hooks.remove(handler)
 
 
 def register():
@@ -988,146 +654,8 @@ def register():
         _startup_error = str(exc)
     bpy.utils.register_class(WARPSPH_ObjectSettings)
     bpy.types.Object.warp_sph = PointerProperty(type=WARPSPH_ObjectSettings)
-    bpy.types.Scene.warp_sph_scene_source = EnumProperty(
-        name="Scene Source",
-        items=[
-            ("DEMO", "Demo", "Run one of the built-in demo scenes"),
-            ("CUSTOM", "Custom", "Build the simulation from objects marked Domain, Fluid and Collider"),
-        ],
-        default="DEMO",
-    )
-    bpy.types.Scene.warp_sph_particle_spacing = FloatProperty(
-        name="Particle Spacing (m)",
-        description="Distance between fluid particles in a Custom scene. Smaller = more particles "
-                    "(about fluid volume / spacing^3) and finer detail; the smoothing length is twice this",
-        default=0.02,
-        min=0.004,
-        max=0.2,
-        soft_min=0.01,
-        soft_max=0.05,
-        step=0.1,        # 0.001 m per click
-        precision=4,
-    )
-    bpy.types.Scene.warp_sph_demo_scene = EnumProperty(
-        name="Demo Scene",
-        items=[
-            ("DOUBLE_DAM_PILLARS", "Demo 1: Double Dam + Pillars", "Two opposing fluid columns colliding with a central sphere and 4 pillar obstacles"),
-            ("BLOCK_FLOP_SPLASH", "Demo 2: Block Flop Crown Splash", "Heavy elevated fluid cube dropping into a shallow resting puddle basin"),
-        ],
-        default="DOUBLE_DAM_PILLARS",
-    )
-    bpy.types.Scene.warp_sph_particle_count = IntProperty(
-        name="Particles",
-        description="Total fluid particles (dynamically reallocates GPU SoA buffers on change)",
-        default=1_000_000,
-        min=100_000,
-        max=4_000_000,
-        step=100_000,
-    )
-    bpy.types.Scene.warp_sph_substeps = IntProperty(
-        name="Sub-steps / Frame",
-        description="Physics sub-steps executed per viewport redraw",
-        default=2,
-        min=1,
-        max=10,
-    )
-    bpy.types.Scene.warp_sph_time_step_scale = FloatProperty(
-        name="Time Step (CFL)",
-        description="Physics time step as a fraction of the stability limit. Higher = faster simulation, "
-                    "but above ~0.5 high-speed impacts can blow up",
-        default=0.4,
-        min=0.1,
-        max=1.0,
-        step=1,          # Blender steps are 1/100 units: 0.01 per click
-        precision=3,
-    )
-    bpy.types.Scene.warp_sph_stiffness = FloatProperty(
-        name="Fluid Stiffness",
-        description="Pressure stiffness (sets sound speed). Lower = larger time step and faster simulation, "
-                    "but more compressible and less stable on impacts",
-        default=90000.0,
-        min=10000.0,
-        max=400000.0,
-        step=500000,
-    )
-    bpy.types.Scene.warp_sph_show_particles = BoolProperty(
-        name="Show Particles",
-        default=True,
-    )
-    bpy.types.Scene.warp_sph_render_mode = EnumProperty(
-        name="Render Mode",
-        items=[
-            ("SSFR_LIQUID", "SSFR Liquid (Narrow-Range + Beer-Lambert)", "5-pass Screen-Space Fluid Renderer with Truong & Yuksel Narrow-Range Filter and Fresnel shading"),
-            ("SPHERES", "Shaded Sphere Impostors", "Single-pass eye-space shaded 3D spheres with per-fragment depth correction"),
-            ("POINTS", "Raw Points (Max FPS)", "Fastest raw GL_POINTS mode for telemetry benchmarking"),
-        ],
-        default="SSFR_LIQUID",
-    )
-    bpy.types.Scene.warp_sph_point_size = FloatProperty(
-        name="Point Size",
-        description="Particle point size in screen pixels (Raw Points mode)",
-        default=2.5,
-        min=1.0,
-        max=20.0,
-        step=10,         # 0.1 px per click
-        precision=1,
-    )
-    bpy.types.Scene.warp_sph_particle_radius = FloatProperty(
-        name="Particle Radius (m)",
-        description="World-space sphere radius for SSFR and Sphere Impostor modes",
-        default=0.022,
-        min=0.002,
-        max=0.10,
-        soft_min=0.004,  # narrow drag range so mouse travel maps to useful radii
-        soft_max=0.04,
-        step=0.05,       # 0.0005 m (0.5 mm) per click
-        precision=4,
-    )
-    bpy.types.Scene.warp_sph_filter_iterations = IntProperty(
-        name="Narrow-Range Filter Passes",
-        description="Number of 1D separable Horizontal + Vertical Narrow-Range smoothing iterations",
-        default=2,
-        min=1,
-        max=5,
-    )
-    bpy.types.Scene.warp_sph_filter_sigma = FloatProperty(
-        name="Filter Sigma (px)",
-        description="Screen-space Gaussian standard deviation inside the Narrow-Range depth window",
-        default=4.0,
-        min=1.0,
-        max=12.0,
-        step=10,         # 0.1 px per click
-        precision=1,
-    )
-    bpy.types.Scene.warp_sph_absorption = FloatVectorProperty(
-        name="Beer-Lambert Absorption (RGB)",
-        description="Wavelength-dependent light extinction coefficients exp(-a * thickness)",
-        size=3,
-        default=(0.85, 0.22, 0.05),
-        min=0.0,
-        max=5.0,
-        soft_max=2.0,
-        step=1,          # 0.01 per click
-        precision=3,
-    )
-    bpy.types.Scene.warp_sph_particle_color = FloatVectorProperty(
-        name="Particle Color",
-        subtype='COLOR',
-        size=4,
-        default=(0.12, 0.68, 1.0, 1.0),
-        min=0.0,
-        max=1.0,
-    )
-    bpy.types.Scene.warp_sph_depth_test = BoolProperty(
-        name="Hide Behind Objects",
-        description="Particles are hidden behind scene geometry (off = always draw on top)",
-        default=True,
-    )
-    bpy.types.Scene.warp_sph_use_cuda_graph = BoolProperty(
-        name="Warp 1.17 CUDA Graph Capture",
-        description="Execute Coalesced Density + WCSPH Force + Copy-back via captured CUDA Graph",
-        default=True,
-    )
+    bpy.utils.register_class(props.WARPSPH_SceneSettings)
+    bpy.types.Scene.warp_sph = PointerProperty(type=props.WARPSPH_SceneSettings)
     bpy.utils.register_class(WM_OT_warp_sph_start)
     bpy.utils.register_class(WM_OT_warp_sph_load_demo)
     bpy.utils.register_class(WM_OT_warp_sph_stop)
@@ -1138,10 +666,13 @@ def register():
     bpy.utils.register_class(OBJECT_OT_warp_sph_set_role)
     bpy.utils.register_class(OBJECT_OT_warp_sph_add_fluid_scene)
     install_ui.register(
-        is_running=lambda: RT.running, startup_error=lambda: _startup_error, active_warp=lambda: wp)
+        is_running=lambda: sim_session.active() is not None, startup_error=lambda: _startup_error,
+        active_warp=lambda: sim_session.runtime.wp)
     bpy.utils.register_class(VIEW3D_PT_warp_sph)
+    bpy.utils.register_class(VIEW3D_PT_warp_sph_advanced)
     bpy.utils.register_class(OBJECT_PT_warp_sph)
     _install_handlers()
+    _schedule_open_file_migration()  # enabling or updating the add-on with an older file already open
     try:
         diagnostics.setup_logging(_log_dir())
     except Exception:  # logging is best effort and must not block registration
@@ -1151,8 +682,10 @@ def register():
 def unregister():
     diagnostics.teardown_logging()
     _remove_handlers()
-    _stop_session(getattr(bpy, "context", None))
+    _cancel_open_file_migration()
+    sim_session.dispose_all(getattr(bpy, "context", None))
     bpy.utils.unregister_class(OBJECT_PT_warp_sph)
+    bpy.utils.unregister_class(VIEW3D_PT_warp_sph_advanced)
     bpy.utils.unregister_class(VIEW3D_PT_warp_sph)
     bpy.utils.unregister_class(WM_OT_warp_sph_step_frame)
     bpy.utils.unregister_class(WM_OT_warp_sph_pause)
@@ -1164,22 +697,7 @@ def unregister():
     bpy.utils.unregister_class(WM_OT_warp_sph_stop)
     bpy.utils.unregister_class(WM_OT_warp_sph_load_demo)
     bpy.utils.unregister_class(WM_OT_warp_sph_start)
-    del bpy.types.Scene.warp_sph_use_cuda_graph
-    del bpy.types.Scene.warp_sph_depth_test
-    del bpy.types.Scene.warp_sph_particle_color
-    del bpy.types.Scene.warp_sph_absorption
-    del bpy.types.Scene.warp_sph_filter_sigma
-    del bpy.types.Scene.warp_sph_filter_iterations
-    del bpy.types.Scene.warp_sph_particle_radius
-    del bpy.types.Scene.warp_sph_point_size
-    del bpy.types.Scene.warp_sph_render_mode
-    del bpy.types.Scene.warp_sph_show_particles
-    del bpy.types.Scene.warp_sph_stiffness
-    del bpy.types.Scene.warp_sph_time_step_scale
-    del bpy.types.Scene.warp_sph_substeps
-    del bpy.types.Scene.warp_sph_particle_count
-    del bpy.types.Scene.warp_sph_demo_scene
-    del bpy.types.Scene.warp_sph_particle_spacing
-    del bpy.types.Scene.warp_sph_scene_source
+    del bpy.types.Scene.warp_sph
+    bpy.utils.unregister_class(props.WARPSPH_SceneSettings)
     del bpy.types.Object.warp_sph
     bpy.utils.unregister_class(WARPSPH_ObjectSettings)

@@ -236,9 +236,10 @@ gpu.platform = NS(backend_type_get=lambda: 'VULKAN')
 sys.modules['gpu'] = gpu
 
 import warp_sph_realtime as ext
-from warp_sph_realtime import addon
+from warp_sph_realtime import addon, sim_session
 from warp_sph_realtime.render import session as ts
-from warp_sph_realtime.render.transport import Capabilities, FatalTransportError, RecoverableTransportError
+from warp_sph_realtime.render.transport import (Capabilities, FatalTransportError, RecoverableTransportError,
+                                                process_state)
 from warp_sph_realtime.scene.description import SceneFillError, SceneValidationError
 
 class Solver:
@@ -306,13 +307,14 @@ def open_session(backend, count, window, *, interop_unavailable=''):
     return real_open(backend, count, window, interop_unavailable=interop_unavailable, resolve=resolve,
                      create_vulkan=create_vulkan, create_gl=create_gl, create_readback=lambda n, reason='': Transport(False, reason),
                      alloc=lambda n: 'scratch', renderer_factory=Renderer)
-addon.transport_session.open_session = open_session
-addon.wp = NS(copy=lambda dst, src: None)  # marks the runtime active; no Warp import
-addon.RealtimeWCSPHSolver = Solver
-addon.launch_demo_scene_init = lambda solver, demo: None
+sim_session.transport_session.open_session = open_session
+RUNTIME = sim_session.runtime
+RUNTIME.wp = NS(copy=lambda dst, src: None)  # marks the runtime active; no Warp import
+RUNTIME.RealtimeWCSPHSolver = Solver
+RUNTIME.launch_demo_scene_init = lambda solver, demo: None
 HELPERS = []
-addon.build_blender_demo_helpers = lambda demo: HELPERS.append('built:' + demo)
-addon.remove_blender_demo_helpers = lambda: HELPERS.append('removed')
+RUNTIME.build_blender_demo_helpers = lambda demo: HELPERS.append('built:' + demo)
+RUNTIME.remove_blender_demo_helpers = lambda: HELPERS.append('removed')
 DESC = NS(calls=[], error=None)
 def description_from_blender(scene, depsgraph):
     DESC.calls.append((scene, depsgraph))
@@ -320,23 +322,27 @@ def description_from_blender(scene, depsgraph):
     return 'desc'
 from warp_sph_realtime.scene import blender_scene
 blender_scene.description_from_blender = description_from_blender
-RT = addon.RT
+CUR = [None]
+class _Current:
+    """The SimSession under test (the scene last started or reset): reads and writes go to it."""
+    def __getattr__(self, name): return getattr(CUR[0], name)
+    def __setattr__(self, name, value): setattr(CUR[0], name, value)
+RT = _Current()
 
 def make_context(areas=('VIEW_3D',)):
     scene = Scene()
-    for k, v in dict(warp_sph_particle_count=1000, warp_sph_demo_scene='DOUBLE_DAM_PILLARS',
-                     warp_sph_substeps=2, warp_sph_stiffness=1.0, warp_sph_time_step_scale=0.4,
-                     warp_sph_use_cuda_graph=True, warp_sph_show_particles=True,
-                     warp_sph_scene_source='DEMO', warp_sph_particle_spacing=0.02).items():
-        setattr(scene, k, v)
+    scene.warp_sph = NS(particle_count=1000, demo_scene='DOUBLE_DAM_PILLARS', substeps=2, stiffness=1.0,
+                        time_step_scale=0.4, use_cuda_graph=True, show_particles=True, scene_source='DEMO',
+                        particle_spacing=0.02, render_mode='SSFR_LIQUID')  # the real defaults
     return NS(scene=scene, window=Window(), window_manager=WM(), screen=NS(areas=[Area(a) for a in areas]),
               evaluated_depsgraph_get=lambda: 'depsgraph')
 bpy.context = make_context()
 
 def reset():
-    addon._stop_session(bpy.context)
-    RT.restart_required = RT.interop_unavailable = RT.last_close = RT.last_error = ''
-    addon._QUARANTINE.clear()
+    sim_session.dispose_all(bpy.context)
+    state = process_state()
+    state.restart_required = state.interop_unavailable = ''
+    sim_session._QUARANTINE.clear()
     Transport.log.clear()
     Solver.fail = Solver.step_error = Solver.rebuild_error = None
     FACTORY.vulkan_error = FACTORY.gl_error = FACTORY.open_error = None
@@ -348,9 +354,11 @@ def reset():
     HELPERS.clear()
     handles.clear()
     bpy.context = make_context()
+    CUR[0] = sim_session.get(bpy.context.scene)
     return bpy.context
 
 def start(ctx):
+    CUR[0] = sim_session.get(ctx.scene)
     op = addon.WM_OT_warp_sph_start()
     return op, op.execute(ctx)
 
@@ -399,7 +407,7 @@ def in_flight_disable_quarantines(ctx):
     session = RT.session
     session.transport.close_result = 'quarantined'
     ext.unregister()
-    assert RT.last_close == 'quarantined' and session in addon._QUARANTINE and not RT.restart_required
+    assert RT.last_close == 'quarantined' and session in sim_session._QUARANTINE and not RT.restart_required
     assert 'quarantined' in RT.interop_unavailable  # retained Blender objects: Readback until restart
     ext.register()
 
@@ -407,7 +415,7 @@ def in_flight_disable_quarantines(ctx):
 def failed_close_requires_restart(ctx):
     start(ctx)
     RT.session.transport.close_result = 'failed'
-    addon._stop_session(ctx)
+    RT.stop(ctx)
     assert RT.restart_required == 'fatal'
     op, result = start(make_context())
     assert result == {'CANCELLED'} and 'restart' in op.reports[-1][1]
@@ -417,7 +425,7 @@ def repeated_close(ctx):
     start(ctx)
     session = RT.session
     for _ in range(3):
-        addon._stop_session(ctx)
+        RT.stop(ctx)
     op = addon.WM_OT_warp_sph_start()
     op.cancel(ctx)
     assert session.transport.closes == 1
@@ -452,11 +460,11 @@ def failure_after_every_setup_acquisition(ctx):
     assert result == {'CANCELLED'} and not Transport.log and RT.session is None and not RT.restart_required
     ctx = reset()
     FACTORY.open_error = RuntimeError('scratch oom')          # 2. session (non-fatal)
-    assert start(ctx)[1] == {'CANCELLED'} and RT.solver is None and not addon._QUARANTINE
+    assert start(ctx)[1] == {'CANCELLED'} and RT.solver is None and not sim_session._QUARANTINE
     ctx = reset()
     FACTORY.open_error = FatalTransportError('device lost')    # 3. session (fatal)
     assert start(ctx)[1] == {'CANCELLED'} and RT.restart_required == 'device lost'
-    assert any(isinstance(o, Solver) for o in addon._QUARANTINE) and not Transport.log
+    assert any(isinstance(o, Solver) for o in sim_session._QUARANTINE) and not Transport.log
     ctx = reset()
     def bad_publish(self, positions): raise RuntimeError('prime failed')
     Transport.publish, good = bad_publish, Transport.publish   # 4. priming publish
@@ -464,7 +472,7 @@ def failure_after_every_setup_acquisition(ctx):
         assert start(ctx)[1] == {'CANCELLED'}
     finally:
         Transport.publish = good
-    assert Transport.log[0].closes == 1 and RT.session is None and not addon._QUARANTINE
+    assert Transport.log[0].closes == 1 and RT.session is None and not sim_session._QUARANTINE
     ctx = reset()
     def fatal_publish(self, positions): raise FatalTransportError('prime fatal')
     Transport.publish = fatal_publish                          # 4b. priming publish (fatal)
@@ -472,7 +480,7 @@ def failure_after_every_setup_acquisition(ctx):
         assert start(ctx)[1] == {'CANCELLED'}
     finally:
         Transport.publish = good
-    assert Transport.log[0].closes == 0 and Transport.log[0] in [getattr(o, 'transport', None) for o in addon._QUARANTINE]
+    assert Transport.log[0].closes == 0 and Transport.log[0] in [getattr(o, 'transport', None) for o in sim_session._QUARANTINE]
     ctx = reset()
     ctx.window_manager.event_timer_add = lambda *a, **k: (_ for _ in ()).throw(RuntimeError('no timer'))
     assert start(ctx)[1] == {'CANCELLED'}                      # 5. timer/modal registration
@@ -483,7 +491,7 @@ def recoverable_interop_falls_back_once(ctx):
     FACTORY.vulkan_error = RecoverableTransportError('external memory rejected')
     start(ctx)
     assert RT.session.label == ts.READBACK_LABEL and 'external memory rejected' in RT.interop_unavailable
-    addon._stop_session(ctx)
+    RT.stop(ctx)
     FACTORY.vulkan_error = None
     start(make_context())
     assert RT.session.label == ts.READBACK_LABEL and FACTORY.resolves == 1  # sticky until restart
@@ -495,19 +503,19 @@ def fatal_tick_stops_without_cleanup(ctx):
     session.transport.publish_error = FatalTransportError('CUDA_ERROR_LAUNCH_FAILED')
     assert op.modal(ctx, TIMER) == {'CANCELLED'}
     assert RT.restart_required == 'CUDA_ERROR_LAUNCH_FAILED' and session.transport.closes == 0
-    assert session in addon._QUARANTINE and any(isinstance(o, Solver) for o in addon._QUARANTINE)
+    assert session in sim_session._QUARANTINE and any(isinstance(o, Solver) for o in sim_session._QUARANTINE)
 
 @case
 def transactional_resize(ctx):
     op, _ = start(ctx)
     old = RT.session
-    ctx.scene.warp_sph_particle_count = 2000
+    ctx.scene.warp_sph.particle_count = 2000
     FACTORY.open_error = RuntimeError('oom')
     assert op.modal(ctx, TIMER) == {'PASS_THROUGH'}  # keeps running on the old session
-    assert RT.session is old and old.transport.closes == 0 and ctx.scene.warp_sph_particle_count == 1000
+    assert RT.session is old and old.transport.closes == 0 and ctx.scene.warp_sph.particle_count == 1000
     assert RT.solver.steps == 0 and RT.step_count == 0  # no solver step in the failed tick
     FACTORY.open_error = None
-    ctx.scene.warp_sph_particle_count = 2000
+    ctx.scene.warp_sph.particle_count = 2000
     assert op.modal(ctx, TIMER) == {'PASS_THROUGH'}
     assert RT.session is not old and old.transport.closes == 1 and RT.solver.num_particles == 2000
 
@@ -517,7 +525,7 @@ def load_demo_while_running_uses_transaction(ctx):
     FACTORY.open_error = RuntimeError('oom')
     op = addon.WM_OT_warp_sph_load_demo()
     op.demo_id = 'BLOCK_FLOP_SPLASH'
-    assert op.execute(ctx) == {'CANCELLED'} and ctx.scene.warp_sph_demo_scene == 'DOUBLE_DAM_PILLARS'
+    assert op.execute(ctx) == {'CANCELLED'} and ctx.scene.warp_sph.demo_scene == 'DOUBLE_DAM_PILLARS'
 
 @case
 def solver_step_error_is_fatal(ctx):
@@ -525,7 +533,7 @@ def solver_step_error_is_fatal(ctx):
     session = RT.session
     Solver.step_error = RuntimeError('CUDA error 700')  # Warp reports sticky errors as plain exceptions
     assert op.modal(ctx, TIMER) == {'CANCELLED'}
-    assert 'solver step failed' in RT.restart_required and session in addon._QUARANTINE
+    assert 'solver step failed' in RT.restart_required and session in sim_session._QUARANTINE
     assert session.transport.closes == 0
 
 @case
@@ -533,10 +541,10 @@ def graph_rebuild_error_is_fatal(ctx):
     op, _ = start(ctx)
     session, solver = RT.session, RT.solver
     Solver.rebuild_error = RuntimeError('graph capture failed')
-    ctx.scene.warp_sph_stiffness = 2.0
+    ctx.scene.warp_sph.stiffness = 2.0
     assert op.modal(ctx, TIMER) == {'CANCELLED'} and not RT.running and RT.session is None
     assert 'graph rebuild failed' in RT.restart_required and solver.steps == 0
-    assert session in addon._QUARANTINE and solver in addon._QUARANTINE and session.transport.closes == 0
+    assert session in sim_session._QUARANTINE and solver in sim_session._QUARANTINE and session.transport.closes == 0
 
 @case
 def step_once_survives_backpressure(ctx):
@@ -569,7 +577,7 @@ def priming_failure_with_failed_close_quarantines_solver(ctx):
         assert start(ctx)[1] == {'CANCELLED'}
     finally:
         Transport.publish, Transport.close = publish, close
-    assert RT.restart_required == 'fatal' and any(isinstance(o, Solver) for o in addon._QUARANTINE)
+    assert RT.restart_required == 'fatal' and any(isinstance(o, Solver) for o in sim_session._QUARANTINE)
 
 @case
 def gl_resize_commits_solver_with_buffer(ctx):
@@ -582,18 +590,18 @@ def gl_resize_commits_solver_with_buffer(ctx):
         def destroy(self):
             self.destroys += 1
             if self.n == 1000 and self.destroys == 1: raise RuntimeError('old VBO release failed')
-    backend, gl_buffer = gpu.platform.backend_type_get, addon.ZeroCopyGLBuffer52
-    gpu.platform.backend_type_get, addon.ZeroCopyGLBuffer52 = (lambda: 'OPENGL'), GLBuffer
-    addon.wp.synchronize_device = lambda device: None
+    backend, gl_buffer = gpu.platform.backend_type_get, RUNTIME.ZeroCopyGLBuffer52
+    gpu.platform.backend_type_get, RUNTIME.ZeroCopyGLBuffer52 = (lambda: 'OPENGL'), GLBuffer
+    RUNTIME.wp.synchronize_device = lambda device: None
     try:
         op, _ = start(ctx)
-        ctx.scene.warp_sph_particle_count = 2000
+        ctx.scene.warp_sph.particle_count = 2000
         assert op.modal(ctx, TIMER) == {'PASS_THROUGH'}  # failed after the commit point
-        assert RT.gl_buf.n == RT.solver.num_particles == ctx.scene.warp_sph_particle_count == 2000
+        assert RT.gl_buf.n == RT.solver.num_particles == ctx.scene.warp_sph.particle_count == 2000
         assert op.modal(ctx, TIMER) == {'PASS_THROUGH'} and RT.solver.steps == 1
     finally:
-        addon._stop_session(ctx)
-        gpu.platform.backend_type_get, addon.ZeroCopyGLBuffer52 = backend, gl_buffer
+        RT.stop(ctx)
+        gpu.platform.backend_type_get, RUNTIME.ZeroCopyGLBuffer52 = backend, gl_buffer
 
 class GLBackend:
     """Run a case on the OpenGL backend with a fake legacy VBO (the real one needs a GL context)."""
@@ -605,28 +613,28 @@ class GLBackend:
         def mapped(self): yield 'vbo'
         def destroy(self): self.destroys += 1
     def __enter__(self):
-        self.saved = gpu.platform.backend_type_get, addon.ZeroCopyGLBuffer52
-        gpu.platform.backend_type_get, addon.ZeroCopyGLBuffer52 = (lambda: 'OPENGL'), self.Buffer
-        addon.wp.synchronize_device = lambda device: None
+        self.saved = gpu.platform.backend_type_get, RUNTIME.ZeroCopyGLBuffer52
+        gpu.platform.backend_type_get, RUNTIME.ZeroCopyGLBuffer52 = (lambda: 'OPENGL'), self.Buffer
+        RUNTIME.wp.synchronize_device = lambda device: None
     def __exit__(self, *exc):
-        addon._stop_session(bpy.context)
-        gpu.platform.backend_type_get, addon.ZeroCopyGLBuffer52 = self.saved
+        sim_session.stop_all(bpy.context)
+        gpu.platform.backend_type_get, RUNTIME.ZeroCopyGLBuffer52 = self.saved
 
 @case
 def opengl_points_runs_through_gl_texture_session(ctx):
-    ctx.scene.warp_sph_render_mode = 'POINTS'
+    ctx.scene.warp_sph.render_mode = 'POINTS'
     with GLBackend():
         op, result = start(ctx)
         assert result == {'RUNNING_MODAL'} and RT.gl_buf is None and RT.session.backend == 'OPENGL'
         assert RT.session.label == ts.GL_LABEL and FACTORY.resolves == 0 and not RT.interop_unavailable
         assert op.modal(ctx, TIMER) == {'PASS_THROUGH'} and RT.solver.steps == 1
         # the route is fixed for the run: a mode flip plus a resize stays on the session
-        ctx.scene.warp_sph_render_mode = 'SSFR_LIQUID'
-        ctx.scene.warp_sph_particle_count = 2000
+        ctx.scene.warp_sph.render_mode = 'SSFR_LIQUID'
+        ctx.scene.warp_sph.particle_count = 2000
         old = RT.session
         assert op.modal(ctx, TIMER) == {'PASS_THROUGH'}
         assert RT.gl_buf is None and RT.session is not old and old.transport.closes == 1
-        addon._stop_session(ctx)
+        RT.stop(ctx)
         assert Transport.log[-1].closes == 1 and RT.session is None
 
 @case
@@ -634,40 +642,40 @@ def opengl_ssfr_and_spheres_keep_the_legacy_vbo_path(ctx):
     with GLBackend():
         for mode in ('SSFR_LIQUID', 'SPHERES'):
             ctx = reset()
-            ctx.scene.warp_sph_render_mode = mode
+            ctx.scene.warp_sph.render_mode = mode
             op, result = start(ctx)
             assert result == {'RUNNING_MODAL'} and RT.session is None and RT.gl_buf is not None, mode
             assert op.modal(ctx, TIMER) == {'PASS_THROUGH'} and RT.solver.steps == 1
             assert not Transport.log
             buf = RT.gl_buf
-            addon._stop_session(ctx)
+            RT.stop(ctx)
             assert buf.destroys == 1 and RT.gl_buf is None
 
 @case
 def opengl_texture_failure_falls_back_once_then_uses_legacy_vbo(ctx):
     FACTORY.gl_error = RecoverableTransportError('cudaGraphicsGLRegisterImage failed')
-    ctx.scene.warp_sph_render_mode = 'POINTS'
+    ctx.scene.warp_sph.render_mode = 'POINTS'
     with GLBackend():
         start(ctx)
         assert RT.session.label == ts.READBACK_LABEL and RT.gl_buf is None
         assert 'OpenGL interop unavailable' in RT.interop_unavailable
-        assert not addon._readback_active()                   # already on OpenGL: no "switch to OpenGL" offer
-        addon._stop_session(ctx)
+        assert not RT.readback_active()                   # already on OpenGL: no "switch to OpenGL" offer
+        RT.stop(ctx)
         FACTORY.gl_error = None
         ctx = bpy.context = make_context()
-        ctx.scene.warp_sph_render_mode = 'POINTS'
+        ctx.scene.warp_sph.render_mode = 'POINTS'
         start(ctx)
         # no texture retry until restart; later Points runs use the legacy VBO interop, not Readback
         assert RT.session is None and RT.gl_buf is not None
-        addon._stop_session(ctx)
-        ctx.scene.warp_sph_render_mode = 'SSFR_LIQUID'        # legacy modes ignore the interop flag
+        RT.stop(ctx)
+        ctx.scene.warp_sph.render_mode = 'SSFR_LIQUID'        # legacy modes ignore the interop flag
         start(ctx)
         assert RT.session is None and RT.gl_buf is not None
 
 @case
 def opengl_texture_fatal_failure_requires_restart(ctx):
     FACTORY.open_error = FatalTransportError('cuda context lost')
-    ctx.scene.warp_sph_render_mode = 'POINTS'
+    ctx.scene.warp_sph.render_mode = 'POINTS'
     with GLBackend():
         assert start(ctx)[1] == {'CANCELLED'} and RT.restart_required == 'cuda context lost'
         assert RT.gl_buf is None and RT.session is None
@@ -676,10 +684,10 @@ def opengl_texture_fatal_failure_requires_restart(ctx):
 def resize_never_downgrades_interop(ctx):
     op, _ = start(ctx)
     old = RT.session
-    ctx.scene.warp_sph_particle_count = 2000
+    ctx.scene.warp_sph.particle_count = 2000
     FACTORY.vulkan_error = RecoverableTransportError('needs more VRAM')
     assert op.modal(ctx, TIMER) == {'PASS_THROUGH'}
-    assert RT.session is old and old.transport.closes == 0 and ctx.scene.warp_sph_particle_count == 1000
+    assert RT.session is old and old.transport.closes == 0 and ctx.scene.warp_sph.particle_count == 1000
     assert not RT.interop_unavailable and Transport.log[-1].closes == 1  # new Readback released
     assert 'Vulkan interop' in op.reports[-1][1]
 
@@ -688,12 +696,12 @@ def resize_failed_old_close_quarantines_everything(ctx):
     op, _ = start(ctx)
     old, old_solver = RT.session, RT.solver
     old.transport.close_result = 'failed'
-    ctx.scene.warp_sph_particle_count = 2000
+    ctx.scene.warp_sph.particle_count = 2000
     assert op.modal(ctx, TIMER) == {'CANCELLED'}
     assert RT.restart_required == 'fatal' and RT.session is None and RT.solver is None
     new = Transport.log[-1]
-    assert new.closes == 0 and new in [getattr(o, 'transport', None) for o in addon._QUARANTINE]
-    solvers = [o for o in addon._QUARANTINE if isinstance(o, Solver)]
+    assert new.closes == 0 and new in [getattr(o, 'transport', None) for o in sim_session._QUARANTINE]
+    solvers = [o for o in sim_session._QUARANTINE if isinstance(o, Solver)]
     assert old_solver in solvers and any(o.num_particles == 2000 for o in solvers)
 
 @case
@@ -715,7 +723,7 @@ def _capture_draw_log():
     records = []
     class Capture(logging.Handler):
         def emit(self, record): records.append(record)
-    logger = logging.getLogger(addon.__name__)
+    logger = logging.getLogger(sim_session.__name__)
     handler = Capture()
     logger.addHandler(handler)
     return records, lambda: logger.removeHandler(handler)
@@ -731,18 +739,18 @@ def draw_exception_reported_once_per_distinct_error(ctx):
         RT.session.draw = broken
         for _ in range(5):                       # every redraw of every viewport
             RT.running = True
-            addon.draw_particles_blender52()     # must never raise into Blender
+            RT.draw()     # must never raise into Blender
         assert len(calls) == 5 and len(records) == 1, len(records)
         assert not RT.running and RT.last_error == 'Viewport draw failed: shader failed'
         broken.message = 'different failure'
         RT.running = True
-        addon.draw_particles_blender52()
+        RT.draw()
         assert len(records) == 2 and 'different failure' in records[1].getMessage()
         assert op.modal(ctx, TIMER) == {'CANCELLED'} and RT.session is None  # timer tears the session down
         start(make_context())                    # a new run reports the same error again
         RT.session.draw = broken
         broken.message = 'shader failed'
-        addon.draw_particles_blender52()
+        RT.draw()
         assert len(records) == 3
     finally:
         detach()
@@ -750,17 +758,17 @@ def draw_exception_reported_once_per_distinct_error(ctx):
 @case
 def legacy_gl_draw_exception_is_contained_and_reported_once(ctx):
     records, detach = _capture_draw_log()
-    real_draw = addon.draw_particles_viewport
+    real_draw = RUNTIME.draw_particles_viewport
     try:
         RT.session, RT.gl_buf, RT.running = None, object(), True
         def broken(gl_buf, running): raise RuntimeError('GL draw failed')
-        addon.draw_particles_viewport = broken
+        RUNTIME.draw_particles_viewport = broken
         for _ in range(3):
             RT.running = True
-            addon.draw_particles_blender52()
+            RT.draw()
         assert len(records) == 1 and not RT.running and RT.last_error == 'Viewport draw failed: GL draw failed'
     finally:
-        addon.draw_particles_viewport = real_draw
+        RUNTIME.draw_particles_viewport = real_draw
         RT.gl_buf = None
         detach()
 
@@ -771,7 +779,7 @@ def fatal_draw_error_is_not_a_draw_report(ctx):
         start(ctx)
         def fatal(settings): raise FatalTransportError('device lost in draw')
         RT.session.draw = fatal
-        addon.draw_particles_blender52()
+        RT.draw()
         assert RT.restart_required == 'device lost in draw' and not RT.running and not records
     finally:
         detach()
@@ -788,7 +796,7 @@ def use_opengl_operator_is_confirmed_and_decided_by_what_runs(ctx):
     assert not cls.poll(ctx)                                  # nothing running
     start(ctx)
     assert RT.session.transport.capabilities().zero_copy and not cls.poll(ctx)   # zero-copy: no offer
-    addon._stop_session(ctx)
+    RT.stop(ctx)
     FACTORY.vulkan_error = RecoverableTransportError('external memory rejected')
     ctx = bpy.context = make_context(); ctx.preferences = prefs
     start(ctx)
@@ -822,34 +830,34 @@ def panel_offers_opengl_only_for_running_readback(ctx):
         ops = []
         panel = addon.VIEW3D_PT_warp_sph()
         panel.layout = Layout(ops)
-        for k, v in dict(warp_sph_render_mode='POINTS', warp_sph_depth_test=True, warp_sph_point_size=2.0,
-                         warp_sph_particle_radius=0.02, warp_sph_particle_color=(1, 1, 1, 1)).items():
-            setattr(ctx.scene, k, v)
+        for k, v in dict(render_mode='POINTS', depth_test=True, point_size=2.0,
+                         particle_radius=0.02, particle_color=(1, 1, 1, 1)).items():
+            setattr(ctx.scene.warp_sph, k, v)
         panel.draw(ctx)
         return ops
     assert 'wm.warp_sph_use_opengl' not in panel_ops()        # idle
     start(ctx)
     assert 'wm.warp_sph_use_opengl' not in panel_ops()        # zero-copy
-    addon._stop_session(ctx)
+    RT.stop(ctx)
     FACTORY.vulkan_error = RecoverableTransportError('external memory rejected')
     start(ctx)
     assert 'wm.warp_sph_use_opengl' in panel_ops()            # Readback running
 
 @case
 def custom_start_builds_solver_from_description(ctx):
-    ctx.scene.warp_sph_scene_source = 'CUSTOM'
-    ctx.scene.warp_sph_particle_spacing = 0.025
+    ctx.scene.warp_sph.scene_source = 'CUSTOM'
+    ctx.scene.warp_sph.particle_spacing = 0.025
     op, result = start(ctx)
     assert result == {'RUNNING_MODAL'} and RT.running and RT.active_demo == addon.CUSTOM_SCENE, result
     assert DESC.calls == [(ctx.scene, 'depsgraph')]                     # evaluated depsgraph
-    assert Solver.from_scene_calls == [('desc', 0.025, 2, 1.0, 0.4)]   # spacing + speed settings
+    assert Solver.from_scene_calls == [('desc', 0.025, 2, 1000.0, 0.4)]  # spacing + speed; stiffness x1000
     assert RT.solver.num_particles == 777 and FACTORY.counts == [777]  # output sized from the fill
     assert HELPERS == ['removed']                                       # no demo wireframes
     session = RT.session
-    assert ctx.scene.warp_sph_particle_count == 1000                    # demo slider is not the count
+    assert ctx.scene.warp_sph.particle_count == 1000                    # demo slider is not the count
     assert op.modal(ctx, TIMER) == {'PASS_THROUGH'} and RT.solver.steps == 1 and RT.session is session
     assert ctx.window_manager.steps == [0.001]
-    ctx.scene.warp_sph_scene_source = 'DEMO'   # a source change while running applies on the next Start
+    ctx.scene.warp_sph.scene_source = 'DEMO'   # a source change while running applies on the next Start
     assert op.modal(ctx, TIMER) == {'PASS_THROUGH'} and RT.solver.steps == 2 and RT.session is session
 
 @case
@@ -857,7 +865,7 @@ def custom_scene_errors_are_reported_and_leave_nothing_behind(ctx):
     for kind, message in (('validation', 'exactly one DOMAIN object is required; found 0 (none)'),
                           ('fill', 'fluid volumes contain no particles at spacing 0.02')):
         ctx = reset()
-        ctx.scene.warp_sph_scene_source = 'CUSTOM'
+        ctx.scene.warp_sph.scene_source = 'CUSTOM'
         if kind == 'validation':
             DESC.error = SceneValidationError(message)
         else:
@@ -867,10 +875,10 @@ def custom_scene_errors_are_reported_and_leave_nothing_behind(ctx):
         assert 'cannot start this scene' in op.reports[-1][1] and message in op.reports[-1][1]
         assert RT.last_error == 'Scene not valid: ' + message
         assert RT.session is None and RT.solver is None and not RT.running and RT.timer is None
-        assert not Transport.log and not addon._QUARANTINE and not RT.restart_required and not handles
+        assert not Transport.log and not sim_session._QUARANTINE and not RT.restart_required and not handles
         assert not ctx.window_manager.timers and not ctx.window_manager.modals
     ctx = reset()
-    ctx.scene.warp_sph_scene_source = 'CUSTOM'
+    ctx.scene.warp_sph.scene_source = 'CUSTOM'
     op, result = start(ctx)                    # the next valid Start clears the message
     assert result == {'RUNNING_MODAL'} and RT.last_error == ''
 
@@ -882,25 +890,25 @@ def custom_start_on_legacy_gl_sizes_vbo_from_fill(ctx):
         @contextlib.contextmanager
         def mapped(self): yield 'vbo'
         def destroy(self): self.destroys += 1
-    backend, gl_buffer = gpu.platform.backend_type_get, addon.ZeroCopyGLBuffer52
-    gpu.platform.backend_type_get, addon.ZeroCopyGLBuffer52 = (lambda: 'OPENGL'), GLBuffer
-    addon.wp.synchronize_device = lambda device: None
+    backend, gl_buffer = gpu.platform.backend_type_get, RUNTIME.ZeroCopyGLBuffer52
+    gpu.platform.backend_type_get, RUNTIME.ZeroCopyGLBuffer52 = (lambda: 'OPENGL'), GLBuffer
+    RUNTIME.wp.synchronize_device = lambda device: None
     try:
-        ctx.scene.warp_sph_scene_source = 'CUSTOM'
+        ctx.scene.warp_sph.scene_source = 'CUSTOM'
         op, result = start(ctx)
         assert result == {'RUNNING_MODAL'} and RT.session is None
         assert RT.gl_buf.n == RT.solver.num_particles == 777
         assert op.modal(ctx, TIMER) == {'PASS_THROUGH'} and RT.solver.steps == 1 and len(made) == 1
-        addon._stop_session(ctx)
+        RT.stop(ctx)
         assert made[0].destroys == 1
         DESC.error = SceneValidationError('fluid volume extends outside the domain')
         ctx = make_context()
-        ctx.scene.warp_sph_scene_source = 'CUSTOM'
+        ctx.scene.warp_sph.scene_source = 'CUSTOM'
         op, result = start(ctx)
         assert result == {'CANCELLED'} and len(made) == 1 and RT.gl_buf is None  # no VBO for a bad scene
     finally:
-        addon._stop_session(ctx)
-        gpu.platform.backend_type_get, addon.ZeroCopyGLBuffer52 = backend, gl_buffer
+        RT.stop(ctx)
+        gpu.platform.backend_type_get, RUNTIME.ZeroCopyGLBuffer52 = backend, gl_buffer
 
 @case
 def demo_start_never_reads_tagged_objects(ctx):
@@ -911,18 +919,70 @@ def demo_start_never_reads_tagged_objects(ctx):
 
 @case
 def load_demo_while_custom_runs(ctx):
-    ctx.scene.warp_sph_scene_source = 'CUSTOM'
+    ctx.scene.warp_sph.scene_source = 'CUSTOM'
     start(ctx)
     FACTORY.open_error = RuntimeError('oom')
     op = addon.WM_OT_warp_sph_load_demo()
     op.demo_id = 'BLOCK_FLOP_SPLASH'
     assert op.execute(ctx) == {'CANCELLED'}
-    assert ctx.scene.warp_sph_scene_source == 'CUSTOM' and RT.active_demo == addon.CUSTOM_SCENE  # kept running
-    assert ctx.scene.warp_sph_particle_count == 1000
+    assert ctx.scene.warp_sph.scene_source == 'CUSTOM' and RT.active_demo == addon.CUSTOM_SCENE  # kept running
+    assert ctx.scene.warp_sph.particle_count == 1000
     FACTORY.open_error = None
     assert op.execute(ctx) == {'FINISHED'}
-    assert ctx.scene.warp_sph_scene_source == 'DEMO' and RT.active_demo == 'BLOCK_FLOP_SPLASH'
+    assert ctx.scene.warp_sph.scene_source == 'DEMO' and RT.active_demo == 'BLOCK_FLOP_SPLASH'
     assert RT.solver.num_particles == 1000
+
+@case
+def sessions_are_per_scene_and_one_runs_at_a_time(ctx):
+    op, result = start(ctx)
+    first = CUR[0]
+    assert result == {'RUNNING_MODAL'} and sim_session.active() is first and sim_session.get(ctx.scene) is first
+    other_ctx = make_context()
+    other = sim_session.get(other_ctx.scene)
+    assert other is not first and not other.running and other.solver is None and other.scene is other_ctx.scene
+    assert sim_session.get(other_ctx.scene) is other                       # one session per scene
+    second = addon.WM_OT_warp_sph_start()
+    assert second.execute(other_ctx) == {'CANCELLED'} and 'already running' in second.reports[-1][1]
+    assert not other.running and len(Transport.log) == 1 and not other_ctx.window_manager.timers
+    assert addon.WM_OT_warp_sph_pause.poll(ctx) and not addon.WM_OT_warp_sph_pause.poll(other_ctx)
+    addon.WM_OT_warp_sph_stop().execute(other_ctx)                       # stopping another scene: no effect
+    assert first.running and op.modal(ctx, TIMER) == {'PASS_THROUGH'}
+    addon.WM_OT_warp_sph_stop().execute(ctx)
+    assert op.modal(ctx, TIMER) == {'CANCELLED'} and sim_session.active() is None
+    second, result = start(other_ctx)
+    assert result == {'RUNNING_MODAL'} and sim_session.active() is other and other.solver.steps == 0
+    assert other_ctx.window_manager.steps == [0.001]
+    assert op.modal(ctx, TIMER) == {'CANCELLED'}                          # the first run's modal stays orphaned
+    assert second.modal(other_ctx, TIMER) == {'PASS_THROUGH'} and other.solver.steps == 1
+
+@case
+def dispose_releases_and_forgets_the_session(ctx):
+    op, _ = start(ctx)
+    session = CUR[0]
+    transport = session.session.transport
+    session.dispose(ctx)
+    assert transport.closes == 1 and not session.running and session.session is None and session.solver is None
+    assert session.scene is None and session not in sim_session.sessions() and session.timer is None
+    assert ('removed', 'draw') in handles and op.modal(ctx, TIMER) == {'CANCELLED'}
+    session.dispose(ctx)                                                  # idempotent
+    assert transport.closes == 1
+    fresh = sim_session.get(ctx.scene)
+    assert fresh is not session and not fresh.running and fresh.scene is ctx.scene
+
+@case
+def removed_scene_stops_the_run(ctx):
+    op, _ = start(ctx)
+    transport = RT.session.transport
+    class Freed:
+        def __getattr__(self, name): raise ReferenceError('StructRNA of type Scene has been removed')
+    CUR[0].scene = Freed()
+    assert op.modal(ctx, TIMER) == {'CANCELLED'} and not RT.running and RT.session is None
+    assert transport.closes == 1 and 'scene was removed' in op.reports[-1][1]
+    assert sim_session.get(ctx.scene) is not CUR[0]                       # the stale session is replaced
+    freed = sim_session.get(make_context().scene)                         # e.g. a scene freed by a file load
+    freed.scene = Freed()
+    sim_session.get(make_context().scene)
+    assert freed not in sim_session.sessions() and CUR[0] not in sim_session.sessions()  # idle dead ones pruned
 
 reset()
 ext.unregister()
@@ -931,11 +991,13 @@ import importlib
 from warp_sph_realtime.render import transport
 RT.restart_required = 'persist'
 sentinel = object()
-addon._QUARANTINE.append(sentinel)
+sim_session._QUARANTINE.append(sentinel)
 importlib.reload(transport)
-reloaded = importlib.reload(addon)        # add-on disable/enable reloads the modules
-assert reloaded.RT.restart_required == 'persist' and sentinel in reloaded._QUARANTINE
-assert reloaded._QUARANTINE is transport.process_state().quarantine
+reloaded_session = importlib.reload(sim_session)  # add-on disable/enable reloads the modules
+reloaded = importlib.reload(addon)
+assert reloaded.sim_session is reloaded_session and not reloaded_session.sessions()
+assert reloaded_session.SimSession().restart_required == 'persist' and sentinel in reloaded_session._QUARANTINE
+assert reloaded_session._QUARANTINE is transport.process_state().quarantine
 print('LIFECYCLE_OK')
 '''
 

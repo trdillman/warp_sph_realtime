@@ -334,12 +334,12 @@ class SSFRViewportRenderer:
         proj_mat = gpu.matrix.get_projection_matrix()
         mv_ptr = _mat4_to_ctypes(mv_mat)
         proj_ptr = _mat4_to_ctypes(proj_mat)
-        col = tuple(scene.warp_sph_particle_color)
-        radius = float(getattr(scene, "warp_sph_particle_radius", 0.022))
+        col = tuple(scene.warp_sph.particle_color)
+        radius = float(scene.warp_sph.particle_radius)
 
         saved = {cap: gl.glIsEnabled(cap) for cap in (GL_PROGRAM_POINT_SIZE, GL_DEPTH_TEST, GL_BLEND)}
         gl.glEnable(GL_PROGRAM_POINT_SIZE)
-        if scene.warp_sph_depth_test:
+        if scene.warp_sph.depth_test:
             gl.glEnable(GL_DEPTH_TEST)
             gl.glDepthFunc(GL_LEQUAL)
         else:
@@ -370,7 +370,7 @@ class SSFRViewportRenderer:
     def draw_ssfr_liquid(self, gl_buf: ZeroCopyGLBuffer52, scene, vp_x: int, vp_y: int, vp_w: int, vp_h: int):
         """Executes the 5-Pass Narrow-Range Screen-Space Fluid Rendering pipeline."""
         gl = _GLInterop
-        use_depth_occlusion = bool(getattr(scene, "warp_sph_depth_test", True))
+        use_depth_occlusion = bool(scene.warp_sph.depth_test)
         depth_format = gl.framebuffer_depth_format() if use_depth_occlusion else GL_DEPTH24_STENCIL8
         data = self._get_or_create_ctx_data(vp_w, vp_h, depth_format)
 
@@ -384,12 +384,12 @@ class SSFRViewportRenderer:
         mv_ptr = _mat4_to_ctypes(mv_mat)
         proj_ptr = _mat4_to_ctypes(proj_mat)
 
-        radius = float(getattr(scene, "warp_sph_particle_radius", 0.022))
-        sigma_px = float(getattr(scene, "warp_sph_filter_sigma", 4.0))
-        iterations = int(getattr(scene, "warp_sph_filter_iterations", 2))
-        abs_rgb = tuple(getattr(scene, "warp_sph_absorption", (0.85, 0.22, 0.05)))
-        base_col = tuple(scene.warp_sph_particle_color)
-        use_depth_occlusion = bool(getattr(scene, "warp_sph_depth_test", True))
+        radius = float(scene.warp_sph.particle_radius)
+        sigma_px = float(scene.warp_sph.filter_sigma)
+        iterations = int(scene.warp_sph.filter_iterations)
+        abs_rgb = tuple(scene.warp_sph.absorption)
+        base_col = tuple(scene.warp_sph.particle_color)
+        use_depth_occlusion = bool(scene.warp_sph.depth_test)
 
         saved = {cap: gl.glIsEnabled(cap) for cap in (GL_PROGRAM_POINT_SIZE, GL_DEPTH_TEST, GL_BLEND)}
 
@@ -625,11 +625,11 @@ def _draw_raw_points(gl_buf: ZeroCopyGLBuffer52, scene):
     shader.bind()
     mvp = gpu.matrix.get_projection_matrix() @ gpu.matrix.get_model_view_matrix()
     shader.uniform_float("ModelViewProjectionMatrix", mvp)
-    color = tuple(getattr(scene, "warp_sph_particle_color", (0.12, 0.68, 1.0, 1.0)))
+    color = tuple(scene.warp_sph.particle_color)
     shader.uniform_float("color", color)
     gl_buf.draw_points(
-        getattr(scene, "warp_sph_point_size", 2.5),
-        depth_test=getattr(scene, "warp_sph_depth_test", True),
+        scene.warp_sph.point_size,
+        depth_test=scene.warp_sph.depth_test,
         blend=color[3] < 1.0,
     )
 
@@ -643,10 +643,10 @@ def draw_particles_viewport(gl_buf: ZeroCopyGLBuffer52, running: bool):
         return
 
     scene = bpy.context.scene
-    if not getattr(scene, "warp_sph_show_particles", True):
+    if not scene.warp_sph.show_particles:
         return
 
-    render_mode = getattr(scene, "warp_sph_render_mode", "SSFR_LIQUID")
+    render_mode = scene.warp_sph.render_mode
 
     if render_mode == "POINTS":
         _draw_raw_points(gl_buf, scene)

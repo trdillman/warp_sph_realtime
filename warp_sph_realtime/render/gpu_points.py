@@ -63,20 +63,21 @@ class DrawSettings:
 
 
 def settings_from_scene(scene, backend: str) -> DrawSettings:
-    """Map the add-on display properties onto backend-neutral draw settings."""
-    color = tuple(float(c) for c in getattr(scene, 'warp_sph_particle_color', (0.12, 0.68, 1.0, 1.0)))
-    depth = bool(getattr(scene, 'warp_sph_depth_test', True))
-    mode = getattr(scene, 'warp_sph_render_mode', 'SSFR_LIQUID')
+    """Map the add-on display settings (``scene.warp_sph``) onto backend-neutral draw settings."""
+    s = getattr(scene, 'warp_sph', None)
+    color = tuple(float(c) for c in getattr(s, 'particle_color', (0.12, 0.68, 1.0, 1.0)))
+    depth = bool(getattr(s, 'depth_test', True))
+    mode = getattr(s, 'render_mode', 'SSFR_LIQUID')
     if mode == 'POINTS':
-        return DrawSettings(POINTS, float(getattr(scene, 'warp_sph_point_size', 2.5)), color, depth)
-    radius = float(getattr(scene, 'warp_sph_particle_radius', 0.022))
+        return DrawSettings(POINTS, float(getattr(s, 'point_size', 2.5)), color, depth)
+    radius = float(getattr(s, 'particle_radius', 0.022))
     if mode == 'SPHERES':
         return DrawSettings(SPHERES, radius, color, depth)
     return DrawSettings(
         SSFR, radius, color, depth,
-        filter_sigma=float(getattr(scene, 'warp_sph_filter_sigma', 4.0)),
-        filter_iterations=int(getattr(scene, 'warp_sph_filter_iterations', 2)),
-        absorption=tuple(float(c) for c in getattr(scene, 'warp_sph_absorption', (0.85, 0.22, 0.05))),
+        filter_sigma=float(getattr(s, 'filter_sigma', 4.0)),
+        filter_iterations=int(getattr(s, 'filter_iterations', 2)),
+        absorption=tuple(float(c) for c in getattr(s, 'absorption', (0.85, 0.22, 0.05))),
     )
 
 
