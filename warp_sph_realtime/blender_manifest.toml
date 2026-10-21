@@ -5,6 +5,7 @@ name = "WarpSPH Realtime (CUDA 12)"
 tagline = "Real-time GPU fluid in the viewport via NVIDIA Warp"
 maintainer = "Tyler Dillman"
 type = "add-on"
+tags = ["Physics"]
 blender_version_min = "5.2.0"
 license = ["SPDX:MIT"]
 platforms = ["windows-x64", "linux-x64"]
@@ -14,4 +15,4 @@ files = "Store verified Warp and caches"
 network = "Download verified Warp after user confirmation"
 
 [build]
-paths_exclude_pattern = ["__pycache__/", ".*"]
+paths_exclude_pattern = ["__pycache__/", ".*", "/experimental/"]

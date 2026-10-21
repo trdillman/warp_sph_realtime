@@ -9,6 +9,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Verified Warp installer: SHA-256-locked `warp-lang==1.17.0` (CUDA 12.9) wheel installed on
   user confirmation into extension-owned storage; the extension registers without Warp and imports
   CUDA modules only on Start. Adds `files` and `network` manifest permissions.
+- Vulkan GPU interop transport (GPU copy, no CPU readback) for the exact certified Blender 5.2.0
+  build, a labelled Readback fallback for other Vulkan builds, and a `gpu`-module points/spheres
+  renderer. SSFR remains OpenGL-only; on Vulkan it shows spheres with a note.
+- Manifest `tags = ["Physics"]`.
+- Experimental differentiable-pour, keyframe and compliant-contact studies (not shipped).
 - Pause / single-step simulation controls and fine-step particle radius.
 - `pyproject.toml` with pytest, ruff, and pyright configuration and a `dev` dependency group.
 - `scripts/build_extension.py` to validate, build, and optionally install the extension zip.
@@ -25,6 +30,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Blender UI and runtime moved from `__init__.py` to `addon.py`; `__init__.py` registers lazily
   so simulation modules import without Blender.
 - Design documents moved to `docs/`.
+- `experimental/` is excluded from the built extension zip (`paths_exclude_pattern`); README,
+  ARCHITECTURE and SPEC_AND_PLAN now describe only shipped features and label the rest
+  "Experimental (not shipped)". The build script fails if the zip contains `experimental/`.
 - Tests import the package directly; per-file `sys.path` edits and try/except import fallbacks removed.
 
 ### Removed
