@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import threading
 from collections import deque
+from collections.abc import Callable
 from typing import Any
 
 from .disk import Frame
@@ -120,19 +121,28 @@ class SolverSource:
     """Takes frames from a ``RealtimeWCSPHSolver``: the initial state, or the state ``steps_per_frame`` later.
 
     A frame is advanced in slices (``advance``) so a timer tick never spends a whole frame of host time launching
-    solver steps, then ``capture`` copies the state into the ring slot."""
+    solver steps, then ``capture`` copies the state into the ring slot.
 
-    def __init__(self, wp, solver: Any, steps_per_frame: int, use_graph: bool = True):
+    With emitters the solver's pool (``num_particles``, the ring capacity) fills while running: a frame records only
+    the active particles (``active_count``, the first slots). ``before_step`` (optional) runs on the main thread
+    before each slice, e.g. to feed animated-collider keyframes. ``first_frame`` lets ``restore`` set the solver's
+    clock to the restored frame's time (emitter progress, collider poses)."""
+
+    def __init__(self, wp, solver: Any, steps_per_frame: int, use_graph: bool = True,
+                 before_step: Callable[[], None] | None = None, first_frame: int | None = None):
         if steps_per_frame < 1:
             raise ValueError("steps_per_frame must be at least 1")
         self.wp = wp
         self.solver = solver
         self.steps_per_frame = steps_per_frame
         self.use_graph = use_graph
+        self.before_step = before_step
+        self.first_frame = first_frame
 
     @property
     def count(self) -> int:
-        return int(self.solver.num_particles)
+        """Particles in the next captured frame: the active count (host-side bookkeeping, no readback)."""
+        return int(getattr(self.solver, "active_count", self.solver.num_particles))
 
     def steps_for(self, advance: bool) -> int:
         """Solver steps before the next frame: ``steps_per_frame``, or 0 for the initial state."""
@@ -141,6 +151,8 @@ class SolverSource:
     def advance(self, slot: Slot, steps: int) -> None:
         """Run ``steps`` solver steps (stream-ordered, no host wait)."""
         solver = self.solver
+        if self.before_step is not None:
+            self.before_step()
         solver.substeps = steps
         solver.step(slot.pos, use_graph=self.use_graph)  # step() ends by copying pos_sim into slot.pos
 
@@ -155,6 +167,11 @@ class SolverSource:
     def restore(self, frame: Frame) -> None:
         """Load a cached frame as the solver state (resume). Raises ValueError on a particle-count mismatch."""
         solver = self.solver
+        if hasattr(solver, "restore_state"):
+            steps = None if self.first_frame is None else (frame.frame - self.first_frame) * self.steps_per_frame
+            solver.restore_state(frame.position, frame.velocity, frame.id, steps)
+            self.wp.synchronize_device(solver.pos_sim.device)
+            return
         if frame.count != solver.num_particles:
             raise ValueError(f"cached frame has {frame.count} particles, the scene has {solver.num_particles}")
         solver.pos_sim.assign(frame.position)

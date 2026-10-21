@@ -93,7 +93,7 @@ They are not zero GPU copy; see the top of [`VULKAN_ZERO_COPY_PLAN.md`](./VULKAN
 | `install_job.py` | Pure-Python worker thread for `run_plan` with a lock-protected progress snapshot and a cancel flag (P1.4). |
 | `install_ui.py` | Preferences UI: Warp source, progress bar and Cancel (polled by a `bpy.app.timers` timer), first-run hardware check panel, install/cancel operators. The only `bpy` consumer of `install_job`. |
 | `diagnostics.py` | Diagnostics report, log setup, and the pre-Warp hardware probe (`nvidia_smi_info`, `hardware_summary`). |
-| `sim/sim_core.py` | `RealtimeWCSPHSolver`: SoA buffers, `wp.HashGrid`, `k_reorder_soa`, cubic-spline WCSPH, CUDA Graph capture; in scene mode the particle pool, emission and animated-collider poses (section 2.1). Every step rewrites `pos_sim` / `vel` in spatial-sort order, so the array index is not a particle identity; `pid` (carried through the same sort by `k_reorder_soa_id`, outside the graph) is the stable id the cache stores. |
+| `sim/sim_core.py` | `RealtimeWCSPHSolver`: SoA buffers, `wp.HashGrid`, `k_reorder_soa`, cubic-spline WCSPH, CUDA Graph capture; in scene mode the particle pool, emission and animated-collider poses (section 2.1). Every step rewrites `pos_sim` / `vel` in spatial-sort order, so the array index is not a particle identity; `pid` (carried through the same sort by `k_reorder_soa_id` over the active count, outside the graph; `k_emit` gives each emitted particle a fresh id) is the stable id the cache stores. |
 | `sim/colliders.py` | `MeshSet`: one `wp.Mesh` per collider, stored relative to its pivot; signed distance from the closest face's pseudo-normal, deep "inside" answers confirmed by the winding number. |
 | `scene/description.py` | Pure-NumPy scene contract: `SceneDescription`, `MeshData`, `EmitterData`, `ColliderMotion`, validation, rigid keys (`rigid_key`). |
 | `scene/fill.py`, `scene/emitters.py` | Lattice fill of fluid volumes; emitter nozzle lattice and the GPU filter that keeps nozzles clear of walls and colliders. |
@@ -122,7 +122,11 @@ the frame rate and start frame. `RealtimeWCSPHSolver.from_scene` fills the fluid
 * **Emission.** Nozzles (one per spacing of emitter surface, filtered to sit at least
   `spacing + max_speed * dt` from walls and colliders) are uploaded once. Before each substep the host
   works out how many particles are due from the rate and frame range and launches `k_emit` into the next
-  free slots; when the pool is full, emission stops and the panel and a warning say so.
+  free slots; when the pool is full, emission stops and the panel and a warning say so. `k_emit` also writes
+  each new particle's id from a host-side counter (no readback: the host already knows how many it emitted),
+  so the ids of the live particles stay unique (0 ... count - 1, since particles are never removed). A bake
+  records the active count per frame into a ring sized for the whole pool; resume restores that count, the
+  emitters' progress and the clock (`RealtimeWCSPHSolver.restore_state`).
 * **Animated colliders.** A collider with an action, drivers, constraints or an animated parent is moved
   by a rigid transform, never by rebuilding its mesh. Each Blender frame's world matrix is read once on the
   main thread (`sync_collider_keyframes`, which also moves the timeline to the simulation frame) and written

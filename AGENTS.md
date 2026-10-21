@@ -96,7 +96,7 @@ All paths are relative to the `warp_sph_realtime/` package folder. Use relative 
 * `render/transport_gl.py` — GLInterop texture adapter (`cudaGraphicsGLRegisterImage`, GPU copy, no CPU readback) behind the P0.11 transport seam.
 * `render/viewport_draw.py` — Blender `gpu.shader` draw callbacks and SSFR passes.
 * `render/ssfr_shaders.py` — SSFR GLSL sources and CPU reference math.
-* `sim/sim_core.py` — Primary `RealtimeWCSPHSolver`, cubic spline kernels, SoA reordering, and CUDA Graph capture. `pos_sim` / `vel` are rewritten in sorted order every step: use `pid` (stable particle id, reordered by `k_reorder_soa_id`) for identity.
+* `sim/sim_core.py` — Primary `RealtimeWCSPHSolver`, cubic spline kernels, SoA reordering, and CUDA Graph capture. `pos_sim` / `vel` are rewritten in sorted order every step: use `pid` (stable particle id, reordered by `k_reorder_soa_id` over the active count; `k_emit` writes fresh ids for the slots it activates from a host-side counter) for identity.
 * `scene/demo_scenes.py` — GPU particle initializers, `launch_demo_scene_init` and the Blender wireframe/collider helper meshes for Demo 1 & Demo 2. The demos run through the scene path: `scene/demo_description.py` gives their domain, gravity and obstacles (pillars and sphere as one closed collider mesh).
 * `sim/validation.py` — Headless physics validation (dam-break front vs Martin & Moyce, conservation, energy, rest density) on any Warp device; see `docs/VALIDATION.md`.
 * `sim/colliders.py` — Mesh colliders: one `wp.Mesh` per collider, stored relative to its pivot and placed by a per-step rigid transform (device buffer, never rebuilt); pseudo-normal signed distance with deep "inside" answers confirmed by the winding number; mesh ids passed to kernels as a uint64 array.

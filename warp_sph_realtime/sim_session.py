@@ -522,15 +522,22 @@ class SimSession:
                 report({'ERROR'}, f"Not enough disk space in {disk.directory}: the bake needs about "
                                   f"{need / 2**30:.1f} GB, {free / 2**30:.1f} GB free")
                 return False
-            plan = cache_bake.plan_bake(disk, signature, first, last, resume=resume, particles=solver.num_particles)
+            # With emitters a frame holds the active particles (up to the pool): restore_state checks the count.
+            particles = None if getattr(solver, "has_emitters", False) else solver.num_particles
+            plan = cache_bake.plan_bake(disk, signature, first, last, resume=resume, particles=particles)
             if plan.complete:
                 report({'INFO'}, f"Frames {first}-{last} are already cached")
                 return False
-            ring = VramRing(runtime.wp, solver.num_particles, BAKE_RING_SLOTS)
+            ring = VramRing(runtime.wp, solver.num_particles, BAKE_RING_SLOTS)  # the pool: emitters never overflow it
             store = FrameStore(disk, ring)
+            before_step = None
+            if self.active_demo == CUSTOM_SCENE:  # animated colliders: one transform read per frame, as in tick
+                def before_step(scene=scene, solver=solver):
+                    _scene_api().sync_collider_keyframes(scene, solver)
             try:
                 self.bake = cache_bake.BakeJob(
-                    store, SolverSource(runtime.wp, solver, steps, settings.use_cuda_graph), plan)
+                    store, SolverSource(runtime.wp, solver, steps, settings.use_cuda_graph,
+                                        before_step=before_step, first_frame=first), plan)
             except BaseException:
                 store.close()
                 raise

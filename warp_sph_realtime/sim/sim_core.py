@@ -541,14 +541,17 @@ def k_emit(
     first_slot: int,
     rate: float,
     elapsed: float,
+    first_id: int,
     pos: wp.array[wp.vec3],
     vel: wp.array[wp.vec3],
+    pid: wp.array[wp.int32],
 ):
     """Activates pool slots [first_slot, first_slot + dim) with an emitter's particles first_index, ...
 
     Particle g leaves nozzle (g mod count) of the emitter's shuffled nozzles at (g + 1) / rate seconds
     after the emitter started; it is placed where it has travelled since then (`elapsed` is the time
-    since the start), so a steady stream has no gaps at substep boundaries.
+    since the start), so a steady stream has no gaps at substep boundaries. The new particles take the
+    fresh ids first_id, first_id + 1, ... (a free slot's id entry is stale after the reorder swap).
     """
     j = int(wp.tid())
     g = first_index + j
@@ -557,6 +560,7 @@ def k_emit(
     age = wp.max(elapsed - float(g + 1) / rate, 0.0)
     pos[first_slot + j] = nozzle_pos[k] + v * age
     vel[first_slot + j] = v
+    pid[first_slot + j] = first_id + j
 
 
 @wp.kernel
@@ -672,6 +676,7 @@ class RealtimeWCSPHSolver:
         # num_particles is the pool size; the device copy of the count is what the captured graph reads.
         self.active_count = num_particles
         self.active = wp.array([num_particles], dtype=wp.int32, device=self.device)
+        self._next_id = num_particles     # host counter: next fresh particle id (k_emit)
         self.sim_time = 0.0
         self.unit_scale = 1.0
         self.start_frame = 1.0
@@ -832,6 +837,8 @@ class RealtimeWCSPHSolver:
             self._key_frames[first] = first % KEY_RING
 
         self._set_active_count(self.num_particles if active_count is None else active_count)
+        # The placed particles keep ids [0, active_count) from construction; emitted ones count on from there.
+        self._next_id = self.active_count
         self._setup_emitters(desc)
         if self._emitters:
             self.grid.reserve(self.num_particles)  # the grid never grows while the pool fills
@@ -893,13 +900,54 @@ class RealtimeWCSPHSolver:
             if due > 0:
                 wp.launch(k_emit, dim=due, inputs=[
                     self.nozzle_pos, self.nozzle_vel, e.offset, e.count, e.emitted, n, e.rate,
-                    self.sim_time - e.t_start, self.pos_sim, self.vel], device=self.device)
+                    self.sim_time - e.t_start, self._next_id, self.pos_sim, self.vel, self.pid],
+                    device=self.device)
                 e.emitted += due
+                self._next_id += due
                 n += due
             if self.emission_exhausted:
                 break
         if n != self.active_count:
             self._set_active_count(n)
+
+    @property
+    def has_emitters(self) -> bool:
+        """True when the pool fills while running (the particle count of a frame is not the pool size)."""
+        return bool(self._emitters)
+
+    def restore_state(self, position: np.ndarray, velocity: np.ndarray, ids: np.ndarray,
+                      steps: int | None = None):
+        """Loads a recorded state (bake resume): the first len(position) slots hold particles, the rest park.
+
+        One-off host upload, never per frame. `steps` (substeps since the scene start, at the current dt)
+        re-derives the clock (animated colliders) and the emitters' progress; None keeps the current clock. Raises ValueError
+        if the count does not fit the pool (or differs from it without emitters).
+        """
+        n = len(position)
+        if not 0 < n <= self.num_particles or (n != self.num_particles and not self._emitters):
+            raise ValueError(f"cached frame has {n} particles, the scene has {self.num_particles}")
+        pos = np.full((self.num_particles, 3), PARKED_POSITION, dtype=np.float32)
+        vel = np.zeros((self.num_particles, 3), dtype=np.float32)
+        pid = np.arange(self.num_particles, dtype=np.int32)
+        pos[:n], vel[:n], pid[:n] = position, velocity, ids
+        self.pos_sim.assign(pos)
+        self.vel.assign(vel)
+        self.pid.assign(pid)
+        if steps is not None:
+            # Summed substep by substep like step(), so the clock is bit-identical to an uninterrupted run;
+            # the last emission happened at the start of the last substep (`emit_time`), as in _emit.
+            t = emit_time = 0.0
+            for _ in range(int(steps)):
+                emit_time = t
+                t += self.dt
+            self.sim_time = t
+            for e in self._emitters:
+                due = math.floor(e.rate * (min(emit_time, e.t_end) - e.t_start) + 1e-9)
+                e.emitted = max(due, 0) if steps and emit_time > e.t_start else 0
+        self.emission_exhausted = bool(self._emitters) and n >= self.num_particles
+        self._exhaustion_unreported = False
+        self._set_active_count(n)
+        self._next_id = max(int(np.max(ids)) + 1, n)
 
     def take_exhaustion_notice(self) -> bool:
         """True once, after emission stopped because the particle budget is used up."""
@@ -974,7 +1022,7 @@ class RealtimeWCSPHSolver:
     @classmethod
     def from_scene(cls, desc: SceneDescription, spacing: float, substeps: int = 2,
                    stiffness: float | None = None, cfl_factor: float | None = None,
-                   max_particles: int = MAX_PARTICLES) -> "RealtimeWCSPHSolver":
+                   max_particles: int = MAX_PARTICLES, device: str = "cuda:0") -> "RealtimeWCSPHSolver":
         """Builds a ready-to-step solver for an authored scene.
 
         Fills the fluid volumes on a cubic lattice at `spacing` (h = 2*spacing, mass from the same
@@ -986,7 +1034,7 @@ class RealtimeWCSPHSolver:
         """
         from ..scene.fill import SceneFillError, fill_particles
 
-        points = fill_particles(desc, spacing)
+        points = fill_particles(desc, spacing, device=device)
         if len(points) > max_particles:
             raise SceneFillError(
                 f"scene fills {len(points)} particles at spacing {spacing}, above the {max_particles} limit; "
@@ -1000,7 +1048,7 @@ class RealtimeWCSPHSolver:
                 raise SceneFillError(
                     f"scene fills {len(points)} particles at spacing {spacing}, above the particle budget "
                     f"{capacity}; raise Max Particles or increase the particle spacing")
-        solver = cls(num_particles=capacity, h=2.0 * spacing, substeps=substeps, enable_obstacles=0)
+        solver = cls(num_particles=capacity, h=2.0 * spacing, substeps=substeps, enable_obstacles=0, device=device)
         if stiffness is not None:
             solver.stiffness = stiffness
         if cfl_factor is not None:
@@ -1047,7 +1095,8 @@ class RealtimeWCSPHSolver:
                     device=self.device,
                 )
                 # pos_sim / vel leave this substep in sorted order, so the sorted ids become the ids. A swap,
-                # not a copy: the id arrays are never captured in the CUDA graph.
+                # not a copy: the id arrays are never captured in the CUDA graph. Only [0, n) is meaningful
+                # after the swap; k_emit writes the ids of the slots it activates.
                 self.pid, self.pid_sorted = self.pid_sorted, self.pid
 
                 self.grid.build(points=pos_sorted, radius=self.h)

@@ -39,6 +39,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   **Advanced** sub-panel.
 
 ### Added
+- Particle ids for emitted particles (P1.6 with P2.1): each particle an emitter releases gets a fresh unique id, so
+  cached frames keep one id per particle as the pool fills. A bake of an emitter scene records the live particle count
+  per frame (frames grow), resume restores the emitters' progress and the clock, and bakes now feed animated-collider
+  keyframes the way the live run does.
 - Physics validation (P2.6): `sim/validation.py` runs the real solver headless on any Warp device and measures
   the quasi-2D dam-break surge front against Martin & Moyce (1952, `n^2 = 2`), particle conservation (count, NaN,
   domain containment), total-energy growth and rest density (unclamped SPH sum). `tests/test_validation.py` runs
