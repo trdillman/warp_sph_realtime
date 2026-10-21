@@ -20,19 +20,25 @@ if not _running_inside_blender():
     class MockScene:
         pass
 
+    class MockObject:
+        pass
+
     bpy_mock = types.ModuleType("bpy")
     bpy_mock.types = types.SimpleNamespace(
         Operator=object,
         Panel=object,
         AddonPreferences=object,
+        PropertyGroup=object,
         Scene=MockScene,
+        Object=MockObject,
         SpaceView3D=types.SimpleNamespace(
             draw_handler_add=lambda *a, **k: None,
             draw_handler_remove=lambda *a, **k: None,
         ),
     )
     bpy_props = types.ModuleType("bpy.props")
-    for p in ("IntProperty", "FloatProperty", "FloatVectorProperty", "BoolProperty", "EnumProperty", "StringProperty"):
+    for p in ("IntProperty", "FloatProperty", "FloatVectorProperty", "BoolProperty", "EnumProperty", "StringProperty",
+              "PointerProperty"):
         setattr(bpy_props, p, lambda **kw: kw)
     bpy_mock.props = bpy_props
     sys.modules["bpy"] = bpy_mock
@@ -91,11 +97,15 @@ class TestBlenderIntegrationAndDemos(unittest.TestCase):
             "warp_sph_absorption",
             "warp_sph_particle_color",
             "warp_sph_depth_test",
+            "warp_sph_scene_source",
+            "warp_sph_particle_spacing",
         ]
         for prop in expected_props:
             self.assertTrue(hasattr(bpy_mock.types.Scene, prop), f"Missing scene property {prop}")
+        self.assertTrue(hasattr(bpy_mock.types.Object, "warp_sph"))
         registered = {cls.__name__ for cls in _registered_classes}
-        for op in ("WM_OT_warp_sph_pause", "WM_OT_warp_sph_step_frame"):
+        for op in ("WM_OT_warp_sph_pause", "WM_OT_warp_sph_step_frame", "WARPSPH_ObjectSettings",
+                   "OBJECT_OT_warp_sph_set_role", "OBJECT_OT_warp_sph_add_fluid_scene", "OBJECT_PT_warp_sph"):
             self.assertIn(op, registered)
         # Small-range values need fine click steps (Blender step is in 1/100 units)
         radius = bpy_mock.types.Scene.warp_sph_particle_radius
@@ -105,6 +115,8 @@ class TestBlenderIntegrationAndDemos(unittest.TestCase):
         extension_module.unregister()
         registered = {cls.__name__ for cls in _registered_classes}
         self.assertNotIn("WM_OT_warp_sph_pause", registered)
+        self.assertNotIn("WARPSPH_ObjectSettings", registered)
+        self.assertFalse(hasattr(bpy_mock.types.Object, "warp_sph"))
         for prop in expected_props:
             self.assertFalse(hasattr(bpy_mock.types.Scene, prop), f"Property {prop} not cleaned up after unregister")
 

@@ -6,6 +6,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Added
+- Scene authoring: mark meshes as **Domain**, **Fluid** or **Collider** (object `warp_sph.role`, sidebar buttons and
+  a Properties > Physics panel), choose **Custom** as the scene source, set the particle spacing, and press Start;
+  the fluid volumes are filled and the colliders built from the evaluated meshes. **Add Fluid Scene** creates a
+  starter domain, fluid block and collider. The panel lists objects by role and warns about a missing domain or
+  fluid and fluid outside the domain; Start refuses an invalid scene with the reason and leaves no GPU state. The
+  Demo source is unchanged and remains the default; the early `warp_sph_role` custom property is still read.
 - Copy Diagnostics button (panel and preferences): one click copies add-on, Blender/backend, Warp, driver, cudart,
   GPU, transport, last error/close and recent log lines to the clipboard, with home paths redacted. The add-on now
   writes a small rotating log (256 KB x 2) to the extension user directory (`logs/warpsph.log`).

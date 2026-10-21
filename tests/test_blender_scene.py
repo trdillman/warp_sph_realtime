@@ -4,7 +4,7 @@ import numpy as np
 import pytest
 
 from tests.scene_fixtures import box_mesh
-from warp_sph_realtime.scene.blender_scene import ROLE_PROP, description_from_blender
+from warp_sph_realtime.scene.blender_scene import ROLE_PROP, description_from_blender, object_role, scene_warnings
 from warp_sph_realtime.scene.description import SceneValidationError
 
 
@@ -138,3 +138,56 @@ def test_open_collider_is_reported_by_name():
     fluid = FakeObject("Water", box_mesh((-0.2, -0.2, -0.2), (0.2, 0.2, 0.2)), "FLUID", translation(0, 0, 1.0))
     with pytest.raises(SceneValidationError, match="collider 'OpenPlate' is not closed"):
         description_from_blender(FakeScene([domain_obj(), fluid, open_plate]), None)
+
+
+# --- Object settings PropertyGroup (obj.warp_sph.role) -------------------------------------------
+
+class Settings:
+    def __init__(self, role="NONE"):
+        self.role = role
+
+
+def with_settings(obj, role):
+    obj.warp_sph = Settings(role)
+    return obj
+
+
+def box_corners(lo, hi):
+    return [(x, y, z) for x in (lo[0], hi[0]) for y in (lo[1], hi[1]) for z in (lo[2], hi[2])]
+
+
+def test_role_is_read_from_object_settings():
+    fluid = with_settings(FakeObject("Water", box_mesh((-0.2, -0.2, -0.2), (0.2, 0.2, 0.2)),
+                                     matrix=translation(0, 0, 1.0)), "FLUID")
+    domain = with_settings(FakeObject("Box", box_mesh((-0.5, -0.5, -0.5), (0.5, 0.5, 0.5)),
+                                      matrix=translation(0, 0, 1.0)), "DOMAIN")
+    collider = with_settings(FakeObject("Rock", box_mesh((-0.1, -0.1, -0.1), (0.1, 0.1, 0.1)),
+                                        matrix=translation(0.3, 0, 0.6)), "COLLIDER")
+    untagged = with_settings(FakeObject("Floor", box_mesh((-3, -3, -1), (3, 3, 0))), "NONE")
+    desc = description_from_blender(FakeScene([collider, untagged, fluid, domain]), None)
+    assert desc.domain_min == (-0.5, -0.5, 0.5) and desc.domain_max == (0.5, 0.5, 1.5)
+    assert [m.name for m in desc.fluid_volumes] == ["Water"] and [m.name for m in desc.colliders] == ["Rock"]
+    assert untagged.cleared == 0  # untagged objects are never evaluated
+
+
+def test_settings_role_wins_and_none_falls_back_to_legacy_property():
+    assert object_role(with_settings(FakeObject("A", role="FLUID"), "COLLIDER")) == "COLLIDER"
+    assert object_role(with_settings(FakeObject("B", role="FLUID"), "NONE")) == "FLUID"
+    assert object_role(with_settings(FakeObject("C"), "NONE")) is None
+    assert object_role(FakeObject("D")) is None
+
+
+def test_scene_warnings_cover_missing_roles_and_fluid_outside_domain():
+    assert scene_warnings(FakeScene([])) == ["No domain: mark a box as Domain", "No fluid: mark a closed mesh as Fluid"]
+    domain = with_settings(FakeObject("Domain", matrix=translation(0, 0, 1.0)), "DOMAIN")
+    domain.bound_box = box_corners((-1, -1, -1), (1, 1, 1))
+    inside = with_settings(FakeObject("Inside", matrix=translation(0, 0, 0.5)), "FLUID")
+    inside.bound_box = box_corners((-0.2, -0.2, -0.2), (0.2, 0.2, 0.2))
+    assert scene_warnings(FakeScene([domain, inside])) == []
+    outside = with_settings(FakeObject("Spill", matrix=translation(0, 0, 2.5)), "FLUID")
+    outside.bound_box = box_corners((-0.2, -0.2, -0.2), (0.2, 0.2, 0.2))
+    lamp = with_settings(FakeObject("Lamp", type="LIGHT"), "COLLIDER")
+    second = with_settings(FakeObject("Domain2"), "DOMAIN")
+    assert scene_warnings(FakeScene([domain, inside, outside])) == ["Fluid 'Spill' extends outside the domain"]
+    assert scene_warnings(FakeScene([domain, second, inside, lamp])) == [
+        "'Lamp' is a LIGHT, not a mesh", "2 domains; exactly one is allowed"]

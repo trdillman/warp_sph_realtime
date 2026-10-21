@@ -77,21 +77,29 @@ def k_init_block_flop_puddle(
         vel[i] = wp.vec3(0.0, 0.0, -3.5)
 
 
+DEMO_HELPERS_COLLECTION = "WarpSPH_Demo_Helpers"
+
+
+def remove_blender_demo_helpers():
+    """Deletes the demo wireframe/collider helper objects (an authored scene does not use them)."""
+    col = bpy.data.collections.get(DEMO_HELPERS_COLLECTION)
+    if col is not None:
+        for obj in list(col.objects):
+            bpy.data.objects.remove(obj, do_unlink=True)
+
+
 def build_blender_demo_helpers(scene_type: str):
     """Creates non-destructive wireframe domain & obstacle visualizers in the Blender 5.2+ viewport."""
     scene = bpy.context.scene
     if scene is None:
         return
 
-    col_name = "WarpSPH_Demo_Helpers"
-    col = bpy.data.collections.get(col_name)
+    col = bpy.data.collections.get(DEMO_HELPERS_COLLECTION)
     if col is None:
-        col = bpy.data.collections.new(col_name)
+        col = bpy.data.collections.new(DEMO_HELPERS_COLLECTION)
         scene.collection.children.link(col)
 
-    # Clear previous demo helper meshes
-    for obj in list(col.objects):
-        bpy.data.objects.remove(obj, do_unlink=True)
+    remove_blender_demo_helpers()  # clear previous demo helper meshes
 
     # 1. Create Domain Wireframe Box (-2.5..2.5 X/Y, 0..5.0 Z)
     bpy.ops.mesh.primitive_cube_add(size=1.0, location=(0.0, 0.0, 2.5))
