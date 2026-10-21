@@ -569,6 +569,8 @@ class GLBackend:
         def __init__(self, n): self.n, self.destroys = n, 0
         def map_to_warp(self): return 'vbo'
         def unmap(self): pass
+        @contextlib.contextmanager
+        def mapped(self): yield 'vbo'
         def destroy(self): self.destroys += 1
     def __enter__(self):
         self.saved = gpu.platform.backend_type_get, addon.ZeroCopyGLBuffer52
@@ -610,7 +612,7 @@ def opengl_ssfr_and_spheres_keep_the_legacy_vbo_path(ctx):
             assert buf.destroys == 1 and RT.gl_buf is None
 
 @case
-def opengl_texture_failure_falls_back_once_to_labelled_readback(ctx):
+def opengl_texture_failure_falls_back_once_then_uses_legacy_vbo(ctx):
     FACTORY.gl_error = RecoverableTransportError('cudaGraphicsGLRegisterImage failed')
     ctx.scene.warp_sph_render_mode = 'POINTS'
     with GLBackend():
@@ -623,7 +625,8 @@ def opengl_texture_failure_falls_back_once_to_labelled_readback(ctx):
         ctx = bpy.context = make_context()
         ctx.scene.warp_sph_render_mode = 'POINTS'
         start(ctx)
-        assert RT.session.label == ts.READBACK_LABEL          # sticky until restart, no retry loop
+        # no texture retry until restart; later Points runs use the legacy VBO interop, not Readback
+        assert RT.session is None and RT.gl_buf is not None
         addon._stop_session(ctx)
         ctx.scene.warp_sph_render_mode = 'SSFR_LIQUID'        # legacy modes ignore the interop flag
         start(ctx)

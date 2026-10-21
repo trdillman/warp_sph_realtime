@@ -144,6 +144,10 @@ def _gl_uses_texture(scene) -> bool:
     """OpenGL route, fixed for a run: chosen from the display mode at Start, kept through resizes."""
     if RT.session is not None or RT.gl_buf is not None:
         return RT.session is not None
+    if RT.interop_unavailable:
+        # The texture interop failed earlier this process: the legacy VBO interop (no CPU copy)
+        # beats Readback, and was the only OpenGL route before the texture adapter.
+        return False
     return getattr(scene, "warp_sph_render_mode", "SSFR_LIQUID") in GL_TEXTURE_MODES
 
 
