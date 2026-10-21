@@ -8,6 +8,15 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Changed
 - `RealtimeWCSPHSolver` takes an optional `device` (default `"cuda:0"`, unchanged for the add-on). `"cpu"` launches
   the kernels eagerly with no CUDA graph; it exists for headless validation in CI.
+- Custom scenes use Blender's scene **Unit Scale** (Blender units to metres) and scene **Gravity** (P2.1).
+  Before, 1 Blender unit was 1 m and gravity was fixed at -9.81 m/s^2.
+- Both demos now run through the collider path (P2.1): the pillars and sphere are one closed mesh collider
+  instead of analytic shapes. Visuals and behaviour match: at 1M particles the centre of mass after the
+  comparison run differs by under 1 mm, no particle penetrates the obstacles, and the step time is within
+  about 2.5% of the analytic path.
+- Mesh collider signed distance takes the sign from the closest face's pseudo-normal and confirms deep
+  "inside" answers with the winding number, instead of using the winding number on every query near a
+  surface (which doubled the Demo 1 step time at 1M particles).
 - CI and release pipeline: the check job now also runs on `windows-latest`; Ruff additionally enforces `B`, `UP` and
   `I` (violations fixed, `UP018` documented as incompatible with Warp kernels); the version is single-sourced from
   `blender_manifest.toml` (Blender qualification tests derive the zip name from it, `tests/test_version_consistency.py`
@@ -30,6 +39,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   **Advanced** sub-panel.
 
 ### Added
+- Particle ids for emitted particles (P1.6 with P2.1): each particle an emitter releases gets a fresh unique id, so
+  cached frames keep one id per particle as the pool fills. A bake of an emitter scene records the live particle count
+  per frame (frames grow), resume restores the emitters' progress and the clock, and bakes now feed animated-collider
+  keyframes the way the live run does.
 - Physics validation (P2.6): `sim/validation.py` runs the real solver headless on any Warp device and measures
   the quasi-2D dam-break surge front against Martin & Moyce (1952, `n^2 = 2`), particle conservation (count, NaN,
   domain containment), total-energy growth and rest density (unclamped SPH sum). `tests/test_validation.py` runs
@@ -56,6 +69,19 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   index did not identify a particle. `k_reorder_soa_id` (the existing reorder plus the id) replaces the reorder launch in `step()`; the id arrays are
   not in the CUDA graph. Measured at 1M particles: 5.94 ms per substep against 5.86 ms before (within run-to-run
   noise); the telemetry footprint grows by 8 bytes per particle.
+- **Emitter** role (P2.1): a mesh surface releases particles along its face normals (Speed) or a fixed velocity
+  Vector, at a Rate (0 = a full stream) over a Start/End frame range. The particle pool is allocated once at
+  Start from **Max Particles** (`scene.warp_sph.max_particles`, default 1,000,000); emission writes into it with
+  no reallocation and no allocation in CUDA graph capture. When the budget is full the emitters stop, Blender
+  shows a warning and the panel shows "Particle budget reached". Emitted particles start at least one spacing
+  (plus one step of travel) from domain walls and colliders; Start refuses an emitter that is outside the
+  domain, inside a collider or too close to either.
+- Animated colliders (P2.1): a collider whose location or rotation is animated (keyframes, drivers,
+  constraints or a parent) moves the fluid. Its world matrix is read once per Blender frame on the main thread;
+  the pose is interpolated per substep on the GPU and the mesh is never rebuilt. The collider's velocity
+  (linear and angular) drives the wall response, so a moving paddle pushes fluid. While such a scene runs, the
+  timeline follows the simulation frame. Not supported: deforming colliders (they keep their Start-frame
+  shape) and animated scale or shear (the run stops with an error).
 - Warp install runs in the background (P1.4): the download, checksum check and extraction run on a worker thread
   polled by a Blender timer, so the UI stays responsive. Add-on Preferences show a progress bar and a Cancel
   button; the wheel is downloaded to a temporary file, verified and only then extracted and promoted, so Cancel

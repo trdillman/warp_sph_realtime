@@ -6,7 +6,7 @@ import warp as wp
 from ..sim.colliders import MeshSet
 from .description import SceneDescription, SceneFillError
 
-__all__ = ["MAX_LATTICE_CELLS", "SceneFillError", "fill_particles"]
+__all__ = ["MAX_LATTICE_CELLS", "SceneFillError", "emitter_nozzle_arrays", "fill_particles"]
 
 # Lattice cells tested per fill. Bounds the temporary flag array (1 byte per cell) when a sparse volume
 # or a tiny spacing would otherwise allocate gigabytes.
@@ -45,6 +45,83 @@ def k_fill_lattice(
         keep[tid] = wp.uint8(1)
 
 
+@wp.kernel
+def k_filter_nozzles(
+    points: wp.array[wp.vec3],
+    collider_ids: wp.array[wp.uint64],
+    num_colliders: int,
+    domain_min: wp.vec3,
+    domain_max: wp.vec3,
+    clearance: float,
+    max_dist: float,
+    keep: wp.array[wp.uint8],
+):
+    """Keeps a point at least `clearance` inside every domain wall and outside every collider surface.
+
+    Particles closer than that would start inside the boundaries' soft layer and be thrown out of it.
+    """
+    tid = int(wp.tid())
+    x = points[tid]
+    for axis in range(3):
+        if x[axis] < domain_min[axis] + clearance or x[axis] > domain_max[axis] - clearance:
+            return
+    for k in range(num_colliders):
+        q = wp.mesh_query_point_sign_winding_number(collider_ids[k], x, max_dist, 2.0, 0.5)
+        if q.result:
+            if q.sign < 0.0 or wp.length(x - wp.mesh_eval_position(collider_ids[k], q.face, q.u, q.v)) < clearance:
+                return
+    keep[tid] = wp.uint8(1)
+
+
+def emitter_nozzle_arrays(desc: SceneDescription, spacing: float, device=None,
+                          clearance: float | None = None) -> tuple[np.ndarray, np.ndarray, list[tuple[int, int, float]]]:
+    """All emitters' nozzle points at least `clearance` (default: `spacing`) from every domain wall and
+    collider surface (at the start pose), and outside every collider.
+
+    Returns (positions (K, 3) float32, velocities (K, 3) float32, per-emitter (offset, count, natural
+    rate in particles/s)). Raises SceneFillError when an emitter keeps no nozzle, emits nothing (its
+    velocity is parallel to its surface), or the emitters together exceed MAX_NOZZLES.
+    """
+    from .emitters import MAX_NOZZLES, emitter_nozzles
+
+    device = device or ("cuda:0" if wp.is_cuda_available() else "cpu")
+    raw = [emitter_nozzles(e, spacing) for e in desc.emitters]
+    total = sum(len(p) for p, _, _ in raw)
+    if total > MAX_NOZZLES:
+        raise SceneFillError(
+            f"emitters have {total} nozzle points at spacing {spacing} (limit {MAX_NOZZLES}); "
+            "increase the particle spacing or use smaller emitters")
+    d_lo = np.array(desc.domain_min, dtype=np.float64)
+    d_hi = np.array(desc.domain_max, dtype=np.float64)
+    clearance = spacing if clearance is None else clearance
+    colliders = MeshSet(desc.colliders, device)
+    positions, velocities, ranges = [], [], []
+    offset = 0
+    for emitter, (pos, vel, flux) in zip(desc.emitters, raw, strict=True):
+        name = emitter.mesh.name
+        keep = wp.zeros(len(pos), dtype=wp.uint8, device=device)
+        wp.launch(
+            k_filter_nozzles, dim=len(pos),
+            inputs=[wp.array(pos.astype(np.float32), dtype=wp.vec3, device=device), colliders.ids,
+                    colliders.count, wp.vec3(*d_lo), wp.vec3(*d_hi), float(clearance),
+                    float(np.linalg.norm(d_hi - d_lo)) * 2.0, keep],
+            device=device,
+        )
+        mask = keep.numpy().astype(bool)
+        if not mask.any():
+            raise SceneFillError(
+                f"emitter '{name}' is outside the domain, inside a collider, or closer than {clearance:.4g} m "
+                "to a domain wall or collider; move it into open space")
+        rate = float(flux[mask].sum()) / spacing
+        if rate <= 0.0:
+            raise SceneFillError(f"emitter '{name}' velocity is parallel to its surface, so it emits nothing")
+        positions.append(pos[mask])
+        velocities.append(vel[mask])
+        ranges.append((offset, int(mask.sum()), rate))
+        offset += int(mask.sum())
+    return (np.concatenate(positions).astype(np.float32), np.concatenate(velocities).astype(np.float32), ranges)
+
+
 def fill_particles(desc: SceneDescription, spacing: float, device=None) -> np.ndarray:
     """Particle positions (N, 3) float32 for the scene's fluid volumes.
 
@@ -52,11 +129,13 @@ def fill_particles(desc: SceneDescription, spacing: float, device=None) -> np.nd
     share one lattice and never double-count. A lattice point is kept when it is inside any fluid
     volume, inside the domain, and outside every collider. Winding-number inside tests, so
     non-manifold or overlapping parts classify correctly. Raises SceneFillError instead of returning
-    zero particles.
+    zero particles, except for a scene without fluid volumes (emitters only), which returns (0, 3).
     """
     if not np.isfinite(spacing) or spacing <= 0.0:
         raise SceneFillError(f"particle spacing must be a positive finite number, got {spacing}")
     device = device or ("cuda:0" if wp.is_cuda_available() else "cpu")
+    if not desc.fluid_volumes:  # an emitter-only scene starts empty
+        return np.zeros((0, 3), dtype=np.float32)
 
     d_lo = np.array(desc.domain_min, dtype=np.float64)
     d_hi = np.array(desc.domain_max, dtype=np.float64)

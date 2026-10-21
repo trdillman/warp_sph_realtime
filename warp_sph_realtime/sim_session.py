@@ -204,7 +204,8 @@ class SimSession:
     # -- solver and output allocation ----------------------------------------------------------------
 
     def _custom_solver(self, scene, depsgraph):
-        """Solver for the tagged objects; the particle count comes from the fill at the scene's spacing."""
+        """Solver for the tagged objects; the particle count is the fill at the scene's spacing, or the
+        Max Particles budget when the scene has emitters."""
         from .scene.description import SceneFillError, SceneValidationError
         try:
             desc = _scene_api().description_from_blender(scene, depsgraph)
@@ -224,7 +225,7 @@ class SimSession:
             num_particles=num_p,
             h=0.04,
             substeps=settings.substeps,
-            enable_obstacles=1 if demo_type == "DOUBLE_DAM_PILLARS" else 0,
+            enable_obstacles=0,  # the demos set a scene: their obstacles are mesh colliders
         )
         solver.stiffness = stiffness_pa(settings)
         solver.cfl_factor = settings.time_step_scale
@@ -239,7 +240,6 @@ class SimSession:
 
         demo_type CUSTOM_SCENE builds the authored scene from tagged objects; num_p is then ignored and
         every output is sized from the solver's fill count."""
-        wp = runtime.wp
         backend = gpu_backend()
         if backend == 'OPENGL' and not self.gl_uses_texture(scene):
             # An authored scene's particle count is known only after the fill, so its solver comes first.
@@ -249,7 +249,7 @@ class SimSession:
                 if solver is None:
                     solver = self._new_solver(scene, num_p, demo_type)
                 with gl_buf.mapped() as pos_vbo_wp:
-                    wp.copy(pos_vbo_wp, solver.pos_sim)
+                    solver.copy_positions(pos_vbo_wp)
             except BaseException:
                 gl_buf.destroy()
                 raise
@@ -268,7 +268,7 @@ class SimSession:
                 _QUARANTINE.append(solver)
                 raise
             try:
-                session.tick(lambda out: wp.copy(out, solver.pos_sim))  # publish before first draw
+                session.tick(solver.copy_positions)  # publish before first draw
             except FatalTransportError:
                 _QUARANTINE.extend((solver, session))  # no CUDA cleanup after a fatal error
                 raise
@@ -431,6 +431,8 @@ class SimSession:
         self.solver.substeps = settings.substeps
         solver, use_graph = self.solver, settings.use_cuda_graph
         try:
+            if self.active_demo == CUSTOM_SCENE:  # animated colliders: one transform read per frame
+                _scene_api().sync_collider_keyframes(self.scene, solver)
             if self.session is not None:
                 # No host sync: the adapter orders publication on the solver stream and
                 # skips the step (backpressure) while a step is in flight or both slots are busy.
@@ -464,6 +466,8 @@ class SimSession:
         if stepped:
             self.step_count += 1
             self.step_once = False  # a single-step request survives a backpressure skip
+        if getattr(solver, "emission_exhausted", False) and solver.take_exhaustion_notice():
+            report({'WARNING'}, "WarpSPH: particle budget reached; emitters stopped (raise Max Particles)")
 
         # GL draws synchronously after every step; a session redraws only for a new frame
         if self.session is None or self.session.take_new_frame():
@@ -518,15 +522,22 @@ class SimSession:
                 report({'ERROR'}, f"Not enough disk space in {disk.directory}: the bake needs about "
                                   f"{need / 2**30:.1f} GB, {free / 2**30:.1f} GB free")
                 return False
-            plan = cache_bake.plan_bake(disk, signature, first, last, resume=resume, particles=solver.num_particles)
+            # With emitters a frame holds the active particles (up to the pool): restore_state checks the count.
+            particles = None if getattr(solver, "has_emitters", False) else solver.num_particles
+            plan = cache_bake.plan_bake(disk, signature, first, last, resume=resume, particles=particles)
             if plan.complete:
                 report({'INFO'}, f"Frames {first}-{last} are already cached")
                 return False
-            ring = VramRing(runtime.wp, solver.num_particles, BAKE_RING_SLOTS)
+            ring = VramRing(runtime.wp, solver.num_particles, BAKE_RING_SLOTS)  # the pool: emitters never overflow it
             store = FrameStore(disk, ring)
+            before_step = None
+            if self.active_demo == CUSTOM_SCENE:  # animated colliders: one transform read per frame, as in tick
+                def before_step(scene=scene, solver=solver):
+                    _scene_api().sync_collider_keyframes(scene, solver)
             try:
                 self.bake = cache_bake.BakeJob(
-                    store, SolverSource(runtime.wp, solver, steps, settings.use_cuda_graph), plan)
+                    store, SolverSource(runtime.wp, solver, steps, settings.use_cuda_graph,
+                                        before_step=before_step, first_frame=first), plan)
             except BaseException:
                 store.close()
                 raise

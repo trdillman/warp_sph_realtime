@@ -41,7 +41,7 @@ if not _running_inside_blender():
     bpy_props = types.ModuleType("bpy.props")
     for p in ("IntProperty", "FloatProperty", "FloatVectorProperty", "BoolProperty", "EnumProperty", "StringProperty",
               "PointerProperty"):
-        setattr(bpy_props, p, lambda **kw: kw)
+        setattr(bpy_props, p, lambda _kind=p, **kw: {**kw, "_kind": _kind})
     bpy_mock.props = bpy_props
     sys.modules["bpy"] = bpy_mock
     sys.modules["bpy.props"] = bpy_props
@@ -106,7 +106,7 @@ class TestBlenderIntegrationAndDemos(unittest.TestCase):
         self.assertIs(bpy_mock.types.Scene.warp_sph["type"], props.WARPSPH_SceneSettings)
         settings = props.WARPSPH_SceneSettings.__annotations__
         cache_props = ["cache_dir", "bake_start", "bake_end", "bake_steps"]  # P2.2: new, nothing to migrate
-        self.assertEqual(sorted(settings), sorted(expected_props + cache_props))
+        self.assertEqual(sorted(settings), sorted([*expected_props, *cache_props, "max_particles"]))
         self.assertEqual(sorted(props.LEGACY_NAMES), sorted(expected_props))  # every old flat setting migrates
         self.assertFalse([n for n in vars(bpy_mock.types.Scene) if n.startswith("warp_sph_")])
         self.assertTrue(hasattr(bpy_mock.types.Object, "warp_sph"))
@@ -126,6 +126,20 @@ class TestBlenderIntegrationAndDemos(unittest.TestCase):
         self.assertLessEqual(stiffness["step"], 100)
         self.assertEqual((stiffness["min"], stiffness["default"], stiffness["max"]), (10.0, 90.0, 400.0))
         self.assertEqual(props.stiffness_pa(types.SimpleNamespace(stiffness=90.0)), 90000.0)
+        # A scalar FloatProperty subtype outside Blender's list fails registration (velocity is a `unit`).
+        # The list is the one Blender 5.2.0 reports in that error.
+        scalar_subtypes = {"PIXEL", "PIXEL_DIAMETER", "UNSIGNED", "PERCENTAGE", "FACTOR", "MASS", "ANGLE", "TIME",
+                           "TIME_ABSOLUTE", "DISTANCE", "DISTANCE_DIAMETER", "DISTANCE_CAMERA", "POWER",
+                           "TEMPERATURE", "WAVELENGTH", "COLOR_TEMPERATURE", "FREQUENCY", "NONE"}
+        checked = 0
+        for cls in _registered_classes:
+            for name, spec in getattr(cls, "__annotations__", {}).items():
+                if isinstance(spec, str):  # postponed annotations: Blender evaluates them in the class's module
+                    spec = eval(spec, vars(sys.modules[cls.__module__]))
+                if isinstance(spec, dict) and spec.get("_kind") == "FloatProperty":
+                    checked += 1
+                    self.assertIn(spec.get("subtype", "NONE"), scalar_subtypes, f"{cls.__name__}.{name}")
+        self.assertGreater(checked, 5)
 
         extension_module.unregister()
         registered = {cls.__name__ for cls in _registered_classes}
@@ -168,11 +182,14 @@ class TestBlenderIntegrationAndDemos(unittest.TestCase):
 
     @unittest.skipUnless(wp.is_cuda_available(), "CUDA required")
     def test_demo_scene_1_double_dam_pillars_init(self):
-        """Verifies Demo 1 initializes opposing velocity columns and enables SDF obstacles."""
+        """Verifies Demo 1 initializes opposing velocity columns and routes its obstacles as a mesh collider."""
         solver = RealtimeWCSPHSolver(num_particles=4096, h=0.04)
         launch_demo_scene_init(solver, "DOUBLE_DAM_PILLARS")
 
-        self.assertEqual(solver.enable_obstacles, 1)
+        self.assertTrue(solver.scene_mode)
+        self.assertEqual(solver.enable_obstacles, 0)
+        self.assertEqual(solver.colliders.count, 1)
+        self.assertEqual(solver.active_count, 4096)
         vel_np = solver.vel.numpy()
         pos_np = solver.pos_sim.numpy()
 
@@ -187,7 +204,8 @@ class TestBlenderIntegrationAndDemos(unittest.TestCase):
         solver = RealtimeWCSPHSolver(num_particles=4096, h=0.04)
         launch_demo_scene_init(solver, "BLOCK_FLOP_SPLASH")
 
-        self.assertEqual(solver.enable_obstacles, 0)
+        self.assertTrue(solver.scene_mode)
+        self.assertEqual(solver.colliders.count, 0)
         vel_np = solver.vel.numpy()
         pos_np = solver.pos_sim.numpy()
 

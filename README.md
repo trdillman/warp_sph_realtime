@@ -52,17 +52,34 @@ See [`docs/WARP_INSTALLATION.md`](./docs/WARP_INSTALLATION.md) and [`docs/INSTAL
 4. Click **Pause** to freeze the physics (display settings stay live on the frozen frame), **Step** to advance one frame, and **Resume** to continue.
 5. Press `ESC` or click **Stop** to release GPU buffers.
 
-### Your Own Scene (domain, fluid, colliders)
+### Your Own Scene (domain, fluid, colliders, emitters)
 1. In the **Scene** box, choose **Custom**, then click **Add Fluid Scene** for a ready-made domain box, fluid block and
-   collider, or build your own: select a mesh and click **Domain**, **Fluid** or **Collider** (**Clear** removes the role).
-   The role is also on **Properties > Physics > WarpSPH Realtime Fluid**.
+   collider, or build your own: select a mesh and click **Domain**, **Fluid**, **Collider** or **Emitter** (**Clear**
+   removes the role). The role is also on **Properties > Physics > WarpSPH Realtime Fluid**.
    * **Domain**: exactly one; the simulation box is the object's world bounding box.
    * **Fluid**: closed meshes, filled with particles when you press Start.
-   * **Collider**: closed meshes the fluid flows around (static).
+   * **Collider**: closed meshes the fluid flows around. Animated **location and rotation** (keyframes, drivers,
+     constraints, parents) move the collider and push the fluid; see the limits below.
+   * **Emitter**: a surface (for example a plane) that releases particles. Its settings are on the Physics panel:
+     **Velocity** along the face normal (**Speed**) or a fixed **Vector**, **Rate** in particles per second
+     (0 = a full stream at that speed), and **Start**/**End** frames. Particles leave the side the normals point to.
+     The emitter must sit in open space, at least one particle spacing from the domain walls and colliders.
 2. **Particle Spacing** sets the resolution (smaller = more particles); the panel shows the particle count after Start.
-   Problems (no domain, no fluid, fluid outside the domain) are listed in the box; Start refuses an invalid scene with
-   the reason.
-3. Moving or editing the objects takes effect on the next **Stop** + **Start** (no live re-meshing). Units: 1 Blender unit = 1 m.
+   With emitters, **Max Particles** (default 1,000,000) is the particle budget reserved on the GPU at Start; the panel
+   shows "Particles: N of Max". When the budget is full the emitters stop and Blender shows a warning; raise
+   Max Particles and restart for a longer pour. Problems (no domain, no fluid or emitter, fluid outside the domain)
+   are listed in the box; Start refuses an invalid scene with the reason.
+3. Editing the objects takes effect on the next **Stop** + **Start** (no live re-meshing). While a Custom scene with
+   animated colliders runs, the timeline follows the simulation's frame.
+4. Units and gravity: the scene's **Unit Scale** (Scene Properties > Units) converts Blender units to metres, so a
+   scene modelled in centimetres (Unit Scale 0.01) simulates at real size. **Particle Spacing** is in metres; emitter
+   speeds follow the scene's units like any Blender velocity. Gravity is the scene's **Gravity** (Scene Properties >
+   Gravity).
+
+Collider limits: a collider keeps the shape it has at the Start frame. Deforming colliders (armatures, shape keys,
+modifiers that animate) are not followed, and an animated **scale** or shear stops the run with an error. Rotation
+between frames is interpolated along the shortest arc, so very fast spins (more than half a turn per frame) are
+not supported.
 
 ### Panel Controls (apply live while running)
 | Section | Control | Effect |
