@@ -145,6 +145,39 @@ class TestRealSolverRecording(unittest.TestCase):
                 self.assertEqual(getattr(whole.read_frame(frame), name).tobytes(),
                                  getattr(sliced.read_frame(frame), name).tobytes(), f"{name} of frame {frame}")
 
+    def test_every_frame_is_recorded_in_scene_units_and_resume_converts_back(self):
+        # Unit Scale 0.01 (a scene modelled in centimetres): the solver works in metres, the cache in scene units,
+        # the initial frame included; a resume loads scene units back into metres.
+        unit = 0.01
+
+        def scaled_solver():
+            solver = make_solver()
+            solver.unit_scale = unit
+            return solver
+
+        disk = DiskCache(self.root / "cm")
+        run(new_job(disk, scaled_solver(), 1, 6, resume=False))
+        reference = make_solver()  # the same run in metres, stepped by hand
+        out = wp.zeros_like(reference.pos_sim)
+        reference.substeps = STEPS
+        for frame in range(1, 7):
+            if frame > 1:
+                reference.step(out)
+            wp.synchronize_device("cuda:0")
+            np.testing.assert_allclose(disk.read_frame(frame).position, reference.pos_sim.numpy() / unit,
+                                       rtol=1e-5, atol=1e-4, err_msg=f"frame {frame}")
+
+        def by_id(frame):  # the scale round trip is not bit-exact, so the spatial sort may order ties differently
+            read = disk.read_frame(frame)
+            return read.position[np.argsort(read.id)]
+
+        whole = {f: by_id(f) for f in range(1, 7)}
+        disk.invalidate_from(4)
+        run(new_job(disk, scaled_solver(), 1, 6, resume=True))
+        self.assertEqual(disk.cached_range(), (1, 6))
+        for frame in range(4, 7):  # metres loaded as centimetres would be 100x off
+            np.testing.assert_allclose(by_id(frame), whole[frame], atol=1e-2, err_msg=f"resumed frame {frame}")
+
     def test_a_single_slot_ring_still_records_every_frame(self):
         disk = DiskCache(self.root / "one")
         run(new_job(disk, make_solver(), 1, 6, resume=False, slots=1))

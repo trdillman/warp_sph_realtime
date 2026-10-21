@@ -34,11 +34,13 @@ class MeshingDefaults:
 
 
 def particle_spacing(manifest: dict | None, setting_spacing: float, setting_radius: float = 0.0) -> float:
-    """Particle spacing of a cache: half the smoothing length ``h`` stored in the bake signature (the solver's
-    ``h`` is twice the spacing), else the scene's ``particle_spacing`` setting, else the particle radius."""
-    h = ((manifest or {}).get("signature") or {}).get("h")
-    if positive(h):
-        return float(h) / 2.0
+    """Particle spacing of a cache in scene units: half the smoothing length ``h`` stored in the bake signature
+    (the solver's ``h`` is twice the spacing, in metres; ``unit_scale``, metres per scene unit, is stored when it is
+    not 1), else the scene's ``particle_spacing`` setting, else the particle radius."""
+    signature = (manifest or {}).get("signature") or {}
+    h, unit = signature.get("h"), signature.get("unit_scale", 1.0)
+    if positive(h) and positive(unit):
+        return float(h) / 2.0 / float(unit)
     if positive(setting_spacing):
         return float(setting_spacing)
     return float(setting_radius) if positive(setting_radius) else 0.02

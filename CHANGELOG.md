@@ -11,6 +11,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   Readback, VRAM and performance problems, quoting the add-on's own messages (P2.8).
 - `examples/`: four Blender Python scripts that build a Custom scene (pour into a box, dam break, moving paddle,
   viscous drop); `tests/test_examples.py` checks that every setting, operator and enum value they use exists.
+- `examples/showcase/`: five feature demos (viewport display and transports, dam-break validation, emitter with a
+  rotating collider, bake / mesh / USD export, physics presets side by side) and `scripts/render_showcase.py`,
+  which runs them in Blender one at a time and collects screenshots, renders, a contact sheet and a summary.
 - The Time Step (CFL) tooltip now says what the README says: above 0.4 hard impacts can blow up at high particle
   counts.
 
@@ -167,6 +170,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - GitHub Actions CI running ruff, pyright, and pytest (CUDA tests skip on hosted runners).
 
 ### Fixed
+- Bake with a Unit Scale other than 1: the first baked frame, the viewport during a bake and a resumed bake used
+  metres where the cache and the viewport use scene units (frame 1 of a centimetre scene was 100x too small and a
+  resume restarted from the wrong place). Every cached frame is now in scene units and a resume converts back.
+- Add Mesh Preset with a Unit Scale other than 1 sized the splat radius and voxels from the spacing in metres. The
+  bake signature now records the Unit Scale (only when it is not 1, so existing caches still resume) and the
+  preset converts the spacing to scene units.
 - The initial particle fill of a custom scene started half a spacing from the domain walls and colliders, inside the
   solver's one-spacing boundary layer, so the layer threw the fluid out (a resting box peaked at 58 m/s and its mean
   height rose 178 %). The fill now keeps one spacing from walls and collider surfaces (where the boundary force is

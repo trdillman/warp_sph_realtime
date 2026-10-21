@@ -528,6 +528,9 @@ class SimSession:
                 "h": solver.h, "stiffness": solver.stiffness, "viscosity": solver.viscosity,
                 "scene": scene_name(scene), "demo": self.active_demo,
             }
+            unit = float(getattr(solver, "unit_scale", 1.0))
+            if unit != 1.0:  # h is in metres; meshing needs scene units. Absent at 1 so older caches still resume
+                signature["unit_scale"] = unit
             disk = cache_disk.DiskCache(blender_adapter.cache_dir(scene))
             remaining = max(last - first + 1 - (disk.cached_count() if resume else 0), 0)
             free = cache_disk.free_bytes(disk.directory)
@@ -573,13 +576,15 @@ class SimSession:
             self.bake.cancel()
 
     def _publish_solver(self):
-        """Show the solver's latest state in the viewport (the bake bypasses the normal step path)."""
+        """Show the solver's latest state in the viewport (the bake bypasses the normal step path).
+
+        ``copy_positions`` writes scene units, as ``step()`` does (the solver works in metres)."""
         wp, solver = runtime.wp, self.solver
         if self.session is not None:
-            self.session.tick(lambda out: wp.copy(out, solver.pos_sim))
+            self.session.tick(solver.copy_positions)
         elif wp.get_stream("cuda:0").is_complete:  # the legacy VBO route waits for the GPU: only when idle
             with self.gl_buf.mapped() as pos_vbo_wp:
-                wp.copy(pos_vbo_wp, solver.pos_sim)
+                solver.copy_positions(pos_vbo_wp)
             wp.synchronize_device("cuda:0")
 
     def _tick_bake(self, context, report: Report, screen) -> bool:
