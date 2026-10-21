@@ -528,6 +528,9 @@ class SimSession:
                 "h": solver.h, "stiffness": solver.stiffness, "viscosity": solver.viscosity,
                 "scene": scene_name(scene), "demo": self.active_demo,
             }
+            unit = float(getattr(solver, "unit_scale", 1.0))
+            if unit != 1.0:  # h is in metres; meshing needs scene units. Absent at 1 so older caches still resume
+                signature["unit_scale"] = unit
             disk = cache_disk.DiskCache(blender_adapter.cache_dir(scene))
             remaining = max(last - first + 1 - (disk.cached_count() if resume else 0), 0)
             free = cache_disk.free_bytes(disk.directory)

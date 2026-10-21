@@ -169,6 +169,12 @@ class OutputPlanningTest(unittest.TestCase):
         self.assertAlmostEqual(output.particle_spacing(None, 0.0, 0.025), 0.025)
         self.assertAlmostEqual(output.particle_spacing(None, 0.0, 0.0), 0.02)
 
+    def test_particle_spacing_is_in_scene_units(self):
+        # h is in metres: a centimetre scene (Unit Scale 0.01) with 2.5 cm spacing has h = 0.05 m
+        cm = {"signature": {"h": 0.05, "unit_scale": 0.01}}
+        self.assertAlmostEqual(output.particle_spacing(cm, 2.5, 0.02), 2.5)
+        self.assertAlmostEqual(output.meshing_defaults(output.particle_spacing(cm, 2.5)).radius, 3.75)
+
     def test_meshing_defaults_scale_with_spacing(self):
         small, large = output.meshing_defaults(0.01), output.meshing_defaults(0.04)
         self.assertAlmostEqual(large.radius / small.radius, 4.0)
