@@ -1,5 +1,6 @@
 """The built extension must not ship the experimental package (no Blender required)."""
 
+import ast
 import importlib.util
 import sys
 from pathlib import Path
@@ -37,4 +38,12 @@ def test_no_runtime_module_imports_experimental():
     for path in (ROOT / "warp_sph_realtime").rglob("*.py"):
         if "experimental" in path.relative_to(ROOT / "warp_sph_realtime").parts:
             continue
-        assert "experimental" not in path.read_text(encoding="utf-8").replace("experimental/", ""), path
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import):
+                names = [alias.name for alias in node.names]
+            elif isinstance(node, ast.ImportFrom):
+                names = [node.module or ""] + [alias.name for alias in node.names]
+            else:
+                continue
+            assert not any("experimental" in name.split(".") for name in names), (path, node.lineno)
