@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import hashlib
 import io
+import os
 import sys
 import tempfile
 import unittest
@@ -60,6 +61,9 @@ def _loaded_warp_file() -> Path | None:
     return Path(file_name).resolve() if file_name else None
 
 
+_real_importable_warp_file = installer._importable_warp_file
+
+
 def snapshot(root: Path) -> dict:
     return {str(p.relative_to(root)): (p.read_bytes(), p.stat().st_mtime_ns) if p.is_file() else None
             for p in sorted(root.rglob("*"))}
@@ -82,6 +86,8 @@ class SourceTestBase(unittest.TestCase):
         if saved is not None:
             self.addCleanup(sys.modules.__setitem__, "warp", saved)
         self.addCleanup(setattr, sys, "path", list(sys.path))
+        # A developer machine may have a real Warp on sys.path; the product appends a chosen folder last.
+        sys.path[:] = [e for e in sys.path if not Path(e or os.getcwd(), "warp", "__init__.py").is_file()]
         self.addCleanup(installer._ADDED_FOLDERS.clear)
         self.addCleanup(setattr, warp_runtime, "_self_test_passed", False)
         warp_runtime._self_test_passed = False
@@ -183,7 +189,7 @@ class ExistingFolderTest(SourceTestBase):
         self.online.return_value = "Online access required to install Warp."
         wp = warp_runtime.require_cuda_runtime()
         self.assertEqual(Path(wp.__file__).resolve().parent.parent, folder.resolve())
-        self.assertEqual(sys.path[0], str(folder))
+        self.assertEqual(sys.path[-1], str(folder))
         self.assertEqual(snapshot(folder), before)  # no __pycache__, no edits
         self.assertFalse(self.owned.exists())
         self.assertTrue(warp_runtime._self_test_passed)
@@ -290,6 +296,23 @@ class ExistingFolderTest(SourceTestBase):
         with mock.patch.object(installer, "_importable_warp_file", lambda: (chosen / "warp" / "__init__.py").resolve()):
             self.assertIsNone(installer.foreign_warp_block_reason())
 
+    def test_another_warp_earlier_on_sys_path_is_named_not_imported(self):
+        chosen = make_folder(self.base / "chosen")
+        other = make_folder(self.base / "other", version="1.9.9")
+        self.use_folder(chosen)
+        sys.path.insert(0, str(other))
+        pattern = r"Warp 1\.9\.9 is already loaded from .*other.*not the Warp folder"
+        with mock.patch.object(installer, "_importable_warp_file", _real_importable_warp_file):
+            with self.assertRaisesRegex(RuntimeError, pattern):
+                warp_runtime.require_cuda_runtime()
+        self.assertNotIn("warp", sys.modules)
+
+    def test_folder_is_appended_so_it_cannot_shadow_blenders_own_packages(self):
+        folder = make_folder(self.base / "site-packages")
+        self.use_folder(folder)
+        installer.ensure_installed_warp_on_path()
+        self.assertEqual(sys.path[-1], str(folder))
+
     def test_owned_copy_is_foreign_while_a_folder_is_chosen(self):
         installer.install_warp(local_wheel=self.write_wheel())
         self.use_folder(make_folder(self.base / "chosen"))
@@ -321,7 +344,7 @@ class ExistingFolderTest(SourceTestBase):
 
         self.use_folder(folder)
         installer.ensure_installed_warp_on_path()
-        self.assertEqual(sys.path[0], str(folder))
+        self.assertEqual(sys.path[-1], str(folder))
         self.assertNotIn(str(self.owned), sys.path)
         self.assertIn("existing folder", warp_runtime.status().message)
 

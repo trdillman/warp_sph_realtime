@@ -472,7 +472,7 @@ def _select_import_path(source: WarpSource) -> None:
     if source.is_folder and source.folder is not None:
         value = str(source.folder)
         if value not in sys.path:
-            sys.path.insert(0, value)
+            sys.path.append(value)  # last: a site-packages folder must not shadow Blender's own numpy etc.
         _ADDED_FOLDERS.add(value)
 
 

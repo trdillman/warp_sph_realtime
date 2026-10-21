@@ -55,6 +55,12 @@ def job_status_text() -> str:
     return f"{'Cancelling...' if snap.cancelling else snap.message} {snap.fraction:.0%}"
 
 
+def _forget_last_result(_prefs, _context) -> None:
+    """Preferences update hook: a result belongs to the source that produced it."""
+    global _last_result
+    _last_result = None
+
+
 def _prefs(context=None):
     context = context or bpy.context
     return context.preferences.addons[__package__ or ""].preferences
@@ -233,6 +239,7 @@ class WARPSPH_Preferences(bpy.types.AddonPreferences):
              "Import Warp from a folder you manage (for example a studio site-packages). Never modified"),
         ],
         default=warp_installer.SOURCE_DOWNLOAD,
+        update=_forget_last_result,
     )
     warp_wheel_path: StringProperty(
         name="Wheel File", description="Path to warp_lang-1.17.0 .whl for this platform", subtype='FILE_PATH',
