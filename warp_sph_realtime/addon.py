@@ -14,7 +14,7 @@ import time
 import bpy
 from bpy.props import BoolProperty, EnumProperty, FloatProperty, FloatVectorProperty, IntProperty
 
-from . import warp_installer, warp_runtime
+from . import diagnostics, warp_installer, warp_runtime
 from .render import session as transport_session
 from .render.gpu_points import settings_from_scene
 from .render.transport import COMPLETED, FAILED, QUARANTINED, FatalTransportError, process_state
@@ -96,6 +96,43 @@ _QUARANTINE: list = process_state().quarantine  # objects never freed until exit
 def _gpu_backend() -> str:
     import gpu
     return gpu.platform.backend_type_get()
+
+
+def _log_dir():
+    return bpy.utils.extension_path_user(__package__, path="logs", create=True)
+
+
+def _addon_version() -> str:
+    import tomllib
+    from pathlib import Path
+    with open(Path(__file__).with_name("blender_manifest.toml"), "rb") as handle:
+        return tomllib.load(handle)["version"]
+
+
+def _warp_owner() -> str:
+    blocked = warp_installer.foreign_warp_block_reason()
+    if blocked:
+        return "foreign: " + blocked
+    return "owned (WarpSPH-managed install)" if warp_installer.owned_install_status() else "not installed"
+
+
+def _diagnostics_report() -> str:
+    """Never raises; every probe is isolated (see diagnostics.build_report)."""
+    data = {**diagnostics.system_probes(), **diagnostics.warp_probes(wp)}
+    data.update(
+        addon_version=_addon_version,
+        blender_version=lambda: bpy.app.version_string,
+        blender_build_hash=lambda: bpy.app.build_hash.decode(errors="replace"),
+        gpu_backend=_gpu_backend,
+        warp_source=_warp_owner,  # P1.11 will extend this with the chosen Warp source
+        transport=lambda: RT.session.label if RT.session is not None else "none",
+        last_error=RT.last_error,
+        last_close=RT.last_close,
+        interop_unavailable=RT.interop_unavailable,
+    )
+    if wp is None:
+        data["warp_version"] = lambda: warp_runtime.status().version or "not loaded (GPU details need one Start)"
+    return diagnostics.build_report(data, lambda: diagnostics.read_log_tail(diagnostics.log_path()))
 
 
 def _report_draw_failure(exc: Exception):
@@ -540,6 +577,17 @@ class WM_OT_warp_sph_install(bpy.types.Operator):
         return {'FINISHED'} if result.success else {'CANCELLED'}
 
 
+class WM_OT_warp_sph_copy_diagnostics(bpy.types.Operator):
+    bl_idname = "wm.warp_sph_copy_diagnostics"
+    bl_label = "Copy Diagnostics"
+    bl_description = "Copy GPU, driver, Warp, Blender and recent error details to the clipboard for bug reports"
+
+    def execute(self, context):
+        context.window_manager.clipboard = _diagnostics_report()
+        self.report({'INFO'}, "WarpSPH diagnostics copied to the clipboard")
+        return {'FINISHED'}
+
+
 class WARPSPH_Preferences(bpy.types.AddonPreferences):
     bl_idname = __package__ or "warp_sph_realtime"
 
@@ -556,6 +604,7 @@ class WARPSPH_Preferences(bpy.types.AddonPreferences):
         op = row.operator("wm.warp_sph_install", text="Repair Warp (restart required)", icon='FILE_REFRESH')
         op.repair = True
         box.label(text="WarpSPH never modifies Blender's Python or other extensions.")
+        box.operator("wm.warp_sph_copy_diagnostics", icon='COPYDOWN')
 
 
 class VIEW3D_PT_warp_sph(bpy.types.Panel):
@@ -593,6 +642,7 @@ class VIEW3D_PT_warp_sph(bpy.types.Panel):
             status_box.label(text=f"Last GPU cleanup: {RT.last_close} (retained until exit)", icon='ERROR')
         if RT.last_error:
             status_box.label(text=RT.last_error, icon='ERROR')
+        status_box.operator("wm.warp_sph_copy_diagnostics", icon='COPYDOWN')
 
         # Quick-Run Demo Scene Buttons
         box_demo = layout.box()
@@ -857,18 +907,25 @@ def register():
     bpy.utils.register_class(WM_OT_warp_sph_step_frame)
     bpy.utils.register_class(WM_OT_warp_sph_use_opengl)
     bpy.utils.register_class(WM_OT_warp_sph_install)
+    bpy.utils.register_class(WM_OT_warp_sph_copy_diagnostics)
     bpy.utils.register_class(WARPSPH_Preferences)
     bpy.utils.register_class(VIEW3D_PT_warp_sph)
     _install_handlers()
+    try:
+        diagnostics.setup_logging(_log_dir())
+    except Exception:  # logging is best effort and must not block registration
+        pass
 
 
 def unregister():
+    diagnostics.teardown_logging()
     _remove_handlers()
     _stop_session(getattr(bpy, "context", None))
     bpy.utils.unregister_class(VIEW3D_PT_warp_sph)
     bpy.utils.unregister_class(WM_OT_warp_sph_step_frame)
     bpy.utils.unregister_class(WM_OT_warp_sph_pause)
     bpy.utils.unregister_class(WARPSPH_Preferences)
+    bpy.utils.unregister_class(WM_OT_warp_sph_copy_diagnostics)
     bpy.utils.unregister_class(WM_OT_warp_sph_install)
     bpy.utils.unregister_class(WM_OT_warp_sph_use_opengl)
     bpy.utils.unregister_class(WM_OT_warp_sph_stop)

@@ -6,6 +6,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Added
+- Copy Diagnostics button (panel and preferences): one click copies add-on, Blender/backend, Warp, driver, cudart,
+  GPU, transport, last error/close and recent log lines to the clipboard, with home paths redacted. The add-on now
+  writes a small rotating log (256 KB x 2) to the extension user directory (`logs/warpsph.log`).
 - Verified Warp installer: SHA-256-locked `warp-lang==1.17.0` (CUDA 12.9) wheel installed on
   user confirmation into extension-owned storage; the extension registers without Warp and imports
   CUDA modules only on Start. Adds `files` and `network` manifest permissions.
