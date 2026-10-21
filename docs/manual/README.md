@@ -16,6 +16,8 @@ sequence.
 | [FAQ and troubleshooting](faq.md) | GPU, driver and Warp install problems, backend and Readback, VRAM, performance |
 
 Runnable example scenes (Python scripts that build a scene for you) are in [`examples/`](../../examples/README.md).
+Feature demos that build, bake and render a scene for each major feature are in
+[`examples/showcase/`](../../examples/showcase/README.md).
 
 Panel and button names in this manual are written exactly as they appear in Blender. The panel is in the 3D
 Viewport sidebar (press `N`), tab **WarpSPH**; the add-on settings are in

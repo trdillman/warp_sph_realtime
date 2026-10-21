@@ -11,6 +11,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   Readback, VRAM and performance problems, quoting the add-on's own messages (P2.8).
 - `examples/`: four Blender Python scripts that build a Custom scene (pour into a box, dam break, moving paddle,
   viscous drop); `tests/test_examples.py` checks that every setting, operator and enum value they use exists.
+- `examples/showcase/`: five feature demos (viewport display and transports, dam-break validation, emitter with a
+  rotating collider, bake / mesh / USD export, physics presets side by side) and `scripts/render_showcase.py`,
+  which runs them in Blender one at a time and collects screenshots, renders, a contact sheet and a summary.
 - The Time Step (CFL) tooltip now says what the README says: above 0.4 hard impacts can blow up at high particle
   counts.
 

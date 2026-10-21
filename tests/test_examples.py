@@ -1,8 +1,10 @@
-"""The example scene scripts (examples/*.py) only use properties, operators and enum values the add-on defines.
+"""The example scene scripts (examples/*.py, examples/showcase/*.py) only use properties, operators and enum
+values the add-on defines.
 
 The scripts need a live Blender to run (see examples/README.md); this test compiles each one and checks every
 ``scene.warp_sph.*`` / ``obj.warp_sph.*`` name, every ``bpy.ops.<module>.<operator>`` call with its keyword
 arguments, and every constant enum value against the add-on source (parsed, not imported, so it needs no bpy).
+The showcase demos may also call the few Blender operators in SHOWCASE_BUILTIN_OPS.
 """
 import ast
 import re
@@ -12,6 +14,11 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 PKG = ROOT / "warp_sph_realtime"
 EXAMPLES = sorted(p for p in (ROOT / "examples").glob("*.py") if not p.name.startswith("_"))
+SHOWCASE_DIR = ROOT / "examples" / "showcase"
+SHOWCASE = sorted(p for p in SHOWCASE_DIR.glob("*.py") if not p.name.startswith("_"))
+SHOWCASE_HELPER = SHOWCASE_DIR / "_showcase.py"
+# Blender's own operators the showcase demos use for media (render, viewport screenshot) and to quit.
+SHOWCASE_BUILTIN_OPS = frozenset({"render.render", "screen.screenshot_area", "wm.quit_blender"})
 
 
 def _tree(path: Path) -> ast.Module:
@@ -124,7 +131,7 @@ class ExampleScriptsTest(unittest.TestCase):
         except ValueError:
             return None
 
-    def _check_properties(self, name, tree, constants):
+    def _check_properties(self, name, tree, constants, require_use=True):
         group_vars = {}  # variable -> scene-settings (True) or object-settings (False)
         for node in ast.walk(tree):
             if (isinstance(node, ast.Assign) and len(node.targets) == 1 and isinstance(node.targets[0], ast.Name)
@@ -156,17 +163,21 @@ class ExampleScriptsTest(unittest.TestCase):
                     value = self._resolve(node.value, constants)
                     if isinstance(value, str):
                         self.assertIn(value, known[target.attr], f"{name}:{target.lineno}: {target.attr}={value!r}")
-        self.assertGreater(used, 0, f"{name} sets no WarpSPH settings")
+        if require_use:
+            self.assertGreater(used, 0, f"{name} sets no WarpSPH settings")
 
-    def _check_operators(self, name, tree, constants):
+    def _check_operators(self, name, tree, constants, builtin=frozenset(), require_use=True):
         calls = []
         for node in ast.walk(tree):
             if isinstance(node, ast.Call):
                 match = re.fullmatch(r"bpy\.ops\.(\w+)\.(\w+)", ast.unparse(node.func))
                 if match:
                     calls.append((node, f"{match.group(1)}.{match.group(2)}"))
-        self.assertTrue(any(i.startswith("wm.warp_sph_") for _, i in calls), f"{name} calls no WarpSPH operator")
+        if require_use:
+            self.assertTrue(any(i.startswith("wm.warp_sph_") for _, i in calls), f"{name} calls no WarpSPH operator")
         for node, idname in calls:
+            if idname in builtin:
+                continue
             self.assertIn(idname, FACTS.operators, f"{name}:{node.lineno}: unknown operator {idname}")
             props = FACTS.operators[idname]
             for keyword in node.keywords:
@@ -174,6 +185,44 @@ class ExampleScriptsTest(unittest.TestCase):
                 value = self._resolve(keyword.value, constants)
                 if props[keyword.arg] is not None and isinstance(value, str):
                     self.assertIn(value, props[keyword.arg], f"{name}:{node.lineno}: {idname} {keyword.arg}={value!r}")
+
+    def test_showcase_scripts_use_real_names(self):
+        self.assertEqual(len(SHOWCASE), 5)
+        for path in [*SHOWCASE, SHOWCASE_HELPER]:
+            helper = path == SHOWCASE_HELPER
+            with self.subTest(script=path.name):
+                tree = _tree(path)
+                compile(tree, str(path), "exec")
+                constants = _constants(tree)
+                self._check_properties(path.name, tree, constants, require_use=not helper)
+                self._check_operators(path.name, tree, constants, SHOWCASE_BUILTIN_OPS, require_use=not helper)
+
+    @staticmethod
+    def _names(path: Path, constant: str) -> set[str]:
+        value = _constants(_tree(path))[constant]
+        names = {value} if isinstance(value, str) else set(value) if isinstance(value, tuple) else set()
+        return {n for n in names if isinstance(n, str)}
+
+    def test_showcase_enum_constants_are_valid(self):
+        presets = FACTS.operators["wm.warp_sph_physics_preset"]["preset"] or set()
+        self.assertTrue(presets)
+        self.assertEqual(self._names(SHOWCASE_DIR / "presets.py", "PRESETS"), presets)
+        modes = self._names(SHOWCASE_DIR / "display.py", "RENDER_MODES")
+        self.assertEqual(modes, FACTS.scene_props["render_mode"])
+        self.assertLessEqual(self._names(SHOWCASE_DIR / "display.py", "DEMO"), FACTS.scene_props["demo_scene"] or set())
+
+    def test_showcase_readme_and_links(self):
+        readme = (SHOWCASE_DIR / "README.md").read_text(encoding="utf-8")
+        for path in SHOWCASE:
+            self.assertIn(path.name, readme)
+        self.assertIn("render_showcase.py", readme)
+        self.assertIn("showcase/README.md", (ROOT / "examples" / "README.md").read_text(encoding="utf-8"))
+        manual = (ROOT / "docs" / "manual" / "README.md").read_text(encoding="utf-8")
+        self.assertIn("examples/showcase/README.md", manual)
+
+    def test_runner_runs_every_showcase_demo(self):
+        demos = self._names(ROOT / "scripts" / "render_showcase.py", "DEMOS")
+        self.assertEqual(demos, {p.stem for p in SHOWCASE})
 
     def test_readme_lists_every_example(self):
         readme = (ROOT / "examples" / "README.md").read_text(encoding="utf-8")

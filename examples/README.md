@@ -26,3 +26,5 @@ particles; the panel warns when a scene may not fit in GPU memory. Edits to obje
 **Stop** + **Start**.
 
 `tests/test_examples.py` checks that every setting, operator and enum value the scripts use exists in the add-on.
+
+Feature demos that also bake, render and check their results are in [`showcase/`](showcase/README.md).
