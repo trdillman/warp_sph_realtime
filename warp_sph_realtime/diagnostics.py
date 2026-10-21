@@ -10,10 +10,15 @@ import logging.handlers
 import os
 import platform
 import re
+import shutil
+import subprocess
 import sys
 from collections.abc import Callable, Mapping
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
+
+from .warp_runtime import CERTIFIED_CUDA_MAJOR
 
 LOG_FILE_NAME = "warpsph.log"
 LOG_MAX_BYTES = 256 * 1024
@@ -159,6 +164,101 @@ def system_probes() -> dict[str, Callable[[], Any]]:
         "os": lambda: f"{platform.system()} {platform.release()} ({platform.version()})",
         "python": lambda: f"{sys.version.split()[0]} {platform.machine()}",
     }
+
+
+# ---- first-run hardware check (works before Warp is installed) -----------------------------
+
+_SMI_QUERY = "name,driver_version,memory.total,compute_cap"
+_SMI_TIMEOUT = 8.0
+
+
+def _smi_executable() -> str | None:
+    found = shutil.which("nvidia-smi")
+    if found:
+        return found
+    legacy = Path(os.environ.get("ProgramFiles", r"C:\Program Files")) / "NVIDIA Corporation" / "NVSMI" / "nvidia-smi.exe"
+    return str(legacy) if legacy.is_file() else None
+
+
+def nvidia_smi_info(run: Callable[..., Any] = subprocess.run) -> dict[str, str]:
+    """GPU facts from the NVIDIA driver's ``nvidia-smi``: no Warp, no CUDA, no Blender needed.
+
+    Returns the SECTIONS keys it can fill (``gpu_name``, ``gpu_compute``,
+    ``gpu_memory``, ``cuda_driver``) plus ``driver_version`` and ``error``.
+    Blocking (about 100 ms); call it from a worker thread, never from a draw.
+    Never raises.
+    """
+    exe = _smi_executable()
+    if exe is None:
+        return {"error": "nvidia-smi not found: no NVIDIA driver installed?"}
+    flags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+    try:
+        rows = run([exe, f"--query-gpu={_SMI_QUERY}", "--format=csv,noheader,nounits"], capture_output=True,
+                   text=True, timeout=_SMI_TIMEOUT, creationflags=flags, stdin=subprocess.DEVNULL)
+        if rows.returncode != 0 or not rows.stdout.strip():
+            return {"error": f"nvidia-smi failed: {(rows.stderr or rows.stdout).strip()[:200] or rows.returncode}"}
+        gpus = [[cell.strip() for cell in line.split(",")] for line in rows.stdout.strip().splitlines()]
+        name, driver, memory, compute = (gpus[0] + ["", "", "", ""])[:4]
+        info = {"gpu_name": name + (f" (+{len(gpus) - 1} more)" if len(gpus) > 1 else ""),
+                "driver_version": driver}
+        if memory.isdigit():
+            info["gpu_memory"] = f"{int(memory)} MB"
+        if compute:
+            info["gpu_compute"] = compute
+        header = run([exe], capture_output=True, text=True, timeout=_SMI_TIMEOUT, creationflags=flags,
+                     stdin=subprocess.DEVNULL)
+        found = re.search(r"CUDA (?:UMD )?Version:\s*(\d+\.\d+)", header.stdout or "")
+        if found:
+            info["cuda_driver"] = found.group(1)
+        return info
+    except Exception as exc:
+        return {"error": unavailable(exc)}
+
+
+@dataclass(frozen=True)
+class HardwareSummary:
+    rows: tuple[tuple[str, str], ...]   # (label, value) in display order
+    verdict: str
+    ready: bool | None                  # None: not checked yet
+
+
+def hardware_summary(smi: Mapping[str, str] | None, backend: str, wp: Any = None) -> HardwareSummary:
+    """GPU, driver, backend and VRAM for the first-run panel.
+
+    Reads ``warp_probes(wp)`` when Warp is already active (its values are the
+    ones the solver will use); otherwise falls back to the ``nvidia-smi`` facts.
+    """
+    if smi is None:
+        return HardwareSummary((("Graphics backend", backend),), "Checking the GPU...", None)
+    probes = warp_probes(wp) if wp is not None else {}
+
+    def pick(key: str) -> str | None:
+        if key in probes:
+            value = _resolve(probes[key])
+            if not value.startswith("unavailable"):
+                return value
+        return smi.get(key)
+
+    cuda = pick("cuda_driver")
+    rows = (
+        ("GPU", pick("gpu_name") or "not found"),
+        ("NVIDIA driver", smi.get("driver_version") or "unknown"),
+        ("Driver supports CUDA", cuda or "unknown"),
+        ("GPU memory (VRAM)", pick("gpu_memory") or "unknown"),
+        ("Graphics backend", backend),
+    )
+    needed = CERTIFIED_CUDA_MAJOR
+    if not pick("gpu_name"):
+        return HardwareSummary(rows, smi.get("error") or "No NVIDIA GPU found: WarpSPH needs one", False)
+    try:
+        too_old = cuda is not None and int(cuda.split(".")[0]) < needed
+    except ValueError:
+        too_old = False
+    if too_old:
+        return HardwareSummary(rows, f"Driver only supports CUDA {cuda}; Warp needs {needed}.x: update the NVIDIA driver", False)
+    if cuda is None:
+        return HardwareSummary(rows, "GPU found; the driver did not report its CUDA version", True)
+    return HardwareSummary(rows, f"Ready for Warp: the driver supports CUDA {cuda} (needs {needed}.x or newer)", True)
 
 
 # ---- logging -------------------------------------------------------------------------------

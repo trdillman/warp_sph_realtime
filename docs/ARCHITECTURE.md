@@ -59,7 +59,10 @@ They are not zero GPU copy; see the top of [`VULKAN_ZERO_COPY_PLAN.md`](./VULKAN
 | `blender_manifest.toml` | Extension metadata (schema 1.0.0, Blender 5.2.0+), `files` and `network` permissions, tags, build exclusions (`experimental/` is not zipped). |
 | `__init__.py` | `register()` / `unregister()` only; imports `addon` lazily so the extension registers without Warp. |
 | `addon.py` | Operators, sidebar panel, scene properties, modal timer and telemetry; imports CUDA modules only on Start. |
-| `warp_installer.py`, `warp_runtime.py`, `warp_wheels.lock.json` | SHA-256-locked `warp-lang==1.17.0` (CUDA 12.9) install into extension storage and the runtime gate. |
+| `warp_installer.py`, `warp_runtime.py`, `warp_wheels.lock.json` | SHA-256-locked `warp-lang==1.17.0` (CUDA 12.9) install into extension storage and the runtime gate. `plan_install` (main thread, reads Blender) and `run_plan` (no `bpy`, cancellable: temp download or verified local-wheel copy, then atomic promotion) split the install; the Warp source (download / local wheel / existing folder, P1.11) selects the single directory Warp may be imported from, and the foreign-Warp guard accepts only that one. |
+| `install_job.py` | Pure-Python worker thread for `run_plan` with a lock-protected progress snapshot and a cancel flag (P1.4). |
+| `install_ui.py` | Preferences UI: Warp source, progress bar and Cancel (polled by a `bpy.app.timers` timer), first-run hardware check panel, install/cancel operators. The only `bpy` consumer of `install_job`. |
+| `diagnostics.py` | Diagnostics report, log setup, and the pre-Warp hardware probe (`nvidia_smi_info`, `hardware_summary`). |
 | `sim/sim_core.py` | `RealtimeWCSPHSolver`: SoA buffers, `wp.HashGrid`, `k_reorder_soa`, cubic-spline WCSPH, SDF obstacle collisions, CUDA Graph capture. |
 | `scene/scene_config.py`, `scene/demo_scenes.py` | Regime presets (`WATER`, `MILK`, `SHOCKWAVE`) and the two demo scenes (`DOUBLE_DAM_PILLARS`, `BLOCK_FLOP_SPLASH`). |
 | `render/interop_bridge.py` | OpenGL VAO/VBO creation and `cudaGraphicsGLRegisterBuffer` mapping (legacy VBO path), plus the cudart/GL seam for the GLInterop texture adapter. |

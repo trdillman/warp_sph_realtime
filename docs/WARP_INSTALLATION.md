@@ -14,6 +14,14 @@ Runtime gate loads only this extension's ownership-receipted Warp files.
 CUDA 12.9 dynamic runtime DLL/so is separately required for OpenGL buffer
 registration. NVIDIA Warp's built-in CUDA libraries alone do not prove GL interop.
 
+Warp source (Preferences): Download, Install from local wheel file, or Use
+existing Warp folder. The first two end in the owned, receipted install; a
+local wheel must match the same SHA-256 lock and is extracted from a private
+verified copy. An existing folder is read only (never modified or deleted),
+accepts Warp 1.17.x unless "Allow uncertified version (unsupported)" is ticked,
+and is checked again at Start (driver and known-answer kernel). Only the
+chosen folder passes the foreign-Warp guard. Only Download needs network access.
+
 Safety policy: explicit user download; respect Blender offline mode; wheel
 SHA-256, size, metadata and archive member verification; no global pip,
 no modification of other extension storage; preserve unmanaged files; never

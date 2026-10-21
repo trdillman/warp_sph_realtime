@@ -17,6 +17,16 @@ via ``bpy.utils.extension_path_user`` (see the 5.2 manual, "Add-ons"):
 is extracted into that directory the same way Blender extracts a wheel,
 without pip. A second press when that owned copy is already Warp 1.17.0
 reports success and does not download or write.
+
+Install steps that read Blender (``plan_install``) run on the main thread; the
+slow steps (``run_plan``: download or local-wheel copy, hash check, extraction,
+promotion) touch no ``bpy`` state, so ``install_job`` can run them on a worker
+thread and cancel them. Nothing reaches the owned directory until the wheel is
+fully downloaded and verified.
+
+Warp source (Preferences): *Download* and *Install from local wheel file* both
+end in that owned directory. *Use existing Warp folder* leaves the owned install
+alone and imports Warp from a folder the user chose; WarpSPH only reads it.
 """
 
 from __future__ import annotations
@@ -26,6 +36,7 @@ import importlib.util
 import json
 import os
 import platform as _platform
+import re
 import shutil
 import stat
 import sys
@@ -37,7 +48,7 @@ from pathlib import Path
 from urllib.parse import urlparse
 from urllib.request import urlopen
 
-from .warp_runtime import CERTIFIED_WARP_VERSION, warp_version_support
+from .warp_runtime import CERTIFIED_WARP_VERSION, folder_version_support, warp_version_support
 
 _CHUNK_SIZE = 1024 * 1024
 _LOCK_PATH = Path(__file__).with_name("warp_wheels.lock.json")
@@ -66,6 +77,30 @@ class InstallResult:
     message: str
     version: str = ""
     already_installed: bool = False
+    cancelled: bool = False
+
+
+class InstallCancelled(Exception):
+    """The user cancelled; raised inside the worker and turned into a result."""
+
+
+@dataclass(frozen=True)
+class InstallPlan:
+    """Everything ``run_plan`` needs, resolved on the main thread (no ``bpy`` afterwards)."""
+
+    wheel_info: WheelInfo
+    destination: Path
+    stage_repair: bool = False
+    local_wheel: Path | None = None
+
+
+ProgressFn = Callable[[str, float], None]  # (phase message, overall fraction 0..1)
+CancelFn = Callable[[], bool]
+
+
+def _check_cancel(cancel: CancelFn | None) -> None:
+    if cancel is not None and cancel():
+        raise InstallCancelled()
 
 
 def _host_platform() -> str | None:
@@ -115,6 +150,7 @@ def _download_wheel(
     expected_sha256: str,
     expected_size: int,
     progress_callback: Callable[[int, int], None] | None = None,
+    cancel: CancelFn | None = None,
 ) -> None:
     """Download one locked wheel and reject it unless the checksum matches."""
     url_parts = urlparse(url)
@@ -125,12 +161,14 @@ def _download_wheel(
     digest = hashlib.sha256()
     size = 0
     try:
-        with urlopen(url, timeout=300) as response:
+        _check_cancel(cancel)
+        with urlopen(url, timeout=60) as response:
             final = urlparse(response.geturl())
             if final.scheme != "https" or final.hostname != "files.pythonhosted.org":
                 raise RuntimeError("Refusing redirect to an untrusted Warp download host")
             with temp.open("wb") as handle:
                 while chunk := response.read(_CHUNK_SIZE):
+                    _check_cancel(cancel)
                     size += len(chunk)
                     if size > expected_size:
                         raise RuntimeError("Wheel exceeds locked byte size")
@@ -282,6 +320,162 @@ def _default_install_target(*, create: bool = False) -> Path:
     )
 
 
+SOURCE_DOWNLOAD = "DOWNLOAD"
+SOURCE_WHEEL = "WHEEL"
+SOURCE_FOLDER = "FOLDER"
+SOURCE_LABELS = {
+    SOURCE_DOWNLOAD: "Download",
+    SOURCE_WHEEL: "Install from local wheel file",
+    SOURCE_FOLDER: "Use existing Warp folder",
+}
+
+
+@dataclass(frozen=True)
+class WarpSource:
+    """The Warp source chosen in Preferences."""
+
+    kind: str = SOURCE_DOWNLOAD
+    folder: Path | None = None
+    allow_uncertified: bool = False
+
+    @property
+    def is_folder(self) -> bool:
+        return self.kind == SOURCE_FOLDER
+
+
+@dataclass(frozen=True)
+class FolderCheck:
+    """Static (nothing imported) verdict on a user-chosen Warp folder."""
+
+    ok: bool
+    message: str
+    version: str = ""
+    uncertified: bool = False
+
+
+def _read_source_preference() -> WarpSource:
+    """Read the Preferences choice; any failure means the default (Download)."""
+    try:
+        import bpy
+
+        prefs = bpy.context.preferences.addons[__package__ or ""].preferences
+        kind = getattr(prefs, "warp_source", SOURCE_DOWNLOAD)
+        if kind not in SOURCE_LABELS:
+            return WarpSource()
+        raw = getattr(prefs, "warp_folder_path", "")
+        folder = None
+        if isinstance(raw, str) and raw.strip():
+            folder = Path(os.path.expanduser(bpy.path.abspath(raw.strip())))
+        return WarpSource(kind, folder, getattr(prefs, "warp_allow_uncertified", False) is True)
+    except Exception:  # noqa: BLE001 - no Blender, or preferences not registered yet
+        return WarpSource()
+
+
+def active_source() -> WarpSource:
+    return _read_source_preference()
+
+
+def _folder_config_version(folder: Path) -> str | None:
+    """Version of the Warp package in ``folder`` without importing it."""
+    for entry in sorted(folder.glob("warp_lang-*.dist-info")):
+        stem = entry.name[: -len(".dist-info")]
+        version = stem.split("-", 1)[1] if "-" in stem else ""
+        if version:
+            return version
+    try:
+        text = (folder / "warp" / "config.py").read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return None
+    found = re.search(r"^version\s*(?::\s*str\s*)?=\s*[\"']([^\"']+)[\"']", text, re.MULTILINE)
+    return found.group(1) if found else None
+
+
+def check_existing_folder(folder: Path | None, allow_uncertified: bool = False) -> FolderCheck:
+    """Read-only checks on a folder that should contain a ``warp`` package.
+
+    The CUDA driver and known-answer kernel checks (P0.7) need Warp imported, so
+    they run at Start in ``warp_runtime.require_cuda_runtime``.
+    """
+    if folder is None:
+        return FolderCheck(False, "Choose the folder that contains the 'warp' package")
+    if not folder.is_dir():
+        return FolderCheck(False, f"Existing Warp folder not found: {folder}")
+    if not (folder / "warp" / "__init__.py").is_file():
+        if folder.name == "warp" and (folder / "__init__.py").is_file():
+            return FolderCheck(
+                False, f"{folder} is the warp package itself; choose its parent folder (the one that contains 'warp')"
+            )
+        return FolderCheck(False, f"No 'warp' package in {folder} (expected {folder / 'warp' / '__init__.py'})")
+    version = _folder_config_version(folder)
+    if not version:
+        return FolderCheck(
+            False, f"Cannot determine the Warp version in {folder} (no warp_lang dist-info or warp/config.py version)"
+        )
+    support, reason = folder_version_support(version, allow_uncertified)
+    if support == "unsupported":
+        return FolderCheck(False, reason, version=version)
+    return FolderCheck(True, reason or f"Warp {version}", version=version, uncertified=support == "uncertified")
+
+
+def runtime_root() -> Path:
+    """The one directory Warp may be imported from under the chosen source."""
+    source = active_source()
+    if source.is_folder:
+        if source.folder is None:
+            raise RuntimeError("Choose the folder that contains the 'warp' package")
+        return source.folder
+    return _default_install_target(create=False)
+
+
+def describe_source() -> str:
+    """One line for diagnostics: which source is in use and in what state."""
+    source = active_source()
+    label = SOURCE_LABELS[source.kind]
+    if source.is_folder:
+        check = check_existing_folder(source.folder, source.allow_uncertified)
+        if not check.ok:
+            return f"{label}: {source.folder or 'no folder chosen'} - {check.message}"
+        flag = "UNCERTIFIED, unsupported" if check.uncertified else "certified series"
+        return f"{label}: {source.folder} (Warp {check.version}, {flag}, not modified)"
+    blocked = foreign_warp_block_reason()
+    if blocked:
+        return f"{label}: foreign: {blocked}"
+    owned = "owned (WarpSPH-managed install)" if owned_install_status() else "not installed"
+    return f"{label}: {owned}"
+
+
+def download_block_reason() -> str | None:
+    """Why the Download source cannot run (Blender 'Allow Online Access' off), else ``None``."""
+    return _online_access_block_reason()
+
+
+_ADDED_FOLDERS: set[str] = set()  # existing-folder paths this process put on sys.path
+
+
+def _drop_unselected_paths(source: WarpSource) -> None:
+    """Take the other source's directory off sys.path so it cannot shadow the chosen one."""
+    if "warp" in sys.modules:
+        return
+    if source.is_folder:
+        stale = [str(owned) for owned in _owned_candidates()]
+    else:
+        stale = list(_ADDED_FOLDERS)
+        _ADDED_FOLDERS.clear()
+    for value in stale:
+        while value in sys.path:
+            sys.path.remove(value)
+
+
+def _select_import_path(source: WarpSource) -> None:
+    """Make sys.path match the chosen source (before Warp is imported)."""
+    _drop_unselected_paths(source)
+    if source.is_folder and source.folder is not None:
+        value = str(source.folder)
+        if value not in sys.path:
+            sys.path.insert(0, value)
+        _ADDED_FOLDERS.add(value)
+
+
 def apply_pending_repair_on_startup() -> None:
     if "warp" in sys.modules:
         return
@@ -293,6 +487,14 @@ def ensure_installed_warp_on_path() -> None:
     block_reason = foreign_warp_block_reason()
     if block_reason:
         raise RuntimeError(block_reason)
+    source = active_source()
+    if source.is_folder:
+        check = check_existing_folder(source.folder, source.allow_uncertified)
+        if not check.ok:
+            raise RuntimeError(check.message)
+        _select_import_path(source)
+        return
+    _select_import_path(source)
     for owned in _owned_candidates():
         if owned.is_dir():
             _apply_pending_repair(owned)
@@ -367,23 +569,43 @@ def _foreign_warp_version(init_file: Path) -> str:
 
 def foreign_warp_block_reason() -> str | None:
     """Return why WarpSPH will not write, or ``None`` when no foreign Warp is present."""
+    source = active_source()
+    chosen = source.folder if source.is_folder else None
+    added_before = set(_ADDED_FOLDERS)
+    _drop_unselected_paths(source)
     user_site = _user_site_warp_path()
-    if user_site is not None:
+    if user_site is not None and not (chosen is not None and _is_relative_to(user_site, chosen)):
         return (
             f"Warp {_foreign_warp_version(user_site)} is already installed in Blender's "
             f"user site-packages ({user_site.parent}). Remove that copy, then press Install Warp. "
             "WarpSPH will not change it."
         )
-    owned_list = _owned_candidates()
-    if not owned_list:
-        try:
-            _default_install_target(create=False)
-        except RuntimeError as exc:
-            return str(exc)
+    if source.is_folder:
+        if chosen is None:
+            return None  # nothing chosen yet: check_existing_folder says so
+        accepted = [chosen]
+    else:
+        accepted = _owned_candidates()
+        if not accepted:
+            try:
+                _default_install_target(create=False)
+            except RuntimeError as exc:
+                return str(exc)
     loaded = _importable_warp_file()
-    if loaded is not None and not any(_is_relative_to(loaded, owned) for owned in owned_list):
+    if loaded is not None and not any(_is_relative_to(loaded, root) for root in accepted):
+        version = _foreign_warp_version(loaded)
+        if any(_is_relative_to(loaded, Path(value)) for value in added_before):
+            return (
+                f"Warp {version} is already loaded from the existing folder {loaded.parent.parent}. "
+                "Restart Blender to switch the Warp source."
+            )
+        if source.is_folder:
+            return (
+                f"Warp {version} is already loaded from {loaded}, which is not the Warp folder you chose "
+                f"({chosen}). Restart Blender to switch the Warp source; WarpSPH will not change that copy."
+            )
         return (
-            f"Warp {_foreign_warp_version(loaded)} is already loaded from {loaded}, which WarpSPH does not own. "
+            f"Warp {version} is already loaded from {loaded}, which WarpSPH does not own. "
             "Remove that copy, then press Install Warp. WarpSPH will not change it."
         )
     return None
@@ -545,11 +767,22 @@ def _apply_pending_repair(destination: Path) -> bool:
     _pending_repair_pid_path(destination).unlink(missing_ok=True)
     return True
 
-def _promote_verified_wheel(wheel: Path, destination: Path, info: WheelInfo) -> None:
-    """Promote only a locked wheel; rollback any failed filesystem operation."""
+def _promote_verified_wheel(
+    wheel: Path,
+    destination: Path,
+    info: WheelInfo,
+    *,
+    cancel: CancelFn | None = None,
+    progress: Callable[[int, int], None] | None = None,
+) -> None:
+    """Promote only a locked wheel; rollback any failed filesystem operation.
+
+    Cancel is honored while extracting into the temporary staging directory.
+    Once files start moving into ``destination`` the promotion runs to the end
+    (or rolls back), so a cancel never leaves half an install.
+    """
     if not _wheel_matches_lock(wheel, info):
         raise RuntimeError("Wheel differs from immutable SHA-256/size lock")
-    destination.mkdir(parents=True, exist_ok=True)
     if _has_warp(destination) and not _is_managed(destination):
         raise RuntimeError("Unmanaged Warp already occupies the target; refusing overwrite")
     if _owned_warp_is_loaded(destination):
@@ -558,9 +791,11 @@ def _promote_verified_wheel(wheel: Path, destination: Path, info: WheelInfo) -> 
         staging = Path(temporary) / "staging"
         backup = Path(temporary) / "backup"
         backup.mkdir()
-        _extract_wheel(wheel, staging)
+        _extract_wheel(wheel, staging, cancel=cancel, progress=progress)
         if _owned_distribution_version(staging) != CERTIFIED_WARP_VERSION:
             raise RuntimeError("Wheel metadata does not match certified version")
+        _check_cancel(cancel)
+        destination.mkdir(parents=True, exist_ok=True)
         old = []
         added = []
         receipt_write_started = False
@@ -591,7 +826,13 @@ def _promote_verified_wheel(wheel: Path, destination: Path, info: WheelInfo) -> 
                     shutil.move(str(source), str(_filesystem_path(destination / name)))
             raise
 
-def _extract_wheel(wheel: Path, destination: Path) -> None:
+def _extract_wheel(
+    wheel: Path,
+    destination: Path,
+    *,
+    cancel: CancelFn | None = None,
+    progress: Callable[[int, int], None] | None = None,
+) -> None:
     """Only expected wheel roots: no symlink, traversal or duplicate archive names."""
     allowed = {"warp", "warp.libs", f"warp_lang-{CERTIFIED_WARP_VERSION}.dist-info"}
     with zipfile.ZipFile(wheel) as archive:
@@ -616,7 +857,12 @@ def _extract_wheel(wheel: Path, destination: Path) -> None:
             raise RuntimeError("Wheel metadata version/name mismatch")
         destination = _filesystem_path(destination)
         destination.mkdir(parents=True, exist_ok=True)
-        archive.extractall(destination)
+        members = archive.infolist()
+        for index, entry in enumerate(members, 1):
+            _check_cancel(cancel)
+            archive.extract(entry, destination)
+            if progress:
+                progress(index, len(members))
 
 def is_warp_installed() -> bool:
     """Return whether some Warp build can be imported."""
@@ -646,25 +892,57 @@ def get_installed_warp_info() -> tuple[bool, str]:
     return False, "Warp is not installed"
 
 
-def install_warp(
-    *,
-    force_reinstall: bool = False,
-    progress_callback: Callable[[str], None] | None = None,
-) -> InstallResult:
-    """Install the locked Warp wheel into this extension's own directory.
+def _copy_verified_wheel(
+    source: Path, destination: Path, info: WheelInfo, *, progress: Callable[[int, int], None], cancel: CancelFn | None
+) -> None:
+    """Copy a user-supplied wheel into private temp storage, accepting it only if it matches the lock.
 
-    A certified and managed copy is idempotent and never downloaded twice.
-    An explicit ``force_reinstall`` stages a locked
-    repair for an owned certified copy, applied before import on the next
-    process. Incompatible copies are preserved unless provenance is verified. Warp loaded from
-    any other path, including another add-on or Blender's user site-packages,
-    is left untouched.
+    Hashing the private copy (not the original) closes the window in which the
+    chosen file could be swapped between verification and extraction.
     """
+    if source.stat().st_size != info.size:
+        raise RuntimeError(
+            f"{source.name} is not the certified Warp wheel: size {source.stat().st_size} bytes, "
+            f"expected {info.size} ({info.filename})"
+        )
+    temp = destination.with_name(destination.name + ".part")
+    digest = hashlib.sha256()
+    copied = 0
+    try:
+        with source.open("rb") as reader, temp.open("wb") as writer:
+            while chunk := reader.read(_CHUNK_SIZE):
+                _check_cancel(cancel)
+                copied += len(chunk)
+                if copied > info.size:
+                    raise RuntimeError(f"{source.name} grew while being read; refusing it")
+                writer.write(chunk)
+                digest.update(chunk)
+                progress(copied, info.size)
+        if digest.hexdigest() != info.sha256:
+            raise RuntimeError(
+                f"{source.name} does not match the certified SHA-256 lock for {info.filename} "
+                f"(expected {info.sha256}, got {digest.hexdigest()})"
+            )
+        os.replace(temp, destination)
+    finally:
+        temp.unlink(missing_ok=True)
 
-    def report(message: str) -> None:
-        if progress_callback:
-            progress_callback(message)
 
+def plan_install(
+    *, force_reinstall: bool = False, local_wheel: Path | None = None
+) -> InstallPlan | InstallResult:
+    """Main-thread half of an install: every check that reads Blender or the live process.
+
+    Returns an ``InstallResult`` when the install must not or need not run
+    (blocked, already installed, offline, wrong source) and an ``InstallPlan``
+    for ``run_plan`` otherwise. ``local_wheel`` selects the offline path.
+    """
+    source = active_source()
+    if source.is_folder:
+        return InstallResult(
+            success=False,
+            message="The Warp source is 'Use existing Warp folder'; switch it to Download to install Warp.",
+        )
     blocked = foreign_warp_block_reason()
     if blocked:
         return InstallResult(success=False, message=blocked)
@@ -694,9 +972,12 @@ def install_warp(
                     "Do not overwrite it before determining ownership.",
                 )
 
-    online = _online_access_block_reason()
-    if online:
-        return InstallResult(success=False, message=online)
+    if local_wheel is None:
+        online = _online_access_block_reason()
+        if online:
+            return InstallResult(success=False, message=online)
+    elif not local_wheel.is_file():
+        return InstallResult(success=False, message=f"Wheel file not found: {local_wheel}")
 
     wheel_info = get_wheel_info_for_platform()
     if wheel_info is None:
@@ -706,82 +987,128 @@ def install_warp(
             message=f"No certified Warp wheel is published for this platform ({host})",
         )
 
-    report(
-        f"Downloading Warp {CERTIFIED_WARP_VERSION} "
-        f"({wheel_info.size / 1024 / 1024:.1f} MB)..."
-    )
-    with tempfile.TemporaryDirectory() as tmpdir:
-        wheel_path = Path(tmpdir) / wheel_info.filename
-        try:
-            _download_wheel(
-                wheel_info.url,
-                wheel_path,
-                expected_sha256=wheel_info.sha256,
-                expected_size=wheel_info.size,
-            )
-        except Exception as exc:  # noqa: BLE001 - the button reports the failure
-            return InstallResult(success=False, message=f"Download failed: {exc}")
-        if _sha256_path(wheel_path) != wheel_info.sha256:
-            return InstallResult(
-                success=False,
-                message="Refusing to install a wheel that failed checksum verification",
-            )
-
-        try:
-            destination = _default_install_target(create=True)
-        except RuntimeError as exc:
-            return InstallResult(success=False, message=str(exc))
-        if _user_site_root() is not None and (
-            _is_relative_to(destination, _user_site_root())
-            or destination.resolve() == _user_site_root().resolve()
-        ):
+    try:
+        destination = _default_install_target(create=False)
+    except RuntimeError as exc:
+        return InstallResult(success=False, message=str(exc))
+    user_site = _user_site_root()
+    if user_site is not None and (
+        _is_relative_to(destination, user_site) or destination.resolve() == user_site.resolve()
+    ):
+        return InstallResult(
+            success=False,
+            message=(
+                "Refusing to write Warp into Blender's user site-packages. "
+                "Remove any Warp there, then press Install Warp."
+            ),
+        )
+    extensions = _blender_extensions_dir()
+    if extensions is not None:
+        shared_local = extensions / ".local"
+        if destination.resolve() == shared_local.resolve() or _is_relative_to(destination, shared_local):
             return InstallResult(
                 success=False,
                 message=(
-                    "Refusing to write Warp into Blender's user site-packages. "
-                    "Remove any Warp there, then press Install Warp."
+                    "Refusing to write Warp into Blender's shared extensions directory. "
+                    "WarpSPH requires its own extension directory."
                 ),
             )
-        extensions = _blender_extensions_dir()
-        if extensions is not None:
-            shared_local = extensions / ".local"
-            if destination.resolve() == shared_local.resolve() or _is_relative_to(destination, shared_local):
+    loaded = _importable_warp_file()
+    if loaded is not None and not any(_is_relative_to(loaded, cand) for cand in _owned_candidates()):
+        return InstallResult(
+            success=False,
+            message=(
+                f"Warp {_foreign_warp_version(loaded)} is already loaded from {loaded}, which WarpSPH does not own. "
+                "Remove that copy, then press Install Warp. WarpSPH will not change it."
+            ),
+        )
+    return InstallPlan(
+        wheel_info=wheel_info,
+        destination=destination,
+        stage_repair=repairing_certified or _owned_warp_is_loaded(destination),
+        local_wheel=local_wheel,
+    )
+
+
+def run_plan(
+    plan: InstallPlan, *, progress: ProgressFn | None = None, cancel: CancelFn | None = None
+) -> InstallResult:
+    """Download (or copy) the wheel, verify it, then extract and promote it atomically.
+
+    Safe to run on a worker thread: it never touches ``bpy``. All work happens
+    in a temporary directory until the verified wheel is promoted, so a cancel
+    or failure before that point leaves the owned directory untouched.
+    """
+
+    def report(message: str, fraction: float) -> None:
+        if progress:
+            progress(message, min(max(fraction, 0.0), 1.0))
+
+    info = plan.wheel_info
+    size_mb = info.size / 1024 / 1024
+    transfer = (
+        f"Verifying local wheel ({size_mb:.1f} MB)..."
+        if plan.local_wheel is not None
+        else f"Downloading Warp {CERTIFIED_WARP_VERSION} ({size_mb:.1f} MB)..."
+    )
+    report(transfer, 0.0)
+    try:
+        with tempfile.TemporaryDirectory(prefix="warpsph-install-") as tmpdir:
+            wheel_path = Path(tmpdir) / info.filename
+
+            def on_bytes(done: int, total: int) -> None:
+                report(transfer, 0.85 * done / max(total, 1))
+
+            try:
+                if plan.local_wheel is not None:
+                    _copy_verified_wheel(plan.local_wheel, wheel_path, info, progress=on_bytes, cancel=cancel)
+                else:
+                    _download_wheel(
+                        info.url,
+                        wheel_path,
+                        expected_sha256=info.sha256,
+                        expected_size=info.size,
+                        progress_callback=on_bytes,
+                        cancel=cancel,
+                    )
+            except InstallCancelled:
+                raise
+            except Exception as exc:  # noqa: BLE001 - the UI reports the failure
+                prefix = "Wheel refused" if plan.local_wheel is not None else "Download failed"
+                return InstallResult(success=False, message=f"{prefix}: {exc}")
+            report("Verifying checksum...", 0.86)
+            if _sha256_path(wheel_path) != info.sha256:
                 return InstallResult(
                     success=False,
-                    message=(
-                        "Refusing to write Warp into Blender's shared extensions directory. "
-                        "WarpSPH requires its own extension directory."
-                    ),
+                    message="Refusing to install a wheel that failed checksum verification",
                 )
-        loaded = _importable_warp_file()
-        if loaded is not None and not any(
-            _is_relative_to(loaded, cand) for cand in _owned_candidates()
-        ):
-            return InstallResult(
-                success=False,
-                message=(
-                    f"Warp {_foreign_warp_version(loaded)} is already loaded from {loaded}, which WarpSPH does not own. "
-                    "Remove that copy, then press Install Warp. WarpSPH will not change it."
-                ),
-            )
+            _check_cancel(cancel)
 
-        report("Installing Warp...")
-        try:
-            if repairing_certified or _owned_warp_is_loaded(destination):
-                _stage_pending_repair(wheel_path, destination, wheel_info)
-                return InstallResult(
-                    success=True,
-                    message=(
-                        f"Staged Warp {CERTIFIED_WARP_VERSION} for repair. "
-                        "Restart Blender to apply it before running the solver."
-                    ),
-                    version=CERTIFIED_WARP_VERSION,
-                )
-            _promote_verified_wheel(wheel_path, destination, wheel_info)
-        except Exception as exc:  # noqa: BLE001 - the button reports the failure
-            return InstallResult(success=False, message=f"Installation failed: {exc}")
+            report("Installing Warp...", 0.9)
 
-    installed = _owned_distribution_version(destination)
+            def on_extract(done: int, total: int) -> None:
+                report("Installing Warp...", 0.9 + 0.09 * done / max(total, 1))
+
+            try:
+                if plan.stage_repair:
+                    _stage_pending_repair(wheel_path, plan.destination, info)
+                    return InstallResult(
+                        success=True,
+                        message=(
+                            f"Staged Warp {CERTIFIED_WARP_VERSION} for repair. "
+                            "Restart Blender to apply it before running the solver."
+                        ),
+                        version=CERTIFIED_WARP_VERSION,
+                    )
+                _promote_verified_wheel(wheel_path, plan.destination, info, cancel=cancel, progress=on_extract)
+            except InstallCancelled:
+                raise
+            except Exception as exc:  # noqa: BLE001 - the UI reports the failure
+                return InstallResult(success=False, message=f"Installation failed: {exc}")
+    except InstallCancelled:
+        return InstallResult(success=False, message="Install cancelled; nothing was installed.", cancelled=True)
+
+    installed = _owned_distribution_version(plan.destination)
     if installed is None:
         return InstallResult(
             success=False,
@@ -790,6 +1117,7 @@ def install_warp(
                 "from this extension's directory."
             ),
         )
+    report("Done", 1.0)
     if "warp" in sys.modules:
         return InstallResult(
             success=True,
@@ -804,3 +1132,34 @@ def install_warp(
         message=f"Successfully installed Warp {installed}",
         version=installed,
     )
+
+
+def install_warp(
+    *,
+    force_reinstall: bool = False,
+    progress_callback: Callable[[str], None] | None = None,
+    local_wheel: Path | None = None,
+) -> InstallResult:
+    """Install the locked Warp wheel into this extension's own directory (blocking).
+
+    The add-on UI uses ``plan_install`` + ``install_job.InstallJob`` instead so
+    Blender stays responsive; this is the synchronous equivalent.
+
+    A certified and managed copy is idempotent and never downloaded twice.
+    An explicit ``force_reinstall`` stages a locked
+    repair for an owned certified copy, applied before import on the next
+    process. Incompatible copies are preserved unless provenance is verified. Warp loaded from
+    any other path, including another add-on or Blender's user site-packages,
+    is left untouched.
+    """
+    plan = plan_install(force_reinstall=force_reinstall, local_wheel=local_wheel)
+    if isinstance(plan, InstallResult):
+        return plan
+    last: list[str] = []
+
+    def relay(message: str, _fraction: float) -> None:
+        if progress_callback and (not last or last[-1] != message):
+            last.append(message)
+            progress_callback(message)
+
+    return run_plan(plan, progress=relay)
