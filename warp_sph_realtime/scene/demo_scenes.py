@@ -1,7 +1,7 @@
 import bpy
 import warp as wp
 
-from .demo_description import DAM_SLAB_INNER_X, demo_description, demo_spacing
+from .demo_description import DAM_SLAB_INNER_X, dam_layout, demo_description, demo_spacing, flop_layout
 
 __all__ = ["DAM_SLAB_INNER_X", "build_blender_demo_helpers", "launch_demo_scene_init", "remove_blender_demo_helpers"]
 
@@ -12,12 +12,15 @@ def k_init_double_dambreak_pillars(
     num_particles: int,
     spacing: float,
     slab_nx: int,
-    slab_ny: int
+    slab_ny: int,
+    edge: float,
+    z0: float
 ):
     """Scene 1: Opposing Double Dam-Break crashing into a central obstacle/pillar array.
 
     Each slab spans the full Y width and stays at |x| >= DAM_SLAB_INNER_X so no particle
-    starts inside the pillars (|x| <= 1.03) or the central sphere.
+    starts inside the pillars (|x| <= 1.03) or the central sphere. It starts `edge` from the centre
+    and `z0` above the floor, outside the solver's one-spacing wall layer (see wall_inset).
     """
     i = int(wp.tid())
     half_n = num_particles // 2
@@ -32,9 +35,9 @@ def k_init_double_dambreak_pillars(
     iy = (idx // slab_nx) % slab_ny
     iz = idx // (slab_nx * slab_ny)
     pos[i] = wp.vec3(
-        side * (-2.35 + float(ix) * spacing),
-        -2.35 + float(iy) * spacing,
-        0.08 + float(iz) * spacing
+        side * (-edge + float(ix) * spacing),
+        -edge + float(iy) * spacing,
+        z0 + float(iz) * spacing
     )
     vel[i] = wp.vec3(side * 1.2, 0.0, 0.0)
 
@@ -48,7 +51,9 @@ def k_init_block_flop_puddle(
     puddle_count: int,
     puddle_nx: int,
     puddle_ny: int,
-    drop_side: int
+    drop_side: int,
+    edge: float,
+    z0: float
 ):
     """Scene 2: High-density 'Block Flop' / Crown Splash dropped into a resting puddle basin."""
     i = int(wp.tid())
@@ -58,9 +63,9 @@ def k_init_block_flop_puddle(
         iy = (i // puddle_nx) % puddle_ny
         iz = i // (puddle_nx * puddle_ny)
         pos[i] = wp.vec3(
-            -2.4 + float(ix) * spacing,
-            -2.4 + float(iy) * spacing,
-            0.05 + float(iz) * spacing
+            -edge + float(ix) * spacing,
+            -edge + float(iy) * spacing,
+            z0 + float(iz) * spacing
         )
         vel[i] = wp.vec3(0.0, 0.0, 0.0)
     else:
@@ -150,20 +155,18 @@ def launch_demo_scene_init(solver, scene_type: str):
     solver.set_scene(demo_description(scene_type, num_p))
 
     if scene_type == "DOUBLE_DAM_PILLARS":
-        slab_width = 2.35 - DAM_SLAB_INNER_X
-        slab_nx = max(1, int(slab_width / spacing))
-        slab_ny = max(1, int(4.7 / spacing))
+        edge, z0, slab_nx, slab_ny = dam_layout(spacing)
         wp.launch(
             kernel=k_init_double_dambreak_pillars,
             dim=num_p,
-            inputs=[solver.pos_sim, solver.vel, num_p, spacing, slab_nx, slab_ny],
+            inputs=[solver.pos_sim, solver.vel, num_p, spacing, slab_nx, slab_ny, edge, z0],
             device=solver.pos_sim.device,
         )
     else:
         # Scene 2: Block Flop into Puddle (High-Speed Crown Splash)
         puddle_count = int(num_p * 0.60)
-        puddle_nx = max(1, int(4.8 / spacing))
-        puddle_ny = max(1, int(4.8 / spacing))
+        edge, z0, puddle_nx = flop_layout(spacing)
+        puddle_ny = puddle_nx
         drop_count = num_p - puddle_count
         drop_side = max(1, int(round(drop_count ** (1.0 / 3.0))))
         wp.launch(
@@ -178,6 +181,8 @@ def launch_demo_scene_init(solver, scene_type: str):
                 puddle_nx,
                 puddle_ny,
                 drop_side,
+                edge,
+                z0,
             ],
             device=solver.pos_sim.device,
         )

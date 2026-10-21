@@ -59,6 +59,8 @@ def k_filter_nozzles(
     """Keeps a point at least `clearance` inside every domain wall and outside every collider surface.
 
     Particles closer than that would start inside the boundaries' soft layer and be thrown out of it.
+    The solver's soft layer is one particle spacing wide (`wall_accel`, r0 = h / 2), so one spacing is
+    where the boundary force is exactly zero.
     """
     tid = int(wp.tid())
     x = points[tid]
@@ -71,6 +73,23 @@ def k_filter_nozzles(
             if q.sign < 0.0 or wp.length(x - wp.mesh_eval_position(collider_ids[k], q.face, q.u, q.v)) < clearance:
                 return
     keep[tid] = wp.uint8(1)
+
+
+def clear_of_boundaries(points: np.ndarray, desc: SceneDescription, colliders: MeshSet, clearance: float,
+                        device) -> np.ndarray:
+    """Boolean mask of the `points` (K, 3) at least `clearance` inside every domain wall and outside every
+    collider surface (at the start pose), and outside every collider."""
+    d_lo = np.array(desc.domain_min, dtype=np.float64)
+    d_hi = np.array(desc.domain_max, dtype=np.float64)
+    keep = wp.zeros(len(points), dtype=wp.uint8, device=device)
+    wp.launch(
+        k_filter_nozzles, dim=len(points),
+        inputs=[wp.array(points.astype(np.float32), dtype=wp.vec3, device=device), colliders.ids,
+                colliders.count, wp.vec3(*d_lo), wp.vec3(*d_hi), float(clearance),
+                float(np.linalg.norm(d_hi - d_lo)) * 2.0, keep],
+        device=device,
+    )
+    return keep.numpy().astype(bool)
 
 
 def emitter_nozzle_arrays(desc: SceneDescription, spacing: float, device=None,
@@ -91,23 +110,13 @@ def emitter_nozzle_arrays(desc: SceneDescription, spacing: float, device=None,
         raise SceneFillError(
             f"emitters have {total} nozzle points at spacing {spacing} (limit {MAX_NOZZLES}); "
             "increase the particle spacing or use smaller emitters")
-    d_lo = np.array(desc.domain_min, dtype=np.float64)
-    d_hi = np.array(desc.domain_max, dtype=np.float64)
     clearance = spacing if clearance is None else clearance
     colliders = MeshSet(desc.colliders, device)
     positions, velocities, ranges = [], [], []
     offset = 0
     for emitter, (pos, vel, flux) in zip(desc.emitters, raw, strict=True):
         name = emitter.mesh.name
-        keep = wp.zeros(len(pos), dtype=wp.uint8, device=device)
-        wp.launch(
-            k_filter_nozzles, dim=len(pos),
-            inputs=[wp.array(pos.astype(np.float32), dtype=wp.vec3, device=device), colliders.ids,
-                    colliders.count, wp.vec3(*d_lo), wp.vec3(*d_hi), float(clearance),
-                    float(np.linalg.norm(d_hi - d_lo)) * 2.0, keep],
-            device=device,
-        )
-        mask = keep.numpy().astype(bool)
+        mask = clear_of_boundaries(pos, desc, colliders, clearance, device)
         if not mask.any():
             raise SceneFillError(
                 f"emitter '{name}' is outside the domain, inside a collider, or closer than {clearance:.4g} m "
@@ -122,13 +131,16 @@ def emitter_nozzle_arrays(desc: SceneDescription, spacing: float, device=None,
     return (np.concatenate(positions).astype(np.float32), np.concatenate(velocities).astype(np.float32), ranges)
 
 
-def fill_particles(desc: SceneDescription, spacing: float, device=None) -> np.ndarray:
+def fill_particles(desc: SceneDescription, spacing: float, device=None, clearance: float | None = None) -> np.ndarray:
     """Particle positions (N, 3) float32 for the scene's fluid volumes.
 
     Cell-centred cubic lattice at `spacing`, anchored at the domain minimum so overlapping volumes
     share one lattice and never double-count. A lattice point is kept when it is inside any fluid
-    volume, inside the domain, and outside every collider. Winding-number inside tests, so
-    non-manifold or overlapping parts classify correctly. Raises SceneFillError instead of returning
+    volume, at least `clearance` (default: `spacing`) inside the domain walls, and outside every collider
+    by the same margin. The solver's soft wall layer is one spacing wide and pushes a particle inside
+    it away, so a lattice started closer (the cell-centred half spacing) is expelled violently; at one
+    spacing the boundary force is exactly zero. Winding-number inside tests, so non-manifold or
+    overlapping parts classify correctly. Raises SceneFillError instead of returning
     zero particles, except for a scene without fluid volumes (emitters only), which returns (0, 3).
     """
     if not np.isfinite(spacing) or spacing <= 0.0:
@@ -167,12 +179,16 @@ def fill_particles(desc: SceneDescription, spacing: float, device=None) -> np.nd
         device=device,
     )
     idx = np.flatnonzero(keep.numpy())
-    if len(idx) == 0:
-        raise SceneFillError(
-            f"fluid volumes contain no particles at spacing {spacing} (fully inside colliders or thinner than "
-            "the spacing); decrease the spacing or check the volumes")
     ix = idx % counts[0]
     iy = (idx // counts[0]) % counts[1]
     iz = idx // (counts[0] * counts[1])
-    points = origin + np.stack([ix, iy, iz], axis=1) * spacing
-    return points.astype(np.float32)
+    points = (origin + np.stack([ix, iy, iz], axis=1) * spacing).astype(np.float32)
+    if len(points):
+        points = points[clear_of_boundaries(points, desc, colliders, spacing if clearance is None else clearance,
+                                            device)]
+    if len(points) == 0:
+        raise SceneFillError(
+            f"fluid volumes contain no particles at spacing {spacing} (fully inside colliders, thinner than "
+            "the spacing, or within one spacing of the domain walls and colliders); decrease the spacing or "
+            "check the volumes")
+    return points

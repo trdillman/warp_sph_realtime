@@ -148,6 +148,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - GitHub Actions CI running ruff, pyright, and pytest (CUDA tests skip on hosted runners).
 
 ### Fixed
+- The initial particle fill of a custom scene started half a spacing from the domain walls and colliders, inside the
+  solver's one-spacing boundary layer, so the layer threw the fluid out (a resting box peaked at 58 m/s and its mean
+  height rose 178 %). The fill now keeps one spacing from walls and collider surfaces (where the boundary force is
+  zero); the same box peaks at 2 m/s and does not rise. The built-in demos keep the same clearance at coarse
+  particle counts (unchanged at 1M).
 - Legacy OpenGL path: the particle VBO is always unmapped from CUDA, even when a solver step fails while it is mapped (`ZeroCopyGLBuffer52.mapped()`); after a sticky CUDA error the step error is kept and the unmap failure is attached to it.
 - SSFR: matching-format MSAA depth resolve before half-res scaling, exception-safe GL state
   restoration, cleanup after failed shader / partial renderer initialization, and rejection of
