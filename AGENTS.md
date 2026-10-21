@@ -93,6 +93,10 @@ All paths are relative to the `warp_sph_realtime/` package folder. Use relative 
 * `render/ssfr_shaders.py` — SSFR GLSL sources and CPU reference math.
 * `sim/sim_core.py` — Primary `RealtimeWCSPHSolver`, cubic spline kernels, SoA reordering, and CUDA Graph capture.
 * `scene/demo_scenes.py` — GPU particle initializers and Blender wireframe/collider helper meshes for Demo 1 & Demo 2.
+* `sim/colliders.py` — Static mesh colliders: one `wp.Mesh` per collider (winding-number signed distance), mesh ids passed to kernels as a uint64 array.
+* `scene/description.py` — Pure-NumPy `SceneDescription`/`MeshData` and validation (no bpy, no Warp).
+* `scene/fill.py` — Lattice particle fill of fluid volumes (`fill_particles`); `RealtimeWCSPHSolver.from_scene` builds a solver from a description.
+* `scene/blender_scene.py` — Duck-typed Blender adapter (`description_from_blender`); never imported by `sim/`.
 * `scene/scene_config.py` — Physical regime presets (`WATER`, `MILK`, `SHOCKWAVE`) and domain bounding box extraction.
 * `experimental/ipbf_solver.py` — Implicit Position-Based Fluids (IPBF) variational prediction and local $3 \times 3$ Hessian/Jacobi iteration kernels.
 * `experimental/collider_sdf.py` — Analytical and SDF collider kernels.

@@ -1,6 +1,11 @@
 import warp as wp
 
+from ..scene.description import SceneDescription
+from .colliders import MeshSet, mesh_signed_distance
+
 wp.init()
+
+MAX_PARTICLES = 4_000_000
 
 ARTIFICIAL_VISCOSITY_ALPHA = wp.constant(0.1)
 
@@ -334,6 +339,89 @@ def k_wcsph_forces_and_copyback(
     pos_vbo_out[tid] = x_next
 
 
+@wp.func
+def clamp_to_domain(x: wp.vec3, v: wp.vec3, domain_min: wp.vec3, domain_max: wp.vec3,
+                    damping: float) -> tuple[wp.vec3, wp.vec3]:
+    """Hard safety clamp with damped reflection, identical to the legacy kernel's inline clamps."""
+    px = x
+    pv = v
+    for axis in range(3):
+        if px[axis] < domain_min[axis]:
+            px[axis] = domain_min[axis]
+            pv[axis] = -pv[axis] * damping
+        elif px[axis] > domain_max[axis]:
+            px[axis] = domain_max[axis]
+            pv[axis] = -pv[axis] * damping
+    return px, pv
+
+
+@wp.kernel
+def k_scene_forces_and_copyback(
+    grid: wp.uint64,
+    pos_sorted: wp.array[wp.vec3],
+    vel_sorted: wp.array[wp.vec3],
+    density_sorted: wp.array[float],
+    pos_vbo_out: wp.array[wp.vec3],
+    vel_out: wp.array[wp.vec3],
+    mass: float,
+    h: float,
+    rest_density: float,
+    stiffness: float,
+    viscosity: float,
+    dt: float,
+    domain_min: wp.vec3,
+    domain_max: wp.vec3,
+    gravity: wp.vec3,
+    collider_ids: wp.array[wp.uint64],
+    num_colliders: int,
+    collider_radius: float,
+):
+    """Authored-scene variant of k_wcsph_forces_and_copyback: user gravity and static mesh colliders.
+
+    Colliders get the same soft wall law as the domain planes, driven by mesh signed distance within
+    `collider_radius`, plus a hard projection to the surface if a particle still ends up inside.
+    The legacy kernel is left untouched because the experimental differentiable code launches it.
+    """
+    tid = int(wp.tid())
+    xi = pos_sorted[tid]
+    vi = vel_sorted[tid]
+    f_pressure, f_visc = particle_forces(grid, pos_sorted, vel_sorted, density_sorted,
+                                         mass, h, rest_density, stiffness, viscosity, 0, tid)
+    sound_speed = wp.sqrt(7.0 * stiffness / rest_density)
+    acc = (f_pressure + f_visc) / mass + gravity
+
+    r0 = 0.5 * h
+    acc += wp.vec3(
+        wall_accel(xi[0] - domain_min[0], -vi[0], r0, sound_speed)
+        - wall_accel(domain_max[0] - xi[0], vi[0], r0, sound_speed),
+        wall_accel(xi[1] - domain_min[1], -vi[1], r0, sound_speed)
+        - wall_accel(domain_max[1] - xi[1], vi[1], r0, sound_speed),
+        wall_accel(xi[2] - domain_min[2], -vi[2], r0, sound_speed)
+        - wall_accel(domain_max[2] - xi[2], vi[2], r0, sound_speed),
+    )
+
+    for c in range(num_colliders):
+        d, n, _cp = mesh_signed_distance(collider_ids[c], xi, collider_radius)
+        if d < r0:
+            acc += n * wall_accel(d, -wp.dot(vi, n), r0, sound_speed)
+
+    v_next = vi + acc * dt
+    x_next = xi + v_next * dt
+
+    for c in range(num_colliders):
+        d, n, cp = mesh_signed_distance(collider_ids[c], x_next, collider_radius)
+        if d < 0.0:
+            x_next = cp + n * (0.01 * h)
+            vn = wp.dot(v_next, n)
+            if vn < 0.0:
+                v_next = v_next - 1.5 * vn * n
+
+    x_next, v_next = clamp_to_domain(x_next, v_next, domain_min, domain_max, 0.5)
+
+    vel_out[tid] = v_next
+    pos_vbo_out[tid] = x_next
+
+
 class RealtimeWCSPHSolver:
     def __init__(
         self,
@@ -355,6 +443,11 @@ class RealtimeWCSPHSolver:
         self.dt = self.cfl_factor * h / (7.0 * self.stiffness / self.rest_density) ** 0.5
         self.domain_min = wp.vec3(-2.5, -2.5, 0.0)
         self.domain_max = wp.vec3(2.5, 2.5, 5.0)
+        self.gravity = wp.vec3(0.0, 0.0, -9.81)
+        # Authored-scene mode (set_scene): user gravity + static mesh colliders. Off for the legacy demos.
+        self.scene_mode = False
+        self.colliders: MeshSet | None = None
+        self.collider_radius = 0.0
 
         # O(n) spatial hash grid (128^3 cells)
         self.grid = wp.HashGrid(128, 128, 128, device="cuda:0")
@@ -380,6 +473,7 @@ class RealtimeWCSPHSolver:
         self.h = 2.0 * spacing
         self.mass = lattice_rest_mass(spacing, self.h, self.rest_density)
         self.max_dt = max_dt
+        self.collider_radius = self.h
         self.update_time_step()
 
     def update_time_step(self):
@@ -395,43 +489,86 @@ class RealtimeWCSPHSolver:
     def rebuild_cuda_graph(self):
         """Captures the coalesced Density + WCSPH Force + SDF Obstacle + Copy-back kernels into a CUDA Graph."""
         with wp.ScopedCapture(device="cuda:0") as capture:
-            wp.launch(
-                kernel=k_compute_density_coalesced,
-                dim=self.num_particles,
-                inputs=[
-                    self.grid.id,
-                    self.pos_sorted,
-                    self.density_sorted,
-                    self.mass,
-                    self.h,
-                    self.rest_density,
-                    self.enable_obstacles,
-                ],
-                device="cuda:0",
-            )
-            wp.launch(
-                kernel=k_wcsph_forces_and_copyback,
-                dim=self.num_particles,
-                inputs=[
-                    self.grid.id,
-                    self.pos_sorted,
-                    self.vel_sorted,
-                    self.density_sorted,
-                    self.pos_sim,
-                    self.vel,
-                    self.mass,
-                    self.h,
-                    self.rest_density,
-                    self.stiffness,
-                    self.viscosity,
-                    self.dt,
-                    self.domain_min,
-                    self.domain_max,
-                    self.enable_obstacles,
-                ],
-                device="cuda:0",
-            )
+            self._launch_density_and_forces()
         self.cuda_graph = capture.graph
+
+    def _launch_density_and_forces(self):
+        """Density + force/integrate kernels on the sorted buffers; shared by eager steps and graph capture."""
+        wp.launch(
+            kernel=k_compute_density_coalesced,
+            dim=self.num_particles,
+            inputs=[self.grid.id, self.pos_sorted, self.density_sorted,
+                    self.mass, self.h, self.rest_density, self.enable_obstacles],
+            device="cuda:0",
+        )
+        if self.scene_mode:
+            assert self.colliders is not None
+            wp.launch(
+                kernel=k_scene_forces_and_copyback,
+                dim=self.num_particles,
+                inputs=[
+                    self.grid.id, self.pos_sorted, self.vel_sorted, self.density_sorted,
+                    self.pos_sim, self.vel, self.mass, self.h, self.rest_density,
+                    self.stiffness, self.viscosity, self.dt, self.domain_min, self.domain_max,
+                    self.gravity, self.colliders.ids, self.colliders.count, self.collider_radius,
+                ],
+                device="cuda:0",
+            )
+            return
+        wp.launch(
+            kernel=k_wcsph_forces_and_copyback,
+            dim=self.num_particles,
+            inputs=[
+                self.grid.id, self.pos_sorted, self.vel_sorted, self.density_sorted,
+                self.pos_sim, self.vel, self.mass, self.h, self.rest_density,
+                self.stiffness, self.viscosity, self.dt, self.domain_min, self.domain_max,
+                self.enable_obstacles,
+            ],
+            device="cuda:0",
+        )
+
+    def set_scene(self, desc: SceneDescription):
+        """Adopts an authored scene's domain, gravity and static mesh colliders (builds one wp.Mesh each).
+
+        Particle spacing and positions are separate (set_particle_spacing / from_scene). Disables the
+        analytic demo obstacles. Call rebuild_cuda_graph() afterwards.
+        """
+        self.domain_min = wp.vec3(*desc.domain_min)
+        self.domain_max = wp.vec3(*desc.domain_max)
+        self.gravity = wp.vec3(*desc.gravity)
+        self.enable_obstacles = 0
+        self.colliders = MeshSet(desc.colliders, "cuda:0")
+        self.scene_mode = True
+        self.collider_radius = self.h  # re-derived in set_particle_spacing
+
+    @classmethod
+    def from_scene(cls, desc: SceneDescription, spacing: float, substeps: int = 2,
+                   stiffness: float | None = None, cfl_factor: float | None = None,
+                   max_particles: int = MAX_PARTICLES) -> "RealtimeWCSPHSolver":
+        """Builds a ready-to-step solver for an authored scene.
+
+        Fills the fluid volumes on a cubic lattice at `spacing` (h = 2*spacing, mass from the same
+        lattice, so the fill is exactly at rest density), starts at rest, and captures the CUDA graph.
+        Raises SceneFillError if the fill is empty or exceeds `max_particles`.
+        """
+        from ..scene.fill import SceneFillError, fill_particles
+
+        points = fill_particles(desc, spacing)
+        if len(points) > max_particles:
+            raise SceneFillError(
+                f"scene fills {len(points)} particles at spacing {spacing}, above the {max_particles} limit; "
+                "increase the particle spacing")
+        solver = cls(num_particles=len(points), h=2.0 * spacing, substeps=substeps, enable_obstacles=0)
+        if stiffness is not None:
+            solver.stiffness = stiffness
+        if cfl_factor is not None:
+            solver.cfl_factor = cfl_factor
+        solver.set_particle_spacing(spacing)
+        solver.set_scene(desc)
+        solver.pos_sim.assign(points)
+        solver.vel.zero_()
+        solver.rebuild_cuda_graph()
+        return solver
 
     def get_vram_usage_mb(self) -> float:
         bytes_per_particle = (5 * 12) + 4 + 12
@@ -453,23 +590,6 @@ class RealtimeWCSPHSolver:
             if use_graph and self.cuda_graph is not None:
                 wp.capture_launch(self.cuda_graph)
             else:
-                wp.launch(
-                    kernel=k_compute_density_coalesced,
-                    dim=self.num_particles,
-                    inputs=[self.grid.id, self.pos_sorted, self.density_sorted,
-                            self.mass, self.h, self.rest_density, self.enable_obstacles],
-                    device="cuda:0",
-                )
-                wp.launch(
-                    kernel=k_wcsph_forces_and_copyback,
-                    dim=self.num_particles,
-                    inputs=[
-                        self.grid.id, self.pos_sorted, self.vel_sorted, self.density_sorted,
-                        self.pos_sim, self.vel, self.mass, self.h, self.rest_density,
-                        self.stiffness, self.viscosity, self.dt, self.domain_min, self.domain_max,
-                        self.enable_obstacles
-                    ],
-                    device="cuda:0",
-                )
+                self._launch_density_and_forces()
 
         wp.copy(pos_vbo_wp, self.pos_sim)
