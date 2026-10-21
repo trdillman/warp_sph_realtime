@@ -67,7 +67,7 @@ def make_context(objects=(), selected=()):
     scene = Scene()
     scene.objects = list(objects)
     scene.warp_sph = NS(scene_source='DEMO', particle_spacing=0.02, particle_count=1000,
-                        demo_scene='DOUBLE_DAM_PILLARS', substeps=2, stiffness=90.0, time_step_scale=0.4,
+                        demo_scene='DOUBLE_DAM_PILLARS', substeps=2, stiffness=90.0, time_step_scale=0.4, viscosity=0.15,
                         use_cuda_graph=True, show_particles=True, render_mode='POINTS', depth_test=True,
                         point_size=2.0, particle_radius=0.02, particle_color=(1, 1, 1, 1), filter_iterations=2,
                         filter_sigma=4.0, absorption=(0.85, 0.22, 0.05), max_particles=500_000)

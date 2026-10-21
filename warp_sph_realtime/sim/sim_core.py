@@ -13,6 +13,11 @@ MAX_PARTICLES = 4_000_000
 
 ARTIFICIAL_VISCOSITY_ALPHA = wp.constant(0.1)
 
+# The viscous force is explicit: each substep relaxes a particle's velocity toward its neighbours' by
+# (viscosity / mass) * dt. Above 1 that overshoots and above 2 it diverges, so the coefficient is capped
+# where the relaxation per substep reaches this fraction.
+VISCOSITY_RELAXATION_LIMIT = 0.9
+
 @wp.func
 def cubic_spline_kernel(r: float, h: float) -> float:
     q = r / h
@@ -656,7 +661,7 @@ class RealtimeWCSPHSolver:
         self.rest_density = 1000.0
         self.mass = lattice_rest_mass(h * 0.5, h, self.rest_density)
         self.stiffness = 90000.0  # c ~= 25 m/s; lower values let impacts reach Mach 0.4+ and blow up
-        self.viscosity = 0.15
+        self.viscosity = 0.15  # kg/s per particle; the force is viscosity * (smoothed neighbour velocity - v)
         self.cfl_factor = 0.4  # dt as a fraction of the sound-crossing time of one smoothing length
         self.max_dt = None
         self.dt = self.cfl_factor * h / (7.0 * self.stiffness / self.rest_density) ** 0.5
@@ -728,6 +733,15 @@ class RealtimeWCSPHSolver:
         if self.max_dt is not None:
             self.dt = min(self.dt, self.max_dt)
 
+    @property
+    def effective_viscosity(self) -> float:
+        """`viscosity` capped to keep the explicit relaxation stable at the current mass and time step.
+
+        Read when the kernels are launched (or captured), so call rebuild_cuda_graph() after changing
+        `viscosity`, `dt` or `mass`.
+        """
+        return min(self.viscosity, VISCOSITY_RELAXATION_LIMIT * self.mass / self.dt)
+
     def rebuild_cuda_graph(self):
         """Captures the coalesced Density + WCSPH Force + SDF Obstacle + Copy-back kernels into a CUDA Graph.
 
@@ -757,7 +771,7 @@ class RealtimeWCSPHSolver:
                 inputs=[
                     self.grid.id, self.pos_sorted, self.vel_sorted, self.density_sorted,
                     self.pos_sim, self.vel, self.mass, self.h, self.rest_density,
-                    self.stiffness, self.viscosity, self.dt, self.domain_min, self.domain_max,
+                    self.stiffness, self.effective_viscosity, self.dt, self.domain_min, self.domain_max,
                     self.gravity, self.active,
                 ],
                 device=self.device,
@@ -787,7 +801,7 @@ class RealtimeWCSPHSolver:
             inputs=[
                 self.grid.id, self.pos_sorted, self.vel_sorted, self.density_sorted,
                 self.pos_sim, self.vel, self.mass, self.h, self.rest_density,
-                self.stiffness, self.viscosity, self.dt, self.domain_min, self.domain_max,
+                self.stiffness, self.effective_viscosity, self.dt, self.domain_min, self.domain_max,
                 self.enable_obstacles,
             ],
             device=self.device,
@@ -1022,7 +1036,7 @@ class RealtimeWCSPHSolver:
     @classmethod
     def from_scene(cls, desc: SceneDescription, spacing: float, substeps: int = 2,
                    stiffness: float | None = None, cfl_factor: float | None = None,
-                   max_particles: int = MAX_PARTICLES, device: str = "cuda:0") -> "RealtimeWCSPHSolver":
+                   viscosity: float | None = None, max_particles: int = MAX_PARTICLES, device: str = "cuda:0") -> "RealtimeWCSPHSolver":
         """Builds a ready-to-step solver for an authored scene.
 
         Fills the fluid volumes on a cubic lattice at `spacing` (h = 2*spacing, mass from the same
@@ -1053,6 +1067,8 @@ class RealtimeWCSPHSolver:
             solver.stiffness = stiffness
         if cfl_factor is not None:
             solver.cfl_factor = cfl_factor
+        if viscosity is not None:
+            solver.viscosity = viscosity
         solver.set_particle_spacing(spacing)
         solver.set_scene(desc, active_count=len(points))
         initial = np.full((capacity, 3), PARKED_POSITION, dtype=np.float32)

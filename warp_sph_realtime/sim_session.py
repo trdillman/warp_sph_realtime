@@ -17,7 +17,7 @@ from collections.abc import Callable
 
 import bpy
 
-from .props import stiffness_pa
+from .props import spacing_metres, stiffness_pa
 from .render import session as transport_session
 from .render.gpu_points import settings_from_scene
 from .render.transport import COMPLETED, FAILED, QUARANTINED, FatalTransportError, process_state
@@ -91,6 +91,20 @@ def _redraw_views(screen):
     for area in getattr(screen, "areas", ()):
         if area.type == 'VIEW_3D':
             area.tag_redraw()
+
+
+def physics_changed(solver, settings) -> bool:
+    """True when the solver's stiffness, CFL factor or viscosity differs from the scene settings."""
+    return (solver.stiffness != stiffness_pa(settings) or solver.cfl_factor != settings.time_step_scale
+            or solver.viscosity != settings.viscosity)
+
+
+def apply_physics(solver, settings):
+    """Copy the physics settings into the solver and re-derive dt. The caller recaptures the CUDA graph."""
+    solver.stiffness = stiffness_pa(settings)
+    solver.cfl_factor = settings.time_step_scale
+    solver.viscosity = settings.viscosity
+    solver.update_time_step()
 
 
 class SimSession:
@@ -211,8 +225,9 @@ class SimSession:
             desc = _scene_api().description_from_blender(scene, depsgraph)
             settings = scene.warp_sph
             return runtime.RealtimeWCSPHSolver.from_scene(
-                desc, settings.particle_spacing, substeps=settings.substeps,
-                stiffness=stiffness_pa(settings), cfl_factor=settings.time_step_scale)
+                desc, spacing_metres(settings, _scene_api().unit_scale(scene)), substeps=settings.substeps,
+                stiffness=stiffness_pa(settings), cfl_factor=settings.time_step_scale,
+                viscosity=settings.viscosity)
         except (SceneValidationError, SceneFillError) as exc:
             raise SceneSetupError(str(exc)) from exc
 
@@ -229,6 +244,7 @@ class SimSession:
         )
         solver.stiffness = stiffness_pa(settings)
         solver.cfl_factor = settings.time_step_scale
+        solver.viscosity = settings.viscosity
         # Initialize GPU SoA particle distribution for the chosen demo
         runtime.launch_demo_scene_init(solver, demo_type)
         solver.rebuild_cuda_graph()
@@ -406,12 +422,11 @@ class SimSession:
                     return False
                 _redraw_views(screen)  # kept the running session; no step this tick
                 return True
-        elif (self.solver.stiffness != stiffness_pa(settings)
-              or self.solver.cfl_factor != settings.time_step_scale):
+        elif physics_changed(self.solver, settings):
             try:
-                self.solver.stiffness = stiffness_pa(settings)
-                self.solver.cfl_factor = settings.time_step_scale
-                self.solver.update_time_step()
+                # Stiffness, time step and viscosity are captured by value: recapture the graph (no
+                # allocation; the same path the stiffness slider has always used).
+                apply_physics(self.solver, settings)
                 self.solver.rebuild_cuda_graph()
             except Exception as exc:
                 if self.session is not None:  # as a failed step (session.tick): CUDA state unknown
@@ -505,8 +520,7 @@ class SimSession:
                 else:
                     self.reallocate(scene, settings.particle_count, settings.demo_scene, context.window)
             solver = self.solver
-            solver.stiffness, solver.cfl_factor = stiffness_pa(settings), settings.time_step_scale
-            solver.update_time_step()
+            apply_physics(solver, settings)
             solver.rebuild_cuda_graph()
             steps = cache_bake.steps_per_frame(settings.bake_steps, solver.dt, fps)
             signature = {

@@ -106,7 +106,8 @@ class TestBlenderIntegrationAndDemos(unittest.TestCase):
         self.assertIs(bpy_mock.types.Scene.warp_sph["type"], props.WARPSPH_SceneSettings)
         settings = props.WARPSPH_SceneSettings.__annotations__
         cache_props = ["cache_dir", "bake_start", "bake_end", "bake_steps"]  # P2.2: new, nothing to migrate
-        self.assertEqual(sorted(settings), sorted([*expected_props, *cache_props, "max_particles"]))
+        physics_props = ["viscosity"]  # P2.5: new (the old flat properties never had one), nothing to migrate
+        self.assertEqual(sorted(settings), sorted([*expected_props, *cache_props, *physics_props, "max_particles"]))
         self.assertEqual(sorted(props.LEGACY_NAMES), sorted(expected_props))  # every old flat setting migrates
         self.assertFalse([n for n in vars(bpy_mock.types.Scene) if n.startswith("warp_sph_")])
         self.assertTrue(hasattr(bpy_mock.types.Object, "warp_sph"))
@@ -116,7 +117,7 @@ class TestBlenderIntegrationAndDemos(unittest.TestCase):
                    "OBJECT_PT_warp_sph", "VIEW3D_PT_warp_sph_advanced", "VIEW3D_PT_warp_sph_cache",
                    "WM_OT_warp_sph_bake", "WM_OT_warp_sph_bake_cancel", "WM_OT_warp_sph_cache_invalidate",
                    "WM_OT_warp_sph_cache_clear", "WM_OT_warp_sph_cache_playback", "WM_OT_warp_sph_cache_mesh",
-                   "WM_OT_warp_sph_cache_export"):
+                   "WM_OT_warp_sph_cache_export", "WM_OT_warp_sph_physics_preset"):
             self.assertIn(op, registered)
         # Small-range values need fine click steps (Blender step is in 1/100 units)
         radius = settings["particle_radius"]
@@ -141,6 +142,12 @@ class TestBlenderIntegrationAndDemos(unittest.TestCase):
                     checked += 1
                     self.assertIn(spec.get("subtype", "NONE"), scalar_subtypes, f"{cls.__name__}.{name}")
         self.assertGreater(checked, 5)
+        # P2.5: the spacing is in scene length units (shown with the scene's unit and scale), viscosity is not.
+        spacing = settings["particle_spacing"]
+        self.assertEqual((spacing["subtype"], spacing["unit"]), ("DISTANCE", "LENGTH"))
+        self.assertGreater(spacing["max"], 100.0)  # a centimetre scene needs spacings of several units
+        self.assertEqual((settings["viscosity"]["default"], settings["viscosity"]["min"]), (0.15, 0.0))
+        self.assertNotIn("unit", settings["viscosity"])
 
         extension_module.unregister()
         registered = {cls.__name__ for cls in _registered_classes}

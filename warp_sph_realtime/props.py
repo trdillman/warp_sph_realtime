@@ -37,11 +37,13 @@ STIFFNESS_UNIT = 1000.0  # the stiffness setting is in thousands, so one UI clic
 class WARPSPH_SceneSettings(bpy.types.PropertyGroup):
     scene_source: EnumProperty(name="Scene Source", items=SCENE_SOURCE_ITEMS, default="DEMO")
     particle_spacing: FloatProperty(
-        name="Particle Spacing (m)",
-        description="Distance between fluid particles in a Custom scene. Smaller = more particles "
-                    "(about fluid volume / spacing^3) and finer detail; the smoothing length is twice this",
-        default=0.02, min=0.004, max=0.2, soft_min=0.01, soft_max=0.05,
-        step=0.1,        # 0.001 m per click
+        name="Particle Spacing",
+        description="Distance between fluid particles in a Custom scene, in scene length units (it follows "
+                    "Scene > Units > Unit Scale, like the objects). Smaller = more particles (about fluid "
+                    "volume / spacing^3) and finer detail; the smoothing length is twice this",
+        subtype='DISTANCE', unit='LENGTH',
+        default=0.02, min=0.0001, max=1000.0, soft_min=0.005, soft_max=0.5,
+        step=0.1,        # 0.001 scene units per click
         precision=4,
     )
     max_particles: IntProperty(
@@ -75,6 +77,16 @@ class WARPSPH_SceneSettings(bpy.types.PropertyGroup):
         default=90.0, min=10.0, max=400.0,
         step=100,        # 1.0 (= 1,000) per click; Blender allows steps of 1..100 hundredths
         precision=1,
+    )
+    viscosity: FloatProperty(
+        name="Viscosity",
+        description="How strongly each particle's velocity is pulled toward its neighbours' average, in kg/s "
+                    "per particle (0.15 = water-like, 1 to 3 = thick like honey). The effect scales with "
+                    "1 / particle mass, so the same value is thicker at finer spacing. Capped automatically "
+                    "where the explicit step would become unstable",
+        default=0.15, min=0.0, max=20.0, soft_max=5.0,
+        step=1,          # 0.01 per click
+        precision=2,
     )
     show_particles: BoolProperty(name="Show Particles", default=True)
     render_mode: EnumProperty(name="Render Mode", items=RENDER_MODE_ITEMS, default="SSFR_LIQUID")
@@ -142,6 +154,11 @@ class WARPSPH_SceneSettings(bpy.types.PropertyGroup):
 def stiffness_pa(settings) -> float:
     """Solver stiffness from the setting (stored in thousands)."""
     return settings.stiffness * STIFFNESS_UNIT
+
+
+def spacing_metres(settings, unit_scale: float) -> float:
+    """Particle spacing in metres: the setting is in scene length units, `unit_scale` is metres per unit."""
+    return settings.particle_spacing * unit_scale
 
 
 # -- migration of the flat properties of earlier versions ------------------------------------------

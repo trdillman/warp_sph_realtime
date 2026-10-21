@@ -65,6 +65,9 @@ See [`docs/WARP_INSTALLATION.md`](./docs/WARP_INSTALLATION.md) and [`docs/INSTAL
      (0 = a full stream at that speed), and **Start**/**End** frames. Particles leave the side the normals point to.
      The emitter must sit in open space, at least one particle spacing from the domain walls and colliders.
 2. **Particle Spacing** sets the resolution (smaller = more particles); the panel shows the particle count after Start.
+   It is a length in the scene's units (type `2cm` or `0.02` like any Blender length), so it follows the Unit Scale.
+   The initial fill keeps one spacing of clearance from the domain walls and collider surfaces (that is where the
+   solver's wall force is zero), so fluid modelled against a wall starts one and a half spacings from it and settles.
    With emitters, **Max Particles** (default 1,000,000) is the particle budget reserved on the GPU at Start; the panel
    shows "Particles: N of Max". When the budget is full the emitters stop and Blender shows a warning; raise
    Max Particles and restart for a longer pour. Problems (no domain, no fluid or emitter, fluid outside the domain)
@@ -72,8 +75,8 @@ See [`docs/WARP_INSTALLATION.md`](./docs/WARP_INSTALLATION.md) and [`docs/INSTAL
 3. Editing the objects takes effect on the next **Stop** + **Start** (no live re-meshing). While a Custom scene with
    animated colliders runs, the timeline follows the simulation's frame.
 4. Units and gravity: the scene's **Unit Scale** (Scene Properties > Units) converts Blender units to metres, so a
-   scene modelled in centimetres (Unit Scale 0.01) simulates at real size. **Particle Spacing** is in metres; emitter
-   speeds follow the scene's units like any Blender velocity. Gravity is the scene's **Gravity** (Scene Properties >
+   scene modelled in centimetres (Unit Scale 0.01) simulates at real size. **Particle Spacing** is in scene units, like
+   the objects; emitter speeds follow the scene's units like any Blender velocity. Gravity is the scene's **Gravity** (Scene Properties >
    Gravity).
 
 Collider limits: a collider keeps the shape it has at the Start frame. Deforming colliders (armatures, shape keys,
@@ -84,9 +87,11 @@ not supported.
 ### Panel Controls (apply live while running)
 | Section | Control | Effect |
 |---|---|---|
+| Fluid | **Water / Viscous / Stylised** | Sets stiffness, time step, viscosity and sub-steps together (table below). The preset whose values are all set is highlighted; changing any one of them un-highlights it. Particle spacing and display settings are never touched. |
+| | **Viscosity** | How strongly each particle's velocity is pulled toward its neighbours' average (kg/s per particle, default `0.15`, range 0 to 20). Higher = thicker, slower flow and quicker settling. See the note below. |
 | Simulation Speed vs. Stability | **Sub-steps / Frame** | More physics steps per redraw: faster sim, lower FPS. |
 | | **Time Step (CFL)** | Step size as a fraction of the stability limit (default `0.4`). Higher = faster; above ~`0.5` impacts can blow up. |
-| | **Fluid Stiffness** | Sets sound speed (default `90000`). Lower = larger steps and faster sim, but squishier and less stable. |
+| | **Fluid Stiffness** (Advanced) | Sets sound speed (default `90000`). Lower = larger steps and faster sim, but squishier and less stable. |
 | Viewport Display | **Show Particles** | Hide/show the particle overlay. |
 | | **Point Size** | Screen-space point size, 1–20 px (Raw Points mode). |
 | | **Particle Radius (m)** | Sphere radius for SSFR / Sphere modes; arrows move it 0.5 mm per click. |
@@ -94,6 +99,22 @@ not supported.
 | | **Hide Behind Objects** | Off = particles draw on top of scene geometry. |
 
 The panel also shows the current `dt` and approximate simulated-time speed relative to real time.
+
+| Preset | Stiffness | Time step (CFL) | Viscosity | Sub-steps | Character |
+|---|---:|---:|---:|---:|---|
+| Water | 90 (90,000) | 0.4 | 0.15 | 2 | The tuned default: free-flowing, what every earlier version used. |
+| Viscous | 90 | 0.4 | 8 | 2 | Thick and slow like honey or syrup: splashes die quickly, flow creeps. |
+| Stylised | 60 | 0.4 | 1.5 | 3 | Softer and a little blobby, 22 % larger time step and 3 sub-steps per redraw, so it moves faster per frame. |
+
+All three were run on both demos at 1,000,000 and 100,000 particles and on a drop-into-pool scene at 0.02 m and
+0.01 m spacing, on the GPU with the CUDA graph, and on the CPU at coarse spacing: no NaN, nothing leaves the domain,
+the energy never grows. A hard impact still throws a few spray particles faster than the sound speed (a property of
+this solver at its default stiffness too).
+
+Viscosity note: the viscous force is applied explicitly, so it is capped automatically where it would overshoot
+(the panel says "Limited to ..." while running). Its strength per kg/s scales with `1 / particle mass`: the same
+number is thicker at a finer spacing, and the cap is reached sooner there. If a preset feels too thin or too thick
+after changing the spacing, adjust Viscosity.
 
 Fine adjustment: hold **Shift** while dragging any value for 10× finer control, or hover a value and use **Ctrl + mouse wheel** to step it.
 
@@ -145,6 +166,7 @@ warp_sph_realtime/          Blender extension package (the folder that is zipped
   __init__.py               register()/unregister(); lazily imports addon
   addon.py                  Operators, panels, modal timer (thin UI)
   props.py                  scene.warp_sph settings group, old-file migration, GPU memory estimate
+  physics_presets.py        Water / Viscous / Stylised preset values (no bpy)
   sim_session.py            Per-scene SimSession: runtime state, start/tick/stop/dispose, timer-driven bake
   cache_ui.py               Record / Bake Cache panel and operators
   cache/                    Frame cache: disk format, VRAM ring, writer thread, bake planning, playback point cloud,
