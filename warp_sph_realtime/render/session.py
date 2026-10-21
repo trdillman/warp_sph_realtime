@@ -5,7 +5,8 @@ the session scratch, which the adapter publishes. Selection follows the running 
 Vulkan tries the exact-build interop adapter and OpenGL tries the GLInterop texture adapter;
 each falls back once to labelled Readback on a recoverable failure, and a fatal error propagates
 (the caller must stop and require restart). The caller chooses whether OpenGL comes through
-here at all: the legacy VBO/SSFR path stays outside it until P0.13.
+here at all: the legacy VBO path (with its raw-GL SSFR) stays outside it. Session frames draw
+SSFR through the gpu-module renderer (gpu_ssfr, P0.13).
 This module is bpy-free; Blender-specific factories are imported lazily.
 """
 from __future__ import annotations
@@ -101,7 +102,7 @@ def open_session(backend: str, count: int, window: int, *, interop_unavailable: 
     if alloc is None:
         alloc = _device_positions
     if renderer_factory is None:
-        from .gpu_points import PointRenderer as renderer_factory
+        from .gpu_ssfr import ViewportRenderer as renderer_factory
 
     transport, reason = None, ''
     if backend == 'VULKAN' and interop_unavailable:

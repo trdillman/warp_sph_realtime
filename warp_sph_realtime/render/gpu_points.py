@@ -2,9 +2,8 @@
 
 One six-vertex quad batch drawn instanced ``frame.count`` times; the vertex stage fetches
 its position with texelFetch by gpu_InstanceIndex from the 4096-wide RGBA32F texture.
-Uses only the public gpu module, so it runs on Vulkan, Metal and OpenGL. The legacy raw-GL
-SSFR liquid stays OpenGL-only; other backends draw shaded spheres for SSFR mode. On OpenGL this
-renderer serves the GLInterop texture session (Points mode, chosen at Start).
+Uses only the public gpu module, so it runs on Vulkan, Metal and OpenGL. SSFR liquid mode is
+drawn by ``gpu_ssfr.SSFRRenderer``; ``gpu_ssfr.ViewportRenderer`` dispatches on the mode.
 Sphere depth is the billboard plane (no per-fragment depth write), matching visual parity
 at viewport scale; exact sphere depth is not claimed.
 """
@@ -13,7 +12,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, cast
 
-POINTS, SPHERES = 0, 1
+POINTS, SPHERES, SSFR = 0, 1, 2
 CORNERS = ((-1.0, -1.0), (1.0, -1.0), (1.0, 1.0), (-1.0, -1.0), (1.0, 1.0), (-1.0, 1.0))
 PUSH_CONSTANT_BYTES = 64 + 3 * 16 + 8   # mat4 + right/up/color + viewport = 120 <= 128
 
@@ -54,26 +53,31 @@ void main() {
 @dataclass(frozen=True)
 class DrawSettings:
     mode: int
-    size: float           # pixels for POINTS, world radius for SPHERES
+    size: float           # pixels for POINTS, world radius for SPHERES and SSFR
     color: tuple
     depth_test: bool
     note: str = ''
+    filter_sigma: float = 4.0           # SSFR narrow-range filter sigma in pixels
+    filter_iterations: int = 2          # SSFR separable filter iterations (H + V each)
+    absorption: tuple = (0.85, 0.22, 0.05)  # SSFR Beer-Lambert absorption per RGB channel
 
 
 def settings_from_scene(scene, backend: str) -> DrawSettings:
-    """Map the add-on display properties; SSFR has no portable equivalent off OpenGL."""
+    """Map the add-on display properties onto backend-neutral draw settings."""
     color = tuple(float(c) for c in getattr(scene, 'warp_sph_particle_color', (0.12, 0.68, 1.0, 1.0)))
     depth = bool(getattr(scene, 'warp_sph_depth_test', True))
     mode = getattr(scene, 'warp_sph_render_mode', 'SSFR_LIQUID')
     if mode == 'POINTS':
         return DrawSettings(POINTS, float(getattr(scene, 'warp_sph_point_size', 2.5)), color, depth)
+    radius = float(getattr(scene, 'warp_sph_particle_radius', 0.022))
     if mode == 'SPHERES':
-        note = ''
-    elif backend == 'OPENGL':  # a texture session is running: SSFR needs the legacy path, chosen at Start
-        note = 'SSFR liquid needs the legacy OpenGL path: stop and start with SSFR selected; drawing spheres'
-    else:
-        note = f'SSFR liquid is OpenGL-only; drawing spheres on {backend}'
-    return DrawSettings(SPHERES, float(getattr(scene, 'warp_sph_particle_radius', 0.022)), color, depth, note)
+        return DrawSettings(SPHERES, radius, color, depth)
+    return DrawSettings(
+        SSFR, radius, color, depth,
+        filter_sigma=float(getattr(scene, 'warp_sph_filter_sigma', 4.0)),
+        filter_iterations=int(getattr(scene, 'warp_sph_filter_iterations', 2)),
+        absorption=tuple(float(c) for c in getattr(scene, 'warp_sph_absorption', (0.85, 0.22, 0.05))),
+    )
 
 
 def uniforms(view, viewport: tuple, settings: DrawSettings) -> dict:
