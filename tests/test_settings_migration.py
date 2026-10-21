@@ -235,7 +235,8 @@ import sys, types
 bpy = types.ModuleType('bpy')
 bpy.types = types.SimpleNamespace(PropertyGroup=object)
 bpy.props = types.ModuleType('bpy.props')
-for n in ('BoolProperty', 'EnumProperty', 'FloatProperty', 'FloatVectorProperty', 'IntProperty'):
+for n in ('BoolProperty', 'EnumProperty', 'FloatProperty', 'FloatVectorProperty', 'IntProperty',
+          'StringProperty'):
     setattr(bpy.props, n, lambda **kw: kw)
 sys.modules['bpy'], sys.modules['bpy.props'] = bpy, bpy.props
 from types import SimpleNamespace as NS

@@ -105,7 +105,8 @@ class TestBlenderIntegrationAndDemos(unittest.TestCase):
         ]
         self.assertIs(bpy_mock.types.Scene.warp_sph["type"], props.WARPSPH_SceneSettings)
         settings = props.WARPSPH_SceneSettings.__annotations__
-        self.assertEqual(sorted(settings), sorted(expected_props))
+        cache_props = ["cache_dir", "bake_start", "bake_end", "bake_steps"]  # P2.2: new, nothing to migrate
+        self.assertEqual(sorted(settings), sorted(expected_props + cache_props))
         self.assertEqual(sorted(props.LEGACY_NAMES), sorted(expected_props))  # every old flat setting migrates
         self.assertFalse([n for n in vars(bpy_mock.types.Scene) if n.startswith("warp_sph_")])
         self.assertTrue(hasattr(bpy_mock.types.Object, "warp_sph"))

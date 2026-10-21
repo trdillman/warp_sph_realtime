@@ -124,7 +124,7 @@ class TestSimCorePhysics(unittest.TestCase):
     def test_vram_telemetry_calculation(self):
         solver = RealtimeWCSPHSolver(num_particles=1_000_000, h=0.04)
         vram_mb = solver.get_vram_usage_mb()
-        self.assertAlmostEqual(vram_mb, (1_000_000 * 76) / (1024.0 * 1024.0), places=2)
+        self.assertAlmostEqual(vram_mb, (1_000_000 * 84) / (1024.0 * 1024.0), places=2)
 
 
 if __name__ == "__main__":

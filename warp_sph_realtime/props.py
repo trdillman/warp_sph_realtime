@@ -9,7 +9,7 @@ import logging
 import math
 
 import bpy
-from bpy.props import BoolProperty, EnumProperty, FloatProperty, FloatVectorProperty, IntProperty
+from bpy.props import BoolProperty, EnumProperty, FloatProperty, FloatVectorProperty, IntProperty, StringProperty
 
 _LOG = logging.getLogger(__name__)
 
@@ -117,6 +117,19 @@ class WARPSPH_SceneSettings(bpy.types.PropertyGroup):
         name="Warp 1.17 CUDA Graph Capture",
         description="Execute Coalesced Density + WCSPH Force + Copy-back via captured CUDA Graph",
         default=True,
+    )
+    cache_dir: StringProperty(
+        name="Cache Folder", subtype='DIR_PATH', default="",
+        description="Where this scene's baked frames are stored. Empty: next to the saved .blend file "
+                    "(a temporary folder while the file is unsaved)",
+    )
+    bake_start: IntProperty(name="Start", description="First frame of the bake (the initial state)", default=1)
+    bake_end: IntProperty(name="End", description="Last frame of the bake", default=120)
+    bake_steps: IntProperty(
+        name="Steps / Frame",
+        description="Solver steps simulated per cached frame. 0 = real time: the steps that make one frame "
+                    "last 1 / (scene frame rate) seconds of simulated time",
+        default=0, min=0, max=2000,
     )
 
 

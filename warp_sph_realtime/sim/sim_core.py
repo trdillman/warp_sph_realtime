@@ -1,3 +1,4 @@
+import numpy as np
 import warp as wp
 
 from ..scene.description import SceneDescription
@@ -135,6 +136,24 @@ def k_reorder_soa(
     src_i = wp.hash_grid_point_id(grid, tid)
     pos_sorted[tid] = pos_in[src_i]
     vel_sorted[tid] = vel_in[src_i]
+
+@wp.kernel
+def k_reorder_soa_id(
+    grid: wp.uint64,
+    pos_in: wp.array[wp.vec3],
+    vel_in: wp.array[wp.vec3],
+    id_in: wp.array[wp.int32],
+    pos_sorted: wp.array[wp.vec3],
+    vel_sorted: wp.array[wp.vec3],
+    id_sorted: wp.array[wp.int32],
+):
+    """k_reorder_soa plus the stable particle id (k_reorder_soa stays for the experimental callers)."""
+    tid = int(wp.tid())
+    src_i = wp.hash_grid_point_id(grid, tid)
+    pos_sorted[tid] = pos_in[src_i]
+    vel_sorted[tid] = vel_in[src_i]
+    id_sorted[tid] = id_in[src_i]
+
 
 @wp.func
 def particle_density(grid: wp.uint64, pos_sorted: wp.array[wp.vec3], xi: wp.vec3,
@@ -465,6 +484,11 @@ class RealtimeWCSPHSolver:
         self.vel_sorted = wp.zeros(num_particles, dtype=wp.vec3, device=self.device)
         self.density_sorted = wp.zeros(num_particles, dtype=float, device=self.device)
 
+        # Stable particle identity. Every step rewrites pos_sim / vel in spatial-sort order, so the array
+        # index is not an identity; `pid[i]` is the id of the particle now stored at index i.
+        self.pid = wp.array(np.arange(num_particles, dtype=np.int32), dtype=wp.int32, device=self.device)
+        self.pid_sorted = wp.zeros(num_particles, dtype=wp.int32, device=self.device)
+
         # Warp 1.16+ CUDA Graph for zero-overhead physics launches
         self.cuda_graph = None
         self.rebuild_cuda_graph()
@@ -581,7 +605,7 @@ class RealtimeWCSPHSolver:
         return solver
 
     def get_vram_usage_mb(self) -> float:
-        bytes_per_particle = (5 * 12) + 4 + 12
+        bytes_per_particle = (5 * 12) + 4 + 12 + 2 * 4  # + pid and pid_sorted
         return (self.num_particles * bytes_per_particle) / (1024.0 * 1024.0)
 
     def step(self, pos_vbo_wp: wp.array, use_graph: bool = True):
@@ -589,11 +613,15 @@ class RealtimeWCSPHSolver:
             self.grid.build(points=self.pos_sim, radius=self.h)
 
             wp.launch(
-                kernel=k_reorder_soa,
+                kernel=k_reorder_soa_id,
                 dim=self.num_particles,
-                inputs=[self.grid.id, self.pos_sim, self.vel, self.pos_sorted, self.vel_sorted],
+                inputs=[self.grid.id, self.pos_sim, self.vel, self.pid,
+                        self.pos_sorted, self.vel_sorted, self.pid_sorted],
                 device=self.device,
             )
+            # pos_sim / vel leave this substep in sorted order, so the sorted ids become the ids. A swap, not a
+            # copy: the id arrays are never captured in the CUDA graph.
+            self.pid, self.pid_sorted = self.pid_sorted, self.pid
 
             self.grid.build(points=self.pos_sorted, radius=self.h)
 
