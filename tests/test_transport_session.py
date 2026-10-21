@@ -209,14 +209,17 @@ class WM:
 class Window:
     def as_pointer(self): return 0xABC
 class Scene: pass
+class Object: pass
 
 handles = []
 bpy = types.ModuleType('bpy')
 bpy.types = NS(Operator=Operator, Panel=object, AddonPreferences=object, Scene=Scene,
+               PropertyGroup=object, Object=Object,
                SpaceView3D=NS(draw_handler_add=lambda *a: handles.append(a) or 'draw',
                               draw_handler_remove=lambda h, r: handles.append(('removed', h))))
 bpy.props = types.ModuleType('bpy.props')
-for name in ('BoolProperty', 'EnumProperty', 'FloatProperty', 'FloatVectorProperty', 'IntProperty', 'StringProperty'):
+for name in ('BoolProperty', 'EnumProperty', 'FloatProperty', 'FloatVectorProperty', 'IntProperty', 'StringProperty',
+             'PointerProperty'):
     setattr(bpy.props, name, lambda **kw: kw.get('default'))
 bpy.utils = NS(register_class=lambda c: None, unregister_class=lambda c: None)
 def persistent(f): f._bpy_persistent = True; return f
@@ -233,6 +236,7 @@ import warp_sph_realtime as ext
 from warp_sph_realtime import addon
 from warp_sph_realtime.render import session as ts
 from warp_sph_realtime.render.transport import Capabilities, FatalTransportError, RecoverableTransportError
+from warp_sph_realtime.scene.description import SceneFillError, SceneValidationError
 
 class Solver:
     dt = 0.001
@@ -245,6 +249,14 @@ class Solver:
     def rebuild_cuda_graph(self):
         if Solver.rebuild_error: raise Solver.rebuild_error
     def update_time_step(self): pass
+    from_scene_calls, fill_count, fill_error = [], 777, None
+    @classmethod
+    def from_scene(cls, desc, spacing, substeps=2, stiffness=None, cfl_factor=None):
+        Solver.from_scene_calls.append((desc, spacing, substeps, stiffness, cfl_factor))
+        if Solver.fill_error: raise Solver.fill_error
+        solver = cls(Solver.fill_count, 2.0 * spacing, substeps, 0)
+        solver.stiffness, solver.cfl_factor = stiffness, cfl_factor
+        return solver
     def get_vram_usage_mb(self): return 1.0
     step_error = None
     def step(self, out, use_graph=True):
@@ -274,7 +286,7 @@ class Renderer:
     def draw(self, frame, settings): return False
     def free(self): pass
 
-FACTORY = NS(vulkan_error=None, gl_error=None, resolves=0, open_error=None)
+FACTORY = NS(vulkan_error=None, gl_error=None, resolves=0, open_error=None, counts=[])
 def resolve():
     FACTORY.resolves += 1
     return NS(available=True, reason='', detail='', resolved='profile')
@@ -287,6 +299,7 @@ def create_gl(count):
 real_open = ts.open_session
 def open_session(backend, count, window, *, interop_unavailable=''):
     if FACTORY.open_error: raise FACTORY.open_error
+    FACTORY.counts.append(count)
     return real_open(backend, count, window, interop_unavailable=interop_unavailable, resolve=resolve,
                      create_vulkan=create_vulkan, create_gl=create_gl, create_readback=lambda n, reason='': Transport(False, reason),
                      alloc=lambda n: 'scratch', renderer_factory=Renderer)
@@ -294,16 +307,27 @@ addon.transport_session.open_session = open_session
 addon.wp = NS(copy=lambda dst, src: None)  # marks the runtime active; no Warp import
 addon.RealtimeWCSPHSolver = Solver
 addon.launch_demo_scene_init = lambda solver, demo: None
-addon.build_blender_demo_helpers = lambda demo: None
+HELPERS = []
+addon.build_blender_demo_helpers = lambda demo: HELPERS.append('built:' + demo)
+addon.remove_blender_demo_helpers = lambda: HELPERS.append('removed')
+DESC = NS(calls=[], error=None)
+def description_from_blender(scene, depsgraph):
+    DESC.calls.append((scene, depsgraph))
+    if DESC.error: raise DESC.error
+    return 'desc'
+from warp_sph_realtime.scene import blender_scene
+blender_scene.description_from_blender = description_from_blender
 RT = addon.RT
 
 def make_context(areas=('VIEW_3D',)):
     scene = Scene()
     for k, v in dict(warp_sph_particle_count=1000, warp_sph_demo_scene='DOUBLE_DAM_PILLARS',
                      warp_sph_substeps=2, warp_sph_stiffness=1.0, warp_sph_time_step_scale=0.4,
-                     warp_sph_use_cuda_graph=True, warp_sph_show_particles=True).items():
+                     warp_sph_use_cuda_graph=True, warp_sph_show_particles=True,
+                     warp_sph_scene_source='DEMO', warp_sph_particle_spacing=0.02).items():
         setattr(scene, k, v)
-    return NS(scene=scene, window=Window(), window_manager=WM(), screen=NS(areas=[Area(a) for a in areas]))
+    return NS(scene=scene, window=Window(), window_manager=WM(), screen=NS(areas=[Area(a) for a in areas]),
+              evaluated_depsgraph_get=lambda: 'depsgraph')
 bpy.context = make_context()
 
 def reset():
@@ -314,6 +338,11 @@ def reset():
     Solver.fail = Solver.step_error = Solver.rebuild_error = None
     FACTORY.vulkan_error = FACTORY.gl_error = FACTORY.open_error = None
     FACTORY.resolves = 0
+    FACTORY.counts.clear()
+    Solver.from_scene_calls.clear()
+    Solver.fill_error = DESC.error = None
+    DESC.calls.clear()
+    HELPERS.clear()
     handles.clear()
     bpy.context = make_context()
     return bpy.context
@@ -803,6 +832,95 @@ def panel_offers_opengl_only_for_running_readback(ctx):
     start(ctx)
     assert 'wm.warp_sph_use_opengl' in panel_ops()            # Readback running
 
+@case
+def custom_start_builds_solver_from_description(ctx):
+    ctx.scene.warp_sph_scene_source = 'CUSTOM'
+    ctx.scene.warp_sph_particle_spacing = 0.025
+    op, result = start(ctx)
+    assert result == {'RUNNING_MODAL'} and RT.running and RT.active_demo == addon.CUSTOM_SCENE, result
+    assert DESC.calls == [(ctx.scene, 'depsgraph')]                     # evaluated depsgraph
+    assert Solver.from_scene_calls == [('desc', 0.025, 2, 1.0, 0.4)]   # spacing + speed settings
+    assert RT.solver.num_particles == 777 and FACTORY.counts == [777]  # output sized from the fill
+    assert HELPERS == ['removed']                                       # no demo wireframes
+    session = RT.session
+    assert ctx.scene.warp_sph_particle_count == 1000                    # demo slider is not the count
+    assert op.modal(ctx, TIMER) == {'PASS_THROUGH'} and RT.solver.steps == 1 and RT.session is session
+    assert ctx.window_manager.steps == [0.001]
+    ctx.scene.warp_sph_scene_source = 'DEMO'   # a source change while running applies on the next Start
+    assert op.modal(ctx, TIMER) == {'PASS_THROUGH'} and RT.solver.steps == 2 and RT.session is session
+
+@case
+def custom_scene_errors_are_reported_and_leave_nothing_behind(ctx):
+    for kind, message in (('validation', 'exactly one DOMAIN object is required; found 0 (none)'),
+                          ('fill', 'fluid volumes contain no particles at spacing 0.02')):
+        ctx = reset()
+        ctx.scene.warp_sph_scene_source = 'CUSTOM'
+        if kind == 'validation':
+            DESC.error = SceneValidationError(message)
+        else:
+            Solver.fill_error = SceneFillError(message)
+        op, result = start(ctx)
+        assert result == {'CANCELLED'} and op.reports[-1][0] == 'ERROR', (kind, result)
+        assert 'cannot start this scene' in op.reports[-1][1] and message in op.reports[-1][1]
+        assert RT.last_error == 'Scene not valid: ' + message
+        assert RT.session is None and RT.solver is None and not RT.running and RT.timer is None
+        assert not Transport.log and not addon._QUARANTINE and not RT.restart_required and not handles
+        assert not ctx.window_manager.timers and not ctx.window_manager.modals
+    ctx = reset()
+    ctx.scene.warp_sph_scene_source = 'CUSTOM'
+    op, result = start(ctx)                    # the next valid Start clears the message
+    assert result == {'RUNNING_MODAL'} and RT.last_error == ''
+
+@case
+def custom_start_on_legacy_gl_sizes_vbo_from_fill(ctx):
+    made = []
+    class GLBuffer:
+        def __init__(self, n): self.n, self.destroys = n, 0; made.append(self)
+        @contextlib.contextmanager
+        def mapped(self): yield 'vbo'
+        def destroy(self): self.destroys += 1
+    backend, gl_buffer = gpu.platform.backend_type_get, addon.ZeroCopyGLBuffer52
+    gpu.platform.backend_type_get, addon.ZeroCopyGLBuffer52 = (lambda: 'OPENGL'), GLBuffer
+    addon.wp.synchronize_device = lambda device: None
+    try:
+        ctx.scene.warp_sph_scene_source = 'CUSTOM'
+        op, result = start(ctx)
+        assert result == {'RUNNING_MODAL'} and RT.session is None
+        assert RT.gl_buf.n == RT.solver.num_particles == 777
+        assert op.modal(ctx, TIMER) == {'PASS_THROUGH'} and RT.solver.steps == 1 and len(made) == 1
+        addon._stop_session(ctx)
+        assert made[0].destroys == 1
+        DESC.error = SceneValidationError('fluid volume extends outside the domain')
+        ctx = make_context()
+        ctx.scene.warp_sph_scene_source = 'CUSTOM'
+        op, result = start(ctx)
+        assert result == {'CANCELLED'} and len(made) == 1 and RT.gl_buf is None  # no VBO for a bad scene
+    finally:
+        addon._stop_session(ctx)
+        gpu.platform.backend_type_get, addon.ZeroCopyGLBuffer52 = backend, gl_buffer
+
+@case
+def demo_start_never_reads_tagged_objects(ctx):
+    op, result = start(ctx)
+    assert result == {'RUNNING_MODAL'} and RT.active_demo == 'DOUBLE_DAM_PILLARS'
+    assert not DESC.calls and not Solver.from_scene_calls and FACTORY.counts == [1000]
+    assert HELPERS == ['built:DOUBLE_DAM_PILLARS']
+
+@case
+def load_demo_while_custom_runs(ctx):
+    ctx.scene.warp_sph_scene_source = 'CUSTOM'
+    start(ctx)
+    FACTORY.open_error = RuntimeError('oom')
+    op = addon.WM_OT_warp_sph_load_demo()
+    op.demo_id = 'BLOCK_FLOP_SPLASH'
+    assert op.execute(ctx) == {'CANCELLED'}
+    assert ctx.scene.warp_sph_scene_source == 'CUSTOM' and RT.active_demo == addon.CUSTOM_SCENE  # kept running
+    assert ctx.scene.warp_sph_particle_count == 1000
+    FACTORY.open_error = None
+    assert op.execute(ctx) == {'FINISHED'}
+    assert ctx.scene.warp_sph_scene_source == 'DEMO' and RT.active_demo == 'BLOCK_FLOP_SPLASH'
+    assert RT.solver.num_particles == 1000
+
 reset()
 ext.unregister()
 
@@ -821,7 +939,8 @@ print('LIFECYCLE_OK')
 
 class AddonLifecycleTest(unittest.TestCase):
     def test_lifecycle_with_fake_transport(self):
-        result = subprocess.run([sys.executable, '-c', LIFECYCLE], cwd=str(ROOT),
+        # Script on stdin: it outgrew the Windows command-line limit for `-c`.
+        result = subprocess.run([sys.executable, '-'], input=LIFECYCLE, cwd=str(ROOT),
                                 capture_output=True, text=True, timeout=60)
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertIn('LIFECYCLE_OK', result.stdout)

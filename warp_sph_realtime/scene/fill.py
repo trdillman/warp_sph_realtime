@@ -4,15 +4,13 @@ import numpy as np
 import warp as wp
 
 from ..sim.colliders import MeshSet
-from .description import SceneDescription
+from .description import SceneDescription, SceneFillError
+
+__all__ = ["MAX_LATTICE_CELLS", "SceneFillError", "fill_particles"]
 
 # Lattice cells tested per fill. Bounds the temporary flag array (1 byte per cell) when a sparse volume
 # or a tiny spacing would otherwise allocate gigabytes.
 MAX_LATTICE_CELLS = 1 << 27
-
-
-class SceneFillError(ValueError):
-    """The fluid volumes cannot be turned into a valid particle set."""
 
 
 @wp.func

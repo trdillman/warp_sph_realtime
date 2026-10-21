@@ -20,6 +20,13 @@ class SceneValidationError(ValueError):
     """The scene cannot be simulated as authored."""
 
 
+class SceneFillError(ValueError):
+    """The fluid volumes cannot be turned into a valid particle set (raised by scene.fill).
+
+    Defined here, not in fill.py, so callers can catch it without importing Warp.
+    """
+
+
 @dataclass(frozen=True, eq=False)
 class MeshData:
     """Triangle mesh in world space. Closed meshes must have outward-facing (counter-clockwise) faces."""

@@ -41,12 +41,24 @@ See [`docs/WARP_INSTALLATION.md`](./docs/WARP_INSTALLATION.md) and [`docs/INSTAL
 
 ## Quick Start (Running the Demos)
 1. Press `N` in the 3D Viewport to open the Sidebar and click the **WarpSPH** tab.
-2. Under **Quick-Run Demo Scenes**, click either:
+2. In the **Scene** box (source **Demo**), click either:
    * **Demo 1: Double Dam + Pillars**
    * **Demo 2: Block Flop Crown Splash**
 3. Drag the **Particles** slider (`100,000` – `4,000,000`) or toggle **Warp 1.17 CUDA Graph Capture** to benchmark real-time viewport throughput.
 4. Click **Pause** to freeze the physics (display settings stay live on the frozen frame), **Step** to advance one frame, and **Resume** to continue.
 5. Press `ESC` or click **Stop** to release GPU buffers.
+
+### Your Own Scene (domain, fluid, colliders)
+1. In the **Scene** box, choose **Custom**, then click **Add Fluid Scene** for a ready-made domain box, fluid block and
+   collider, or build your own: select a mesh and click **Domain**, **Fluid** or **Collider** (**Clear** removes the role).
+   The role is also on **Properties > Physics > WarpSPH Realtime Fluid**.
+   * **Domain**: exactly one; the simulation box is the object's world bounding box.
+   * **Fluid**: closed meshes, filled with particles when you press Start.
+   * **Collider**: closed meshes the fluid flows around (static).
+2. **Particle Spacing** sets the resolution (smaller = more particles); the panel shows the particle count after Start.
+   Problems (no domain, no fluid, fluid outside the domain) are listed in the box; Start refuses an invalid scene with
+   the reason.
+3. Moving or editing the objects takes effect on the next **Stop** + **Start** (no live re-meshing). Units: 1 Blender unit = 1 m.
 
 ### Panel Controls (apply live while running)
 | Section | Control | Effect |

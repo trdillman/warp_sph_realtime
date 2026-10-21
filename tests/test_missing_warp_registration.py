@@ -16,6 +16,7 @@ class BlockWarp(importlib.abc.MetaPathFinder):
 sys.meta_path.insert(0, BlockWarp())
 
 class Scene: pass
+class Object: pass
 class Operator:
     def report(self, level, message):
         self.last_report = message
@@ -24,10 +25,11 @@ class AddonPreferences: pass
 bpy=types.ModuleType("bpy")
 bpy.types=types.SimpleNamespace(
     Operator=Operator,Panel=Panel,AddonPreferences=AddonPreferences,Scene=Scene,
+    PropertyGroup=object,Object=Object,
     SpaceView3D=types.SimpleNamespace(draw_handler_add=lambda *a, **k:None,
                                      draw_handler_remove=lambda *a, **k:None))
 bpy.props=types.ModuleType("bpy.props")
-for name in ("BoolProperty","EnumProperty","FloatProperty","FloatVectorProperty","IntProperty","StringProperty"):
+for name in ("BoolProperty","EnumProperty","FloatProperty","FloatVectorProperty","IntProperty","StringProperty","PointerProperty"):
     setattr(bpy.props,name,lambda **kwargs: kwargs)
 registered=[]
 bpy.utils=types.SimpleNamespace(register_class=lambda cls:registered.append(cls),
@@ -52,6 +54,7 @@ addon.unregister()
 assert "warp" not in sys.modules
 assert len(registered) == 0
 assert not hasattr(bpy.types.Scene,"warp_sph_particle_count")
+assert not hasattr(bpy.types.Object,"warp_sph") and not hasattr(bpy.types.Scene,"warp_sph_scene_source")
 print("MISSING_WARP_REGISTRATION_OK")
 '''
 
