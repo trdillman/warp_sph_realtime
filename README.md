@@ -90,7 +90,7 @@ not supported.
 | Fluid | **Water / Viscous / Stylised** | Sets stiffness, time step, viscosity and sub-steps together (table below). The preset whose values are all set is highlighted; changing any one of them un-highlights it. Particle spacing and display settings are never touched. |
 | | **Viscosity** | How strongly each particle's velocity is pulled toward its neighbours' average (kg/s per particle, default `0.15`, range 0 to 20). Higher = thicker, slower flow and quicker settling. See the note below. |
 | Simulation Speed vs. Stability | **Sub-steps / Frame** | More physics steps per redraw: faster sim, lower FPS. |
-| | **Time Step (CFL)** | Step size as a fraction of the stability limit (default `0.4`). Higher = faster; above ~`0.5` impacts can blow up. |
+| | **Time Step (CFL)** | Step size as a fraction of the stability limit (default `0.4`). Higher = faster, but values above `0.4` can blow up on hard impacts at high particle counts (0.45 did at 1M). |
 | | **Fluid Stiffness** (Advanced) | Sets sound speed (default `90000`). Lower = larger steps and faster sim, but squishier and less stable. |
 | Viewport Display | **Show Particles** | Hide/show the particle overlay. |
 | | **Point Size** | Screen-space point size, 1–20 px (Raw Points mode). |
