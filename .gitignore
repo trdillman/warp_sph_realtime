@@ -16,3 +16,4 @@ evidence/
 /graft/
 .codex/poc-type-stubs/
 reports/review-project-progress/
+.claude/worktrees/
