@@ -200,3 +200,48 @@ class DrawContracts(unittest.TestCase):
 
 
 if __name__ == '__main__': unittest.main()
+
+
+class MappedVboScope(unittest.TestCase):
+    """P0.4: the legacy VBO is unmapped even when the solver step raises inside the mapping."""
+
+    def buffer(self, unmap_error=0):
+        buffer = v._ig.ZeroCopyGLBuffer52.__new__(v._ig.ZeroCopyGLBuffer52)
+        buffer.cuda_resource, buffer.byte_size, buffer.num_particles = ctypes.c_void_p(1), 12, 1
+        cudart = Mock()
+        cudart.cudaGraphicsMapResources.return_value = 0
+        cudart.cudaGraphicsUnmapResources.return_value = unmap_error
+
+        def mapped_pointer(ptr, size, resource):
+            ctypes.cast(ptr, ctypes.POINTER(ctypes.c_void_p))[0] = 0x1000
+            ctypes.cast(size, ctypes.POINTER(ctypes.c_size_t))[0] = 12
+            return 0
+        cudart.cudaGraphicsResourceGetMappedPointer.side_effect = mapped_pointer
+        return buffer, cudart
+
+    def test_step_failure_still_unmaps_and_propagates(self):
+        buffer, cudart = self.buffer()
+        with patch.object(v._ig._GLInterop, 'cudart', cudart, create=True), \
+                patch.object(v._ig, 'wrap_device_vec3', lambda ptr, n: ('array', ptr, n)):
+            with self.assertRaisesRegex(RuntimeError, 'step fault'):
+                with buffer.mapped() as positions:
+                    self.assertEqual(positions, ('array', 0x1000, 1))
+                    raise RuntimeError('step fault')
+        cudart.cudaGraphicsUnmapResources.assert_called_once()
+
+    def test_unmap_failure_after_step_failure_keeps_the_original_error(self):
+        buffer, cudart = self.buffer(unmap_error=700)  # sticky CUDA error: unmap fails too
+        with patch.object(v._ig._GLInterop, 'cudart', cudart, create=True), \
+                patch.object(v._ig, 'wrap_device_vec3', lambda ptr, n: None):
+            with self.assertRaisesRegex(RuntimeError, 'step fault') as caught:
+                with buffer.mapped():
+                    raise RuntimeError('step fault')
+        self.assertIn('700', str(caught.exception.__notes__))
+
+    def test_unmap_failure_on_success_is_raised(self):
+        buffer, cudart = self.buffer(unmap_error=700)
+        with patch.object(v._ig._GLInterop, 'cudart', cudart, create=True), \
+                patch.object(v._ig, 'wrap_device_vec3', lambda ptr, n: None):
+            with self.assertRaisesRegex(RuntimeError, 'cudaGraphicsUnmapResources failed with CUDA error 700'):
+                with buffer.mapped():
+                    pass

@@ -166,9 +166,8 @@ def _reallocate_and_init_scene(scene, num_p: int, demo_type: str, window=None):
         gl_buf = ZeroCopyGLBuffer52(num_p)
         try:
             solver = _new_solver(scene, num_p, demo_type)
-            pos_vbo_wp = gl_buf.map_to_warp()
-            wp.copy(pos_vbo_wp, solver.pos_sim)
-            gl_buf.unmap()
+            with gl_buf.mapped() as pos_vbo_wp:
+                wp.copy(pos_vbo_wp, solver.pos_sim)
         except BaseException:
             gl_buf.destroy()
             raise
@@ -342,9 +341,8 @@ class WM_OT_warp_sph_start(bpy.types.Operator):
                     # skips the step (backpressure) while a step is in flight or both slots are busy.
                     stepped = RT.session.tick(lambda out: solver.step(out, use_graph=use_graph))
                 else:
-                    pos_vbo_wp = RT.gl_buf.map_to_warp()
-                    solver.step(pos_vbo_wp, use_graph=use_graph)
-                    RT.gl_buf.unmap()
+                    with RT.gl_buf.mapped() as pos_vbo_wp:
+                        solver.step(pos_vbo_wp, use_graph=use_graph)
                     wp.synchronize_device("cuda:0")
                     stepped = True
             except FatalTransportError as exc:

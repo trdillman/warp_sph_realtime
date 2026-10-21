@@ -190,7 +190,7 @@ class SessionTickCloseTest(unittest.TestCase):
 # Add-on lifecycle runs in a separate interpreter: it needs its own fake bpy (see
 # test_missing_warp_registration.py) and must not share module state with test_blender_mock.
 LIFECYCLE = r'''
-import sys, types
+import contextlib, sys, types
 from types import SimpleNamespace as NS
 
 class Operator:
@@ -541,6 +541,8 @@ def gl_resize_commits_solver_with_buffer(ctx):
         def __init__(self, n): self.n, self.destroys = n, 0
         def map_to_warp(self): return 'vbo'
         def unmap(self): pass
+        @contextlib.contextmanager
+        def mapped(self): yield 'vbo'
         def destroy(self):
             self.destroys += 1
             if self.n == 1000 and self.destroys == 1: raise RuntimeError('old VBO release failed')

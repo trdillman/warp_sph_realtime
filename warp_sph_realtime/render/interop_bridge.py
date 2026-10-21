@@ -1,3 +1,4 @@
+import contextlib
 import ctypes
 import os
 import sys
@@ -488,6 +489,24 @@ class ZeroCopyGLBuffer52:
         err = _GLInterop.cudart.cudaGraphicsUnmapResources(1, ctypes.byref(self.cuda_resource), ctypes.c_void_p(0))
         if err != 0:
             raise RuntimeError(f"cudaGraphicsUnmapResources failed with CUDA error {err}")
+
+    @contextlib.contextmanager
+    def mapped(self):
+        """Map for CUDA writes and always unmap, so a failing step never leaves the VBO mapped.
+
+        After a sticky CUDA error the unmap fails as well; the step's error stays the one raised
+        and the unmap failure is attached as a note.
+        """
+        positions = self.map_to_warp()
+        try:
+            yield positions
+        except BaseException as exc:
+            try:
+                self.unmap()
+            except RuntimeError as unmap_exc:
+                exc.add_note(f"VBO unmap after the failure also failed: {unmap_exc}")
+            raise
+        self.unmap()
 
     def _vao_for_current_context(self) -> int:
         ctx = _GLInterop.current_context()
