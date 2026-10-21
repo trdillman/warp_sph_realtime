@@ -21,6 +21,11 @@ from .render.transport import COMPLETED, FAILED, QUARANTINED, FatalTransportErro
 
 _LOG = logging.getLogger(__name__)
 
+# OpenGL display modes drawn from the GLInterop texture (session) path. SSFR and sphere impostors
+# stay on the legacy raw-GL VBO path until P0.13.
+GL_TEXTURE_MODES = ("POINTS",)
+_BACKEND_NAMES = {"VULKAN": "Vulkan", "OPENGL": "OpenGL"}
+
 wp = None
 ZeroCopyGLBuffer52 = None
 RealtimeWCSPHSolver = None
@@ -52,8 +57,8 @@ def _activate_runtime():
     draw_particles_viewport = viewport.draw_particles_viewport
 
 class _SimRuntime:
-    gl_buf: ZeroCopyGLBuffer52 | None = None   # legacy OpenGL VBO path only
-    session: transport_session.TransportSession | None = None  # every other backend
+    gl_buf: ZeroCopyGLBuffer52 | None = None   # legacy OpenGL VBO path (SSFR, spheres)
+    session: transport_session.TransportSession | None = None  # Vulkan/other backends; OpenGL Points
     solver: RealtimeWCSPHSolver | None = None
     draw_handle = None
     timer = None
@@ -135,6 +140,13 @@ def _diagnostics_report() -> str:
     return diagnostics.build_report(data, lambda: diagnostics.read_log_tail(diagnostics.log_path()))
 
 
+def _gl_uses_texture(scene) -> bool:
+    """OpenGL route, fixed for a run: chosen from the display mode at Start, kept through resizes."""
+    if RT.session is not None or RT.gl_buf is not None:
+        return RT.session is not None
+    return getattr(scene, "warp_sph_render_mode", "SSFR_LIQUID") in GL_TEXTURE_MODES
+
+
 def _report_draw_failure(exc: Exception):
     """Stop the run and log each distinct draw failure once, never once per redraw."""
     RT.last_error = f"Viewport draw failed: {exc}"
@@ -175,7 +187,7 @@ def _retire_session(session):
         _QUARANTINE.append(session)
     if result == QUARANTINED:  # Blender objects retained: do not create more interop objects
         RT.interop_unavailable = RT.interop_unavailable or \
-            "Vulkan interop cleanup was quarantined (no GPU-context route)"
+            f"{_BACKEND_NAMES.get(session.backend, session.backend)} interop cleanup was quarantined (no GPU-context route)"
     if result == FAILED:
         _mark_fatal(session.fatal_reason or "transport cleanup did not complete; ownership retained")
 
@@ -199,7 +211,7 @@ def _reallocate_and_init_scene(scene, num_p: int, demo_type: str, window=None):
     """Transactional: the new output and solver are built while the old ones stay live;
     on failure the new ones are released and the running session is untouched."""
     backend = _gpu_backend()
-    if backend == 'OPENGL':
+    if backend == 'OPENGL' and not _gl_uses_texture(scene):
         gl_buf = ZeroCopyGLBuffer52(num_p)
         try:
             solver = _new_solver(scene, num_p, demo_type)
@@ -234,14 +246,15 @@ def _reallocate_and_init_scene(scene, num_p: int, demo_type: str, window=None):
             raise
         zero_copy = session.transport.capabilities().zero_copy
         old_session, old_solver = RT.session, RT.solver
-        if backend == 'VULKAN' and not zero_copy:
+        if backend in _BACKEND_NAMES and not zero_copy:
             if old_session is not None and old_session.transport.capabilities().zero_copy:
                 # A resize must not silently downgrade a working interop session.
                 _retire_session(session)
                 if RT.restart_required:
                     _QUARANTINE.append(solver)
                     raise FatalTransportError(RT.restart_required)
-                raise RuntimeError(f"new size cannot use Vulkan interop ({session.reason}); kept the current size")
+                raise RuntimeError(
+                    f"new size cannot use {_BACKEND_NAMES[backend]} interop ({session.reason}); kept the current size")
             RT.interop_unavailable = session.reason  # fall back once; no interop retries
         # Commit point: output and solver switch together, before the old session is retired.
         RT.session = session
@@ -523,9 +536,9 @@ class WM_OT_warp_sph_step_frame(bpy.types.Operator):
 
 
 def _readback_active() -> bool:
-    """True while the running transport is the Readback compatibility path (from what runs, not prefs)."""
+    """True while Readback runs on a backend where OpenGL would help (from what runs, not prefs)."""
     session = RT.session
-    return session is not None and not session.transport.capabilities().zero_copy
+    return session is not None and session.backend != 'OPENGL' and not session.transport.capabilities().zero_copy
 
 
 class WM_OT_warp_sph_use_opengl(bpy.types.Operator):
@@ -636,7 +649,7 @@ class VIEW3D_PT_warp_sph(bpy.types.Panel):
                 status_box.label(text=RT.session.reason)
             if _readback_active():
                 status_box.operator("wm.warp_sph_use_opengl", icon='PREFERENCES')
-        elif RT.interop_unavailable:
+        elif RT.interop_unavailable and RT.gl_buf is None:
             status_box.label(text=RT.interop_unavailable + " (Readback until restart)", icon='INFO')
         if RT.last_close and RT.last_close != COMPLETED:
             status_box.label(text=f"Last GPU cleanup: {RT.last_close} (retained until exit)", icon='ERROR')

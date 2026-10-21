@@ -3,7 +3,8 @@
 One six-vertex quad batch drawn instanced ``frame.count`` times; the vertex stage fetches
 its position with texelFetch by gpu_InstanceIndex from the 4096-wide RGBA32F texture.
 Uses only the public gpu module, so it runs on Vulkan, Metal and OpenGL. The legacy raw-GL
-SSFR liquid stays OpenGL-only; other backends draw shaded spheres for SSFR mode.
+SSFR liquid stays OpenGL-only; other backends draw shaded spheres for SSFR mode. On OpenGL this
+renderer serves the GLInterop texture session (Points mode, chosen at Start).
 Sphere depth is the billboard plane (no per-fragment depth write), matching visual parity
 at viewport scale; exact sphere depth is not claimed.
 """
@@ -66,7 +67,12 @@ def settings_from_scene(scene, backend: str) -> DrawSettings:
     mode = getattr(scene, 'warp_sph_render_mode', 'SSFR_LIQUID')
     if mode == 'POINTS':
         return DrawSettings(POINTS, float(getattr(scene, 'warp_sph_point_size', 2.5)), color, depth)
-    note = '' if mode == 'SPHERES' else f'SSFR liquid is OpenGL-only; drawing spheres on {backend}'
+    if mode == 'SPHERES':
+        note = ''
+    elif backend == 'OPENGL':  # a texture session is running: SSFR needs the legacy path, chosen at Start
+        note = 'SSFR liquid needs the legacy OpenGL path: stop and start with SSFR selected; drawing spheres'
+    else:
+        note = f'SSFR liquid is OpenGL-only; drawing spheres on {backend}'
     return DrawSettings(SPHERES, float(getattr(scene, 'warp_sph_particle_radius', 0.022)), color, depth, note)
 
 

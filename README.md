@@ -6,7 +6,8 @@
 
 ## Key Features
 * **GPU-resident viewport rendering (no CPU readback):**
-  * **OpenGL (legacy VBO interop):** maps a Blender OpenGL Core VAO/VBO to a CUDA device pointer (`cudaGraphicsGLRegisterBuffer` $\rightarrow$ `wp.from_ptr`). Draw modes: raw points, spheres, and the 5-pass SSFR (screen-space fluid) renderer.
+  * **OpenGL (legacy VBO interop):** maps a Blender OpenGL Core VAO/VBO to a CUDA device pointer (`cudaGraphicsGLRegisterBuffer` $\rightarrow$ `wp.from_ptr`). Draw modes: spheres and the 5-pass SSFR (screen-space fluid) renderer.
+  * **OpenGL Points (`render/transport_gl.py`):** the GLInterop texture adapter, chosen when Start is pressed with Points mode: GPU copy into an RGBA32F `GPUTexture` via `cudaGraphicsGLRegisterImage`, no CPU readback, drawn by `render/gpu_points.py`. If it cannot start it falls back once to a labelled **Readback**.
   * **Vulkan (`render/transport_vulkan.py`):** GPU copy, no CPU readback ("zero host-copy"). Available only on the exact certified Blender 5.2.0 build; any other Vulkan build runs a labelled **Readback** fallback. Draws points or spheres through Blender's `gpu` module (`render/gpu_points.py`). SSFR is not available on Vulkan; the SSFR mode shows spheres with a note.
 * **Coalesced SoA Memory + $O(n)$ Spatial Hash:** Uses 12-byte `float3` Structure of Arrays (SoA) buffers with cell-sorted reordering (`k_reorder_soa`) to eliminate GPU L2 cache thrashing during turbulent 27-cell neighbor queries.
 * **Warp 1.17 CUDA Graph Execution:** Captures density summation, WCSPH symmetric pressure/viscosity forces, SDF obstacle collisions, and copy-back into a single CUDA Graph (`wp.ScopedCapture`).

@@ -15,6 +15,13 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Vulkan GPU interop transport (GPU copy, no CPU readback) for the exact certified Blender 5.2.0
   build, a labelled Readback fallback for other Vulkan builds, and a `gpu`-module points/spheres
   renderer. SSFR remains OpenGL-only; on Vulkan it shows spheres with a note.
+- GLInterop texture transport (`render/transport_gl.py`, GPU copy, no CPU readback) for Points mode on
+  Blender's OpenGL backend. It registers an RGBA32F `GPUTexture` with CUDA (`cudaGraphicsGLRegisterImage`),
+  publishes positions on the solver stream, is drawn by the `gpu`-module points renderer through the
+  same `TransportSession` seam as Vulkan, and falls back once to the labelled Readback transport. The route
+  is chosen when Start is pressed; SSFR liquid and sphere impostors keep the legacy OpenGL VBO path
+  until P0.13. The Blender Python `GPUTexture` has no GL name, so the adapter identifies it by content
+  once at setup and verifies the copy path with a 4x4 known-answer self-test.
 - Manifest `tags = ["Physics"]`.
 - Experimental differentiable-pour, keyframe and compliant-contact studies (not shipped).
 - Pause / single-step simulation controls and fine-step particle radius.

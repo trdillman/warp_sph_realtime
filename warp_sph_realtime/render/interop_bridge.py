@@ -115,6 +115,8 @@ class _GLInterop:
     glGetIntegerv = None
     glViewport = None
     glGetError = None
+    glIsTexture = None
+    glGetTextureSubImage = None
 
     # FBO, Blit, Texture & Shader functions for SSFR
     glGenFramebuffers = None
@@ -312,6 +314,11 @@ class _GLInterop:
         cls.glUniform4f = _gl_fn("glUniform4f", None, [ctypes.c_int, ctypes.c_float, ctypes.c_float, ctypes.c_float, ctypes.c_float])
         cls.glUniformMatrix4fv = _gl_fn("glUniformMatrix4fv", None, [ctypes.c_int, ctypes.c_int, ctypes.c_ubyte, ctypes.POINTER(ctypes.c_float)])
         cls.glGetError = _gl_fn("glGetError", ctypes.c_uint, [])
+        cls.glIsTexture = _gl_fn("glIsTexture", ctypes.c_ubyte, [ctypes.c_uint])
+        cls.glGetTextureSubImage = _gl_fn(
+            "glGetTextureSubImage", None,
+            [ctypes.c_uint, ctypes.c_int] + [ctypes.c_int] * 6 + [ctypes.c_uint, ctypes.c_uint, ctypes.c_int, ctypes.c_void_p],
+        )
 
         cls._initialized = True
 
@@ -568,3 +575,133 @@ class ZeroCopyGLBuffer52:
         if vao is not None:
             _GLInterop.glDeleteVertexArrays(1, ctypes.byref(vao))
         self.vaos.clear()
+
+
+GL_TEXTURE_WIDTH, GL_TEXTURE_HEIGHT, GL_TEXTURE_INTERNAL_FORMAT = 0x1000, 0x1001, 0x1003
+GL_RGBA32F = 0x8814
+CUDA_NOT_READY = 600           # cudaErrorNotReady: the only non-zero cudaEventQuery result that is not an error
+CUDA_MEMCPY_DEVICE_TO_DEVICE = 3
+CUDA_GRAPHICS_REGISTER_WRITE_DISCARD = 2
+MAX_TEXTURE_NAME = 1 << 16     # GL names are small dense integers (a Blender session holds tens to a few thousand)
+
+
+class GLTextureNative:
+    """Real cudart/GL seam for ``transport_gl.GLInteropTransport``; every CUDA call returns its raw code.
+
+    Blender's Python ``GPUTexture`` exposes no GL name (no ``bindcode``, and ``Image.bindcode`` was removed),
+    so ``identify`` finds it: it clears the texture to a random sentinel and scans GL texture names
+    with matching size and format for that content. This runs once per texture at setup and is
+    verified by content, not guessed; it never touches the per-frame path.
+    """
+
+    def __init__(self, device: str = 'cuda:0'):
+        _GLInterop.ensure_initialized()  # RuntimeError: no CUDA 12.9 runtime or GL entry points
+        self.device = device
+        rt = _GLInterop.cudart
+        p, size_t, uint = ctypes.c_void_p, ctypes.c_size_t, ctypes.c_uint
+        specs = {
+            'cudaGraphicsGLRegisterImage': [ctypes.POINTER(p), uint, uint, uint],
+            'cudaGraphicsMapResources': [ctypes.c_int, ctypes.POINTER(p), p],
+            'cudaGraphicsSubResourceGetMappedArray': [ctypes.POINTER(p), p, uint, uint],
+            'cudaMemcpy2DToArrayAsync': [p, size_t, size_t, p, size_t, size_t, size_t, ctypes.c_int, p],
+            'cudaGraphicsUnmapResources': [ctypes.c_int, ctypes.POINTER(p), p],
+            'cudaGraphicsUnregisterResource': [p],
+            'cudaEventCreateWithFlags': [ctypes.POINTER(p), uint],
+            'cudaEventRecord': [p, p],
+            'cudaEventQuery': [p],
+            'cudaEventDestroy': [p],
+            'cudaMemGetInfo': [ctypes.POINTER(size_t), ctypes.POINTER(size_t)],
+        }
+        for name, argtypes in specs.items():
+            fn = getattr(rt, name)
+            fn.argtypes, fn.restype = argtypes, ctypes.c_int
+
+    # -- OpenGL / Blender -----------------------------------------------------------------
+    def backend_is_opengl(self) -> bool:
+        return gpu.platform.backend_type_get() == 'OPENGL'
+
+    def max_texture_size(self) -> int:
+        return gpu.capabilities.max_texture_size_get()
+
+    def check_gl_device(self) -> str:
+        """'' when the current GL context sits on CUDA device 0, else the reason it does not."""
+        try:
+            _GLInterop.validate_gl_cuda_device()  # also raises when no GL context is current
+        except RuntimeError as exc:
+            return str(exc)
+        return ''
+
+    def create_texture(self, width: int, height: int):
+        return gpu.types.GPUTexture((width, height), format='RGBA32F')
+
+    def identify(self, texture, width: int, height: int) -> int:
+        """GL name of ``texture`` (0 when not found); the texture's content is overwritten."""
+        import random
+        sentinel = tuple(ctypes.c_float(random.uniform(1.0, 2.0)).value for _ in range(4))
+        texture.clear(format='FLOAT', value=sentinel)
+        gl, texel = _GLInterop, (ctypes.c_float * 4)()
+        size = [ctypes.c_int() for _ in range(3)]
+        for name in range(1, MAX_TEXTURE_NAME):
+            if not gl.glIsTexture(name):
+                continue
+            for value, pname in zip(size, (GL_TEXTURE_WIDTH, GL_TEXTURE_HEIGHT, GL_TEXTURE_INTERNAL_FORMAT)):
+                gl.glGetTextureLevelParameteriv(name, 0, pname, ctypes.byref(value))
+            if tuple(v.value for v in size) != (width, height, GL_RGBA32F):
+                continue
+            gl.glGetTextureSubImage(name, 0, 0, 0, 0, 1, 1, 1, GL_RGBA, GL_FLOAT, 16, ctypes.byref(texel))
+            if tuple(texel) == sentinel:
+                return name
+        return 0
+
+    def read_texture(self, texture):
+        """One-time self-test readback only."""
+        import numpy as np
+        return np.array(texture.read(), dtype=np.float32).reshape(-1, 4)
+
+    # -- CUDA runtime ---------------------------------------------------------------------
+    def mem_info(self) -> tuple[int, int, int]:
+        free, total = ctypes.c_size_t(), ctypes.c_size_t()
+        code = _GLInterop.cudart.cudaMemGetInfo(ctypes.byref(free), ctypes.byref(total))
+        return code, free.value, total.value
+
+    def register_image(self, name: int) -> tuple[int, int]:
+        resource = ctypes.c_void_p(0)
+        code = _GLInterop.cudart.cudaGraphicsGLRegisterImage(
+            ctypes.byref(resource), name, GL_TEXTURE_2D, CUDA_GRAPHICS_REGISTER_WRITE_DISCARD)
+        return code, resource.value or 0
+
+    def map(self, resource: int, stream: int) -> int:
+        res = ctypes.c_void_p(resource)
+        return _GLInterop.cudart.cudaGraphicsMapResources(1, ctypes.byref(res), ctypes.c_void_p(stream))
+
+    def mapped_array(self, resource: int) -> tuple[int, int]:
+        array = ctypes.c_void_p(0)
+        code = _GLInterop.cudart.cudaGraphicsSubResourceGetMappedArray(
+            ctypes.byref(array), ctypes.c_void_p(resource), 0, 0)
+        return code, array.value or 0
+
+    def copy_to_array(self, array: int, src: int, pitch: int, width_bytes: int, rows: int, stream: int) -> int:
+        return _GLInterop.cudart.cudaMemcpy2DToArrayAsync(
+            ctypes.c_void_p(array), 0, 0, ctypes.c_void_p(src), pitch, width_bytes, rows,
+            CUDA_MEMCPY_DEVICE_TO_DEVICE, ctypes.c_void_p(stream))
+
+    def unmap(self, resource: int, stream: int) -> int:
+        res = ctypes.c_void_p(resource)
+        return _GLInterop.cudart.cudaGraphicsUnmapResources(1, ctypes.byref(res), ctypes.c_void_p(stream))
+
+    def unregister(self, resource: int) -> int:
+        return _GLInterop.cudart.cudaGraphicsUnregisterResource(ctypes.c_void_p(resource))
+
+    def event_create(self) -> tuple[int, int]:
+        event = ctypes.c_void_p(0)
+        code = _GLInterop.cudart.cudaEventCreateWithFlags(ctypes.byref(event), 2)  # cudaEventDisableTiming
+        return code, event.value or 0
+
+    def event_record(self, event: int, stream: int) -> int:
+        return _GLInterop.cudart.cudaEventRecord(ctypes.c_void_p(event), ctypes.c_void_p(stream))
+
+    def event_query(self, event: int) -> int:
+        return _GLInterop.cudart.cudaEventQuery(ctypes.c_void_p(event))
+
+    def event_destroy(self, event: int) -> int:
+        return _GLInterop.cudart.cudaEventDestroy(ctypes.c_void_p(event))

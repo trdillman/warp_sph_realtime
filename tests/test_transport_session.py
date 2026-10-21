@@ -274,18 +274,21 @@ class Renderer:
     def draw(self, frame, settings): return False
     def free(self): pass
 
-FACTORY = NS(vulkan_error=None, resolves=0, open_error=None)
+FACTORY = NS(vulkan_error=None, gl_error=None, resolves=0, open_error=None)
 def resolve():
     FACTORY.resolves += 1
     return NS(available=True, reason='', detail='', resolved='profile')
 def create_vulkan(resolved, count, *, window):
     if FACTORY.vulkan_error: raise FACTORY.vulkan_error
     return Transport(True)
+def create_gl(count):
+    if FACTORY.gl_error: raise FACTORY.gl_error
+    return Transport(True)
 real_open = ts.open_session
 def open_session(backend, count, window, *, interop_unavailable=''):
     if FACTORY.open_error: raise FACTORY.open_error
     return real_open(backend, count, window, interop_unavailable=interop_unavailable, resolve=resolve,
-                     create_vulkan=create_vulkan, create_readback=lambda n, reason='': Transport(False, reason),
+                     create_vulkan=create_vulkan, create_gl=create_gl, create_readback=lambda n, reason='': Transport(False, reason),
                      alloc=lambda n: 'scratch', renderer_factory=Renderer)
 addon.transport_session.open_session = open_session
 addon.wp = NS(copy=lambda dst, src: None)  # marks the runtime active; no Warp import
@@ -308,7 +311,8 @@ def reset():
     RT.restart_required = RT.interop_unavailable = RT.last_close = RT.last_error = ''
     addon._QUARANTINE.clear()
     Transport.log.clear()
-    Solver.fail = Solver.step_error = Solver.rebuild_error = FACTORY.vulkan_error = FACTORY.open_error = None
+    Solver.fail = Solver.step_error = Solver.rebuild_error = None
+    FACTORY.vulkan_error = FACTORY.gl_error = FACTORY.open_error = None
     FACTORY.resolves = 0
     handles.clear()
     bpy.context = make_context()
@@ -558,6 +562,80 @@ def gl_resize_commits_solver_with_buffer(ctx):
     finally:
         addon._stop_session(ctx)
         gpu.platform.backend_type_get, addon.ZeroCopyGLBuffer52 = backend, gl_buffer
+
+class GLBackend:
+    """Run a case on the OpenGL backend with a fake legacy VBO (the real one needs a GL context)."""
+    class Buffer:
+        def __init__(self, n): self.n, self.destroys = n, 0
+        def map_to_warp(self): return 'vbo'
+        def unmap(self): pass
+        def destroy(self): self.destroys += 1
+    def __enter__(self):
+        self.saved = gpu.platform.backend_type_get, addon.ZeroCopyGLBuffer52
+        gpu.platform.backend_type_get, addon.ZeroCopyGLBuffer52 = (lambda: 'OPENGL'), self.Buffer
+        addon.wp.synchronize_device = lambda device: None
+    def __exit__(self, *exc):
+        addon._stop_session(bpy.context)
+        gpu.platform.backend_type_get, addon.ZeroCopyGLBuffer52 = self.saved
+
+@case
+def opengl_points_runs_through_gl_texture_session(ctx):
+    ctx.scene.warp_sph_render_mode = 'POINTS'
+    with GLBackend():
+        op, result = start(ctx)
+        assert result == {'RUNNING_MODAL'} and RT.gl_buf is None and RT.session.backend == 'OPENGL'
+        assert RT.session.label == ts.GL_LABEL and FACTORY.resolves == 0 and not RT.interop_unavailable
+        assert op.modal(ctx, TIMER) == {'PASS_THROUGH'} and RT.solver.steps == 1
+        # the route is fixed for the run: a mode flip plus a resize stays on the session
+        ctx.scene.warp_sph_render_mode = 'SSFR_LIQUID'
+        ctx.scene.warp_sph_particle_count = 2000
+        old = RT.session
+        assert op.modal(ctx, TIMER) == {'PASS_THROUGH'}
+        assert RT.gl_buf is None and RT.session is not old and old.transport.closes == 1
+        addon._stop_session(ctx)
+        assert Transport.log[-1].closes == 1 and RT.session is None
+
+@case
+def opengl_ssfr_and_spheres_keep_the_legacy_vbo_path(ctx):
+    with GLBackend():
+        for mode in ('SSFR_LIQUID', 'SPHERES'):
+            ctx = reset()
+            ctx.scene.warp_sph_render_mode = mode
+            op, result = start(ctx)
+            assert result == {'RUNNING_MODAL'} and RT.session is None and RT.gl_buf is not None, mode
+            assert op.modal(ctx, TIMER) == {'PASS_THROUGH'} and RT.solver.steps == 1
+            assert not Transport.log
+            buf = RT.gl_buf
+            addon._stop_session(ctx)
+            assert buf.destroys == 1 and RT.gl_buf is None
+
+@case
+def opengl_texture_failure_falls_back_once_to_labelled_readback(ctx):
+    FACTORY.gl_error = RecoverableTransportError('cudaGraphicsGLRegisterImage failed')
+    ctx.scene.warp_sph_render_mode = 'POINTS'
+    with GLBackend():
+        start(ctx)
+        assert RT.session.label == ts.READBACK_LABEL and RT.gl_buf is None
+        assert 'OpenGL interop unavailable' in RT.interop_unavailable
+        assert not addon._readback_active()                   # already on OpenGL: no "switch to OpenGL" offer
+        addon._stop_session(ctx)
+        FACTORY.gl_error = None
+        ctx = bpy.context = make_context()
+        ctx.scene.warp_sph_render_mode = 'POINTS'
+        start(ctx)
+        assert RT.session.label == ts.READBACK_LABEL          # sticky until restart, no retry loop
+        addon._stop_session(ctx)
+        ctx.scene.warp_sph_render_mode = 'SSFR_LIQUID'        # legacy modes ignore the interop flag
+        start(ctx)
+        assert RT.session is None and RT.gl_buf is not None
+
+@case
+def opengl_texture_fatal_failure_requires_restart(ctx):
+    FACTORY.open_error = FatalTransportError('cuda context lost')
+    ctx.scene.warp_sph_render_mode = 'POINTS'
+    with GLBackend():
+        assert start(ctx)[1] == {'CANCELLED'} and RT.restart_required == 'cuda context lost'
+        assert RT.gl_buf is None and RT.session is None
 
 @case
 def resize_never_downgrades_interop(ctx):

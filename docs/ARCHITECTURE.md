@@ -62,9 +62,10 @@ They are not zero GPU copy; see the top of [`VULKAN_ZERO_COPY_PLAN.md`](./VULKAN
 | `warp_installer.py`, `warp_runtime.py`, `warp_wheels.lock.json` | SHA-256-locked `warp-lang==1.17.0` (CUDA 12.9) install into extension storage and the runtime gate. |
 | `sim/sim_core.py` | `RealtimeWCSPHSolver`: SoA buffers, `wp.HashGrid`, `k_reorder_soa`, cubic-spline WCSPH, SDF obstacle collisions, CUDA Graph capture. |
 | `scene/scene_config.py`, `scene/demo_scenes.py` | Regime presets (`WATER`, `MILK`, `SHOCKWAVE`) and the two demo scenes (`DOUBLE_DAM_PILLARS`, `BLOCK_FLOP_SPLASH`). |
-| `render/interop_bridge.py` | OpenGL VAO/VBO creation and `cudaGraphicsGLRegisterBuffer` mapping. |
+| `render/interop_bridge.py` | OpenGL VAO/VBO creation and `cudaGraphicsGLRegisterBuffer` mapping (legacy SSFR/spheres path), plus the cudart/GL seam for the GLInterop texture adapter. |
+| `render/transport_gl.py` | GLInterop texture adapter for Points on the OpenGL backend: pack kernel, `cudaGraphicsGLRegisterImage`, GPU copy into a `GPUTexture`, no CPU readback; falls back once to labelled Readback. |
 | `render/viewport_draw.py`, `render/ssfr_shaders.py` | OpenGL draw callbacks: points, spheres and the SSFR liquid renderer. |
-| `render/session.py`, `render/transport.py` | Transport session owner and contract; Vulkan tries the exact-build adapter and falls back once to the labelled Readback transport. |
+| `render/session.py`, `render/transport.py` | Transport session owner and contract; Vulkan tries the exact-build adapter and OpenGL (Points mode) the GLInterop texture adapter; each falls back once to the labelled Readback transport. |
 | `render/transport_vulkan.py`, `render/blender_symbols*.py`, `render/profiles/` | Vulkan CUDA interop for the exact certified Blender 5.2.0 build, with symbol resolution profiles. |
 | `render/gpu_points.py` | Backend-neutral points/spheres draw via Blender's `gpu` module. On Vulkan, SSFR mode shows spheres with a note; SSFR is OpenGL-only. |
 
