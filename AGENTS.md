@@ -96,6 +96,7 @@ All paths are relative to the `warp_sph_realtime/` package folder. Use relative 
 * `render/ssfr_shaders.py` — SSFR GLSL sources and CPU reference math.
 * `sim/sim_core.py` — Primary `RealtimeWCSPHSolver`, cubic spline kernels, SoA reordering, and CUDA Graph capture.
 * `scene/demo_scenes.py` — GPU particle initializers and Blender wireframe/collider helper meshes for Demo 1 & Demo 2.
+* `sim/validation.py` — Headless physics validation (dam-break front vs Martin & Moyce, conservation, energy, rest density) on any Warp device; see `docs/VALIDATION.md`.
 * `sim/colliders.py` — Static mesh colliders: one `wp.Mesh` per collider (winding-number signed distance), mesh ids passed to kernels as a uint64 array.
 * `scene/description.py` — Pure-NumPy `SceneDescription`/`MeshData` and validation (no bpy, no Warp).
 * `scene/fill.py` — Lattice particle fill of fluid volumes (`fill_particles`); `RealtimeWCSPHSolver.from_scene` builds a solver from a description.

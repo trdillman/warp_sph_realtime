@@ -429,7 +429,11 @@ class RealtimeWCSPHSolver:
         h: float = 0.04,
         substeps: int = 2,
         enable_obstacles: int = 1,
+        device: str = "cuda:0",
     ):
+        # The product always runs on cuda:0 (never silently changed). "cpu" exists for headless
+        # validation in CI without a GPU: eager launches only, no CUDA graph.
+        self.device = device
         self.num_particles = num_particles
         self.h = h
         self.substeps = substeps
@@ -450,16 +454,16 @@ class RealtimeWCSPHSolver:
         self.collider_radius = 0.0
 
         # O(n) spatial hash grid (128^3 cells)
-        self.grid = wp.HashGrid(128, 128, 128, device="cuda:0")
+        self.grid = wp.HashGrid(128, 128, 128, device=self.device)
 
         # Primary SoA GPU Buffers
-        self.pos_sim = wp.zeros(num_particles, dtype=wp.vec3, device="cuda:0")
-        self.vel = wp.zeros(num_particles, dtype=wp.vec3, device="cuda:0")
+        self.pos_sim = wp.zeros(num_particles, dtype=wp.vec3, device=self.device)
+        self.vel = wp.zeros(num_particles, dtype=wp.vec3, device=self.device)
 
         # Reordered SoA Buffers for Coalesced L2 Cache Neighbor Traversal
-        self.pos_sorted = wp.zeros(num_particles, dtype=wp.vec3, device="cuda:0")
-        self.vel_sorted = wp.zeros(num_particles, dtype=wp.vec3, device="cuda:0")
-        self.density_sorted = wp.zeros(num_particles, dtype=float, device="cuda:0")
+        self.pos_sorted = wp.zeros(num_particles, dtype=wp.vec3, device=self.device)
+        self.vel_sorted = wp.zeros(num_particles, dtype=wp.vec3, device=self.device)
+        self.density_sorted = wp.zeros(num_particles, dtype=float, device=self.device)
 
         # Warp 1.16+ CUDA Graph for zero-overhead physics launches
         self.cuda_graph = None
@@ -487,8 +491,14 @@ class RealtimeWCSPHSolver:
             self.dt = min(self.dt, self.max_dt)
 
     def rebuild_cuda_graph(self):
-        """Captures the coalesced Density + WCSPH Force + SDF Obstacle + Copy-back kernels into a CUDA Graph."""
-        with wp.ScopedCapture(device="cuda:0") as capture:
+        """Captures the coalesced Density + WCSPH Force + SDF Obstacle + Copy-back kernels into a CUDA Graph.
+
+        A no-op on the CPU device, where step() launches the kernels eagerly.
+        """
+        if not wp.get_device(self.device).is_cuda:
+            self.cuda_graph = None
+            return
+        with wp.ScopedCapture(device=self.device) as capture:
             self._launch_density_and_forces()
         self.cuda_graph = capture.graph
 
@@ -499,7 +509,7 @@ class RealtimeWCSPHSolver:
             dim=self.num_particles,
             inputs=[self.grid.id, self.pos_sorted, self.density_sorted,
                     self.mass, self.h, self.rest_density, self.enable_obstacles],
-            device="cuda:0",
+            device=self.device,
         )
         if self.scene_mode:
             assert self.colliders is not None
@@ -512,7 +522,7 @@ class RealtimeWCSPHSolver:
                     self.stiffness, self.viscosity, self.dt, self.domain_min, self.domain_max,
                     self.gravity, self.colliders.ids, self.colliders.count, self.collider_radius,
                 ],
-                device="cuda:0",
+                device=self.device,
             )
             return
         wp.launch(
@@ -524,7 +534,7 @@ class RealtimeWCSPHSolver:
                 self.stiffness, self.viscosity, self.dt, self.domain_min, self.domain_max,
                 self.enable_obstacles,
             ],
-            device="cuda:0",
+            device=self.device,
         )
 
     def set_scene(self, desc: SceneDescription):
@@ -537,7 +547,7 @@ class RealtimeWCSPHSolver:
         self.domain_max = wp.vec3(*desc.domain_max)
         self.gravity = wp.vec3(*desc.gravity)
         self.enable_obstacles = 0
-        self.colliders = MeshSet(desc.colliders, "cuda:0")
+        self.colliders = MeshSet(desc.colliders, self.device)
         self.scene_mode = True
         self.collider_radius = self.h  # re-derived in set_particle_spacing
 
@@ -582,7 +592,7 @@ class RealtimeWCSPHSolver:
                 kernel=k_reorder_soa,
                 dim=self.num_particles,
                 inputs=[self.grid.id, self.pos_sim, self.vel, self.pos_sorted, self.vel_sorted],
-                device="cuda:0",
+                device=self.device,
             )
 
             self.grid.build(points=self.pos_sorted, radius=self.h)
