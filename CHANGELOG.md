@@ -6,6 +6,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Changed
+- `RealtimeWCSPHSolver` takes an optional `device` (default `"cuda:0"`, unchanged for the add-on). `"cpu"` launches
+  the kernels eagerly with no CUDA graph; it exists for headless validation in CI.
 - CI and release pipeline: the check job now also runs on `windows-latest`; Ruff additionally enforces `B`, `UP` and
   `I` (violations fixed, `UP018` documented as incompatible with Warp kernels); the version is single-sourced from
   `blender_manifest.toml` (Blender qualification tests derive the zip name from it, `tests/test_version_consistency.py`
@@ -28,6 +30,14 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   **Advanced** sub-panel.
 
 ### Added
+- Physics validation (P2.6): `sim/validation.py` runs the real solver headless on any Warp device and measures
+  the quasi-2D dam-break surge front against Martin & Moyce (1952, `n^2 = 2`), particle conservation (count, NaN,
+  domain containment), total-energy growth and rest density (unclamped SPH sum). `tests/test_validation.py` runs
+  coarse variants on Warp's CPU device in CI (about 17 s cold) and higher-resolution plus CUDA-graph variants on
+  GPU machines; `scripts/validate_dambreak.py` writes a plot and JSON summary under `evidence/`. Measured front
+  deviation is 6-10 % of Z at 8-48 cells per column width, lagging when coarse and leading when fine, with no
+  energy growth and 0.2 % bulk rest-density error; `docs/VALIDATION.md` has the method, numbers and limitations,
+  including that the reference table could not be checked against the paywalled 1952 paper.
 - Warp install runs in the background (P1.4): the download, checksum check and extraction run on a worker thread
   polled by a Blender timer, so the UI stays responsive. Add-on Preferences show a progress bar and a Cancel
   button; the wheel is downloaded to a temporary file, verified and only then extracted and promoted, so Cancel
