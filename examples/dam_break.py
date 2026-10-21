@@ -3,7 +3,7 @@
 Builds a Custom WarpSPH scene (domain, one fluid column, one collider block). Run it with
 ``blender --python examples/dam_break.py`` or paste it into Blender's Text editor and press Run Script, then press
 "Start Realtime Sim" in the WarpSPH tab (N panel). Set WARPSPH_EXAMPLE_START=1 to start from the command line.
-The particle count is about 0.6 x 0.6 x 1.0 / SPACING^3 (about 30,000 at the default).
+The default spacing gives about 8,800 particles (the panel shows the count after Start).
 """
 import os
 
