@@ -189,6 +189,8 @@ The `experimental/` package is excluded from the built extension via `paths_excl
 ---
 
 ## Documentation Index
+* [`docs/manual/`](./docs/manual/README.md) — User manual (install, first run, authoring, physics, display, bake and export, limits) and the [FAQ / troubleshooting](./docs/manual/faq.md).
+* [`examples/`](./examples/README.md) — Example scenes as runnable Blender Python scripts.
 * [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md) — Mermaid system diagram and module connection guide.
 * [`docs/RESEARCH.md`](./docs/RESEARCH.md) — Literature comparison and linked bibliography.
 * [`docs/SPEC_AND_PLAN.md`](./docs/SPEC_AND_PLAN.md) — Technical specification; shipped scope plus an experimental, not-shipped roadmap.

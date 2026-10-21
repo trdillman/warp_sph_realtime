@@ -65,7 +65,7 @@ class WARPSPH_SceneSettings(bpy.types.PropertyGroup):
     time_step_scale: FloatProperty(
         name="Time Step (CFL)",
         description="Physics time step as a fraction of the stability limit. Higher = faster simulation, "
-                    "but above ~0.5 high-speed impacts can blow up",
+                    "but above 0.4 hard impacts can blow up at high particle counts",
         default=0.4, min=0.1, max=1.0,
         step=1,          # Blender steps are 1/100 units: 0.01 per click
         precision=3,

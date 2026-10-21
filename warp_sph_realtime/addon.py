@@ -217,7 +217,7 @@ class WM_OT_warp_sph_step_frame(bpy.types.Operator):
 class WM_OT_warp_sph_use_opengl(bpy.types.Operator):
     bl_idname = "wm.warp_sph_use_opengl"
     bl_label = "Use OpenGL fast mode"
-    bl_description = ("Set Blender's graphics backend preference to OpenGL for zero-copy particle transport; "
+    bl_description = ("Set Blender's graphics backend preference to OpenGL for GPU-to-GPU particle transport with no CPU readback; "
                       "takes effect after a restart")
 
     @classmethod
