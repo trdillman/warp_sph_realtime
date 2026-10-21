@@ -60,6 +60,55 @@ def status() -> RuntimeStatus:
         return RuntimeStatus(False, f"WarpSPH runtime inspection failed: {exc}")
 
 
+_SELF_TEST_COUNT = 8
+_self_test_passed = False
+
+
+def _driver_version(wp) -> tuple[int, int] | None:
+    """CUDA version the installed driver supports, as Warp reports it."""
+    try:
+        return wp.get_cuda_driver_version()
+    except Exception:
+        return None
+
+
+def _check_driver(wp) -> None:
+    driver = _driver_version(wp)
+    if driver and driver[0] < CERTIFIED_CUDA_MAJOR:
+        raise RuntimeError(
+            f"NVIDIA driver supports CUDA {driver[0]}.{driver[1]} but Warp {CERTIFIED_WARP_VERSION} "
+            f"needs CUDA {CERTIFIED_CUDA_MAJOR}.x: update the NVIDIA driver"
+        )
+
+
+def run_self_test(wp) -> None:
+    """Known-answer kernel on cuda:0, once per process (the readback is exempt from the solver rule)."""
+    global _self_test_passed
+    if _self_test_passed:
+        return
+    driver = _driver_version(wp)
+    driver_text = f"{driver[0]}.{driver[1]}" if driver else "unknown"
+
+    @wp.kernel
+    def _known_answer(out: wp.array(dtype=wp.int32)):  # type: ignore[valid-type]
+        i = wp.tid()
+        out[i] = i * 2 + 1
+
+    try:
+        out = wp.zeros(_SELF_TEST_COUNT, dtype=wp.int32, device="cuda:0")
+        wp.launch(_known_answer, dim=_SELF_TEST_COUNT, inputs=[out], device="cuda:0")
+        got = [int(v) for v in out.numpy()]
+    except Exception as exc:
+        raise RuntimeError(f"Warp CUDA self-test failed to run (driver CUDA {driver_text}): {exc}") from exc
+    expected = [i * 2 + 1 for i in range(_SELF_TEST_COUNT)]
+    if got != expected:
+        raise RuntimeError(
+            f"Warp CUDA self-test returned {got}, expected {expected} (driver CUDA {driver_text}); "
+            "the GPU or driver is not computing correctly"
+        )
+    _self_test_passed = True
+
+
 def require_cuda_runtime():
     """Verify owned distribution, imported module origin and CUDA availability.
 
@@ -93,4 +142,6 @@ def require_cuda_runtime():
         raise RuntimeError(f"CUDA device cuda:0 is unavailable: {exc}") from exc
     if not device.is_cuda:
         raise RuntimeError("WarpSPH requires CUDA device cuda:0")
+    _check_driver(wp)
+    run_self_test(wp)
     return wp
