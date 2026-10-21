@@ -88,7 +88,8 @@ All paths are relative to the `warp_sph_realtime/` package folder. Use relative 
 * `__init__.py` — `register()` / `unregister()` only; lazily imports `addon`.
 * `addon.py` — Blender `Operator`, `Panel`, `Scene` properties, and modal timer lifecycle. Imports Warp and CUDA-dependent modules only inside `_activate_runtime()`.
 * `warp_installer.py` / `warp_runtime.py` / `warp_wheels.lock.json` — SHA-256-locked Warp wheel install into extension user storage and the runtime gate. Kept at the package root because storage is keyed by `__package__`.
-* `render/interop_bridge.py` — `ctypes` OpenGL VAO/VBO creation and `cudaGraphicsGLRegisterBuffer` mapping.
+* `render/interop_bridge.py` — `ctypes` OpenGL VAO/VBO creation and `cudaGraphicsGLRegisterBuffer` mapping; cudart/GL seam (`GLTextureNative`) for the texture adapter.
+* `render/transport_gl.py` — GLInterop texture adapter (`cudaGraphicsGLRegisterImage`, GPU copy, no CPU readback) behind the P0.11 transport seam.
 * `render/viewport_draw.py` — Blender `gpu.shader` draw callbacks and SSFR passes.
 * `render/ssfr_shaders.py` — SSFR GLSL sources and CPU reference math.
 * `sim/sim_core.py` — Primary `RealtimeWCSPHSolver`, cubic spline kernels, SoA reordering, and CUDA Graph capture.

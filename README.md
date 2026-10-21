@@ -7,7 +7,8 @@
 ## Key Features
 * **GPU-resident viewport rendering (no CPU readback):**
   * **OpenGL (legacy VBO interop):** maps a Blender OpenGL Core VAO/VBO to a CUDA device pointer (`cudaGraphicsGLRegisterBuffer` $\rightarrow$ `wp.from_ptr`). Draw modes: raw points, spheres, and the 5-pass SSFR (screen-space fluid) renderer.
-  * **Vulkan (`render/transport_vulkan.py`):** GPU copy, no CPU readback ("zero host-copy"). Available only on the exact certified Blender 5.2.0 build; any other Vulkan build runs a labelled **Readback** fallback. Draws points or spheres through Blender's `gpu` module (`render/gpu_points.py`). SSFR is not available on Vulkan; the SSFR mode shows spheres with a note.
+  * **OpenGL Points (`render/transport_gl.py`):** the GLInterop texture adapter, chosen when Start is pressed with Points mode: GPU copy into an RGBA32F `GPUTexture` via `cudaGraphicsGLRegisterImage`, no CPU readback, drawn by `render/gpu_points.py`. If it cannot start it falls back once to a labelled **Readback**; later runs in that Blender session use the legacy VBO interop.
+  * **Vulkan (`render/transport_vulkan.py`):** GPU copy, no CPU readback ("zero host-copy"). Available only on the exact certified Blender 5.2.0 build; any other Vulkan build runs a labelled **Readback** fallback. Draws points, spheres and SSFR liquid through Blender's `gpu` module (`render/gpu_points.py`, `render/gpu_ssfr.py`).
 * **Coalesced SoA Memory + $O(n)$ Spatial Hash:** Uses 12-byte `float3` Structure of Arrays (SoA) buffers with cell-sorted reordering (`k_reorder_soa`) to eliminate GPU L2 cache thrashing during turbulent 27-cell neighbor queries.
 * **Warp 1.17 CUDA Graph Execution:** Captures density summation, WCSPH symmetric pressure/viscosity forces, SDF obstacle collisions, and copy-back into a single CUDA Graph (`wp.ScopedCapture`).
 * **One-Click Interactive Demo Scenes:**
@@ -19,7 +20,7 @@
 
 ## System Requirements
 
-* Blender 5.2.0 or newer. OpenGL supports all draw modes including SSFR; Vulkan GPU interop requires the exact certified Blender 5.2.0 build (points/spheres only), and other Vulkan builds use the labelled Readback fallback.
+* Blender 5.2.0 or newer. OpenGL supports all draw modes including SSFR; Vulkan draws all modes including SSFR; Vulkan GPU interop requires the exact certified Blender 5.2.0 build, and other Vulkan builds use the labelled Readback fallback.
 * NVIDIA CUDA GPU. Certified Warp 1.17 PyPI uses CUDA Toolkit 12.9 and requires driver 525 or newer. OpenGL interop separately requires dynamic CUDA 12.9 runtime (cudart64_12.dll on Windows or libcudart.so.12 on Linux).
 * Certified candidate: warp-lang 1.17.0, exact SHA-256-locked CUDA 12 PyPI wheel. Versions 1.16 and 1.18 / CUDA 13 are not automatically accepted.
 * OpenGL and Warp cuda:0 must refer to the same NVIDIA GPU.
@@ -87,7 +88,7 @@ warp_sph_realtime/          Blender extension package (the folder that is zipped
   addon.py                  Operators, panel, scene properties, modal runtime
   sim/                      WCSPH solver (sim_core)
   scene/                    Regime presets, demo scene initialisers
-  render/                   OpenGL and Vulkan transports, gpu-module points/spheres, SSFR shaders, viewport drawing
+  render/                   OpenGL and Vulkan transports, gpu-module points/spheres/SSFR, legacy GL SSFR shaders, viewport drawing
 tests/                      Headless test suite (mocks bpy/gpu where needed)
 docs/                       Architecture, research notes, spec and roadmap
 scripts/build_extension.py  Validate + build (+ optional install) via Blender

@@ -42,7 +42,8 @@ Only Phase 1 is shipped. Phases 2-4 are an **Experimental (not shipped)** roadma
 * [x] `ZeroCopyGLBuffer52` OpenGL 4.5+ Core Profile VAO/VBO allocation and `cudaGraphicsGLRegisterBuffer` pointer mapping (`wp.from_ptr`).
 * [x] $O(n)$ spatial hashing (`wp.HashGrid`), `k_reorder_soa` cell sorting, and fused WCSPH pressure/viscosity + copy-back inside a Warp 1.17 CUDA Graph (`wp.ScopedCapture`).
 * [x] Dynamic buffer reallocation slider (`100k`–`4M` particles), live GPU telemetry readout, and two one-click demo scenes (`DOUBLE_DAM_PILLARS`, `BLOCK_FLOP_SPLASH`).
-* [x] Vulkan transport (`render/transport_vulkan.py`, exact-build Blender 5.2.0 only; GPU copy, no CPU readback) with a labelled Readback fallback, and points/spheres drawing through `render/gpu_points.py`. SSFR remains OpenGL-only.
+* [x] Vulkan transport (`render/transport_vulkan.py`, exact-build Blender 5.2.0 only; GPU copy, no CPU readback) with a labelled Readback fallback, and points/spheres drawing through `render/gpu_points.py`.
+* [x] Backend-neutral SSFR through the `gpu` module (`render/gpu_ssfr.py`) for transport sessions on Vulkan and OpenGL.
 * [x] Hash-locked Warp installer and runtime gate.
 
 ### Phase 2 (experimental, not shipped): Unconditional Stability (IPBF) & Two-Way Mesh SDF Collisions 🔄 [SCAFFOLDED]
