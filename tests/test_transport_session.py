@@ -1033,6 +1033,15 @@ def bake_ticks_drive_the_job_not_the_solver(ctx):
     assert job.closes == [1] and 'Baked' in op.reports[-1][1]    # writer drained before the job is dropped
 
 @case
+def bake_viewport_shows_scene_units(ctx):
+    op, _ = start(ctx)
+    written = []
+    RT.solver.copy_positions = written.append    # scales metres to scene units (Unit Scale)
+    RT.bake = FakeJob(finish_after=2)
+    op.modal(ctx, TIMER)
+    assert written == [RT.session.positions]      # never a raw copy of the metre positions
+
+@case
 def bake_cancel_and_stop_leave_no_job(ctx):
     op, _ = start(ctx)
     job = FakeJob(finish_after=99)

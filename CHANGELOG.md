@@ -167,6 +167,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - GitHub Actions CI running ruff, pyright, and pytest (CUDA tests skip on hosted runners).
 
 ### Fixed
+- Bake with a Unit Scale other than 1: the first baked frame, the viewport during a bake and a resumed bake used
+  metres where the cache and the viewport use scene units (frame 1 of a centimetre scene was 100x too small and a
+  resume restarted from the wrong place). Every cached frame is now in scene units and a resume converts back.
 - The initial particle fill of a custom scene started half a spacing from the domain walls and colliders, inside the
   solver's one-spacing boundary layer, so the layer threw the fluid out (a resting box peaked at 58 m/s and its mean
   height rose 178 %). The fill now keeps one spacing from walls and collider surfaces (where the boundary force is

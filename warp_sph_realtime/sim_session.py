@@ -573,13 +573,15 @@ class SimSession:
             self.bake.cancel()
 
     def _publish_solver(self):
-        """Show the solver's latest state in the viewport (the bake bypasses the normal step path)."""
+        """Show the solver's latest state in the viewport (the bake bypasses the normal step path).
+
+        ``copy_positions`` writes scene units, as ``step()`` does (the solver works in metres)."""
         wp, solver = runtime.wp, self.solver
         if self.session is not None:
-            self.session.tick(lambda out: wp.copy(out, solver.pos_sim))
+            self.session.tick(solver.copy_positions)
         elif wp.get_stream("cuda:0").is_complete:  # the legacy VBO route waits for the GPU: only when idle
             with self.gl_buf.mapped() as pos_vbo_wp:
-                wp.copy(pos_vbo_wp, solver.pos_sim)
+                solver.copy_positions(pos_vbo_wp)
             wp.synchronize_device("cuda:0")
 
     def _tick_bake(self, context, report: Report, screen) -> bool:

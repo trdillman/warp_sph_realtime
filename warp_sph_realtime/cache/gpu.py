@@ -157,19 +157,29 @@ class SolverSource:
         solver.step(slot.pos, use_graph=self.use_graph)  # step() ends by copying pos_sim into slot.pos
 
     def capture(self, slot: Slot, stepped: bool) -> None:
-        """Copy the solver state into the slot (device to device). ``stepped`` False: positions not copied yet."""
+        """Copy the solver state into the slot (device to device). ``stepped`` False: positions not copied yet.
+
+        Positions are recorded in scene units, as ``step()`` writes them (``copy_positions``), for every frame."""
         wp, solver = self.wp, self.solver
         if not stepped:
-            wp.copy(slot.pos, solver.pos_sim)
+            copy_positions = getattr(solver, "copy_positions", None)
+            if copy_positions is not None:
+                copy_positions(slot.pos)
+            else:
+                wp.copy(slot.pos, solver.pos_sim)
         wp.copy(slot.vel, solver.vel)
         wp.copy(slot.pid, solver.pid)
 
     def restore(self, frame: Frame) -> None:
-        """Load a cached frame as the solver state (resume). Raises ValueError on a particle-count mismatch."""
+        """Load a cached frame as the solver state (resume). Raises ValueError on a particle-count mismatch.
+
+        Cached positions are in scene units; the solver works in metres (``unit_scale`` metres per unit)."""
         solver = self.solver
         if hasattr(solver, "restore_state"):
             steps = None if self.first_frame is None else (frame.frame - self.first_frame) * self.steps_per_frame
-            solver.restore_state(frame.position, frame.velocity, frame.id, steps)
+            unit = float(getattr(solver, "unit_scale", 1.0))
+            position = frame.position if unit == 1.0 else frame.position * unit
+            solver.restore_state(position, frame.velocity, frame.id, steps)
             self.wp.synchronize_device(solver.pos_sim.device)
             return
         if frame.count != solver.num_particles:
