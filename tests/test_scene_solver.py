@@ -13,8 +13,10 @@ SPACING = 0.04
 PLATE = ((-0.5, -0.5, 0.3), (0.5, 0.5, 0.5))
 
 
-def column_scene(colliders=(box_mesh(*PLATE, name="plate"),)):
+def column_scene(colliders=None):
     """A 0.24 x 0.24 x 0.32 fluid column hanging ~0.4 above a plate, in a 2 x 2 x 2 domain."""
+    if colliders is None:
+        colliders = (box_mesh(*PLATE, name="plate"),)
     return SceneDescription(
         (-1.0, -1.0, 0.0), (1.0, 1.0, 2.0), (0.0, 0.0, -9.81),
         (box_mesh((-0.12, -0.12, 0.92), (0.12, 0.12, 1.24), "column"),), tuple(colliders))

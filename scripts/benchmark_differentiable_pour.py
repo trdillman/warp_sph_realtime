@@ -4,14 +4,14 @@ Run from the repository root: python -m scripts.benchmark_differentiable_pour
 """
 
 import argparse
-from datetime import datetime, timezone
 import hashlib
 import json
-from pathlib import Path
 import platform
 import shutil
 import subprocess
 import time
+from datetime import UTC, datetime
+from pathlib import Path
 
 import numpy as np
 import warp as wp
@@ -111,7 +111,7 @@ def main():
     for source in hashes:
         shutil.copy2(source, snapshot / Path(source).name)
     report = {
-        "started_utc": datetime.now(timezone.utc).isoformat(),
+        "started_utc": datetime.now(UTC).isoformat(),
         "python": platform.python_version(), "warp": wp.__version__,
         "gpu": str(wp.get_device("cuda:0").name), "source_sha256": hashes,
         "git_head": subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip(),

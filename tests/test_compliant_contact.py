@@ -82,6 +82,7 @@ def test_finite_difference_search_charges_all_evaluations():
 
 def test_receipt_gate_rejects_witness_penetration_and_missing_work():
     import copy
+
     from scripts.verify_contact_results import validate
     trajectory = {"max_solid_penetration": 0, "hard_floor_clamp_particle_steps": 0,
                   "finite_all_states": True, "max_z": 0.8}

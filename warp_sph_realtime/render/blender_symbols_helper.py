@@ -4,11 +4,11 @@ The parent validates PE/PDB identity and independently compares every returned R
 Run under the vetted bundled Python with -I; stdin/stdout are bounded JSON protocol.
 """
 import ctypes
-from ctypes import wintypes
 import json
 import os
-from pathlib import Path
 import sys
+from ctypes import wintypes
+from pathlib import Path
 
 
 def _decorated_name(value: str) -> str:
@@ -63,7 +63,7 @@ def resolve(request):
         output = {}
         for expected in names:
             hits = []
-            def callback(pointer, _size, _context):
+            def callback(pointer, _size, _context, expected=expected, hits=hits):
                 symbol = pointer.contents
                 name = _decorated_name(ctypes.wstring_at(ctypes.addressof(symbol) + Symbol.Name.offset, symbol.NameLen))
                 if name == expected:

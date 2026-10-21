@@ -15,7 +15,7 @@ HOME = r"C:\Users\Someone"
 def full_data():
     data = {}
     for _title, fields in diagnostics.SECTIONS:
-        for key, label in fields:
+        for key, _label in fields:
             data[key] = f"value-{key}"
     return data
 

@@ -1,5 +1,6 @@
 import warp as wp
 
+
 class NeighborSearchBackend:
     """Unified wrapper supporting O(n) HashGrid and optional BVH / RT-Core range queries."""
     def __init__(self, grid_res: int = 128, device: str = "cuda:0"):

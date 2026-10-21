@@ -1,12 +1,14 @@
 import unittest
+
 import numpy as np
 import warp as wp
 
 from warp_sph_realtime.sim.sim_core import (
     RealtimeWCSPHSolver,
-    cubic_spline_kernel,
     cubic_spline_grad,
+    cubic_spline_kernel,
 )
+
 
 @wp.kernel
 def k_eval_kernel_samples(

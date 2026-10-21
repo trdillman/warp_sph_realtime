@@ -1,5 +1,6 @@
 import ctypes
 from functools import wraps
+
 import bpy
 import gpu
 
@@ -9,14 +10,12 @@ from .interop_bridge import (
     GL_CLAMP_TO_EDGE,
     GL_COLOR_ATTACHMENT0,
     GL_COLOR_BUFFER_BIT,
+    GL_DEPTH24_STENCIL8,
     GL_DEPTH_ATTACHMENT,
     GL_DEPTH_BUFFER_BIT,
     GL_DEPTH_COMPONENT,
-    GL_DEPTH24_STENCIL8,
     GL_DEPTH_STENCIL,
-    GL_UNSIGNED_INT_24_8,
     GL_DEPTH_STENCIL_ATTACHMENT,
-    GL_NO_ERROR,
     GL_DEPTH_TEST,
     GL_DRAW_FRAMEBUFFER,
     GL_DRAW_FRAMEBUFFER_BINDING,
@@ -25,6 +24,7 @@ from .interop_bridge import (
     GL_LEQUAL,
     GL_LINEAR,
     GL_NEAREST,
+    GL_NO_ERROR,
     GL_ONE,
     GL_ONE_MINUS_SRC_ALPHA,
     GL_POINTS,
@@ -45,6 +45,7 @@ from .interop_bridge import (
     GL_TEXTURE_WRAP_T,
     GL_TRIANGLES,
     GL_UNSIGNED_BYTE,
+    GL_UNSIGNED_INT_24_8,
     GL_VIEWPORT,
     ZeroCopyGLBuffer52,
     _GLInterop,

@@ -5,19 +5,19 @@ objects. The shipped profile digest below is independent of the mutable RVA cach
 The executable SHA-256 pins the profile's RVAs; PDB/DbgHelp checks are optional.
 Changing a profile requires review and a source-code anchor update.
 """
-from collections.abc import Callable, Mapping
 import ctypes
-from dataclasses import dataclass
 import hashlib
 import json
 import os
-from pathlib import Path
 import struct
 import subprocess
 import sys
+import uuid
+from collections.abc import Callable, Mapping
+from dataclasses import dataclass
+from pathlib import Path
 from types import MappingProxyType
 from typing import Any
-import uuid
 
 PROFILE_PATH = Path(__file__).with_name('profiles') / 'blender-5.2.0-fbe6228777e7-windows-amd64-cp313-v1.json'
 _PROFILE_SHA256 = 'ad33ae7ce58b1744a4af821d6dbe462ad9518ffce7b96cab7cb3a6d819577ad3'
@@ -110,7 +110,7 @@ def _same_json(actual: Any, expected: Any) -> bool:
         return (actual.keys() == expected.keys()
                 and all(_same_json(actual[key], value) for key, value in expected.items()))
     if isinstance(expected, list):
-        return len(actual) == len(expected) and all(_same_json(a, b) for a, b in zip(actual, expected))
+        return len(actual) == len(expected) and all(_same_json(a, b) for a, b in zip(actual, expected, strict=True))
     return actual == expected
 
 

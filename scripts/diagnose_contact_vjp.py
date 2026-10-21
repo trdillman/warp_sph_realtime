@@ -8,8 +8,8 @@ frozen during local differences, matching the grid retained by Warp's tape.
 import argparse
 import hashlib
 import json
-from pathlib import Path
 import sys
+from pathlib import Path
 
 import numpy as np
 import warp as wp

@@ -1,12 +1,15 @@
 """Validate and build the Blender extension zip into dist/, optionally installing it.
 
 Usage:
-    python scripts/build_extension.py [--blender PATH] [--install]
+    python scripts/build_extension.py [--blender PATH] [--install] [--tag vX.Y.Z]
+
+``--tag`` (used by the release workflow) refuses to build unless the tag equals ``v`` plus the manifest version.
 
 Blender is located from --blender, then the BLENDER environment variable, then PATH.
 """
 
 import argparse
+import hashlib
 import os
 import shutil
 import subprocess
@@ -19,6 +22,25 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parent.parent
 SOURCE_DIR = REPO_ROOT / "warp_sph_realtime"
 DIST_DIR = REPO_ROOT / "dist"
+
+
+def manifest_version(source_dir: Path = SOURCE_DIR) -> str:
+    """The single source of truth for the extension version."""
+    with (source_dir / "blender_manifest.toml").open("rb") as handle:
+        return str(tomllib.load(handle)["version"])
+
+
+def zip_name(source_dir: Path = SOURCE_DIR) -> str:
+    """File name ``blender extension build`` gives the package (``<id>-<version>.zip``)."""
+    with (source_dir / "blender_manifest.toml").open("rb") as handle:
+        return f"{tomllib.load(handle)['id']}-{manifest_version(source_dir)}.zip"
+
+
+def check_tag(tag: str, source_dir: Path = SOURCE_DIR) -> None:
+    """Exit unless ``tag`` is ``v`` plus the manifest version."""
+    expected = f"v{manifest_version(source_dir)}"
+    if tag.removeprefix("refs/tags/") != expected:
+        sys.exit(f"Tag {tag!r} does not match blender_manifest.toml version: expected {expected!r}.")
 
 
 def exclude_patterns(source_dir: Path = SOURCE_DIR) -> list[str]:
@@ -68,22 +90,29 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=(__doc__ or "").splitlines()[0])
     parser.add_argument("--blender", help="Path to the Blender executable")
     parser.add_argument("--install", action="store_true", help="Install the built zip into the user_default repository")
+    parser.add_argument("--tag", help="Release tag; must equal v<manifest version>")
     args = parser.parse_args()
 
+    if args.tag:
+        check_tag(args.tag)
     blender = find_blender(args.blender)
     DIST_DIR.mkdir(exist_ok=True)
     run_blender(blender, "validate", str(SOURCE_DIR))
     run_blender(blender, "build", "--source-dir", str(SOURCE_DIR), "--output-dir", str(DIST_DIR))
 
-    zips = sorted(DIST_DIR.glob("warp_sph_realtime-*.zip"), key=lambda p: p.stat().st_mtime)
-    if not zips:
-        sys.exit("Build finished but no zip was produced in dist/.")
-    leaked = [n for n in zipfile.ZipFile(zips[-1]).namelist() if n.startswith("experimental/")]
+    package = DIST_DIR / zip_name()
+    if not package.is_file():
+        sys.exit(f"Build finished but {package.name} was not produced in dist/.")
+    with zipfile.ZipFile(package) as archive:
+        leaked = [n for n in archive.namelist() if n.startswith("experimental/")]
+        packaged = tomllib.loads(archive.read("blender_manifest.toml").decode("utf-8"))["version"]
     if leaked:
         sys.exit(f"Built zip must not ship experimental/ modules, found: {leaked[:3]}")
-    print(f"Built {zips[-1]}")
+    if packaged != manifest_version():
+        sys.exit(f"Packaged manifest version {packaged!r} differs from the source manifest.")
+    print(f"Built {package} sha256={hashlib.sha256(package.read_bytes()).hexdigest()}")
     if args.install:
-        run_blender(blender, "install-file", "-r", "user_default", "-e", str(zips[-1]))
+        run_blender(blender, "install-file", "-r", "user_default", "-e", str(package))
 
 
 if __name__ == "__main__":

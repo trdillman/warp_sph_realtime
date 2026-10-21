@@ -1,5 +1,6 @@
 import warp as wp
 
+
 class HybridFNOPredictor:
     """Zero-copy DLPack bridge between Warp 1.16+ SoA buffers and 3D FNO PyTorch surrogates."""
     def __init__(self, enabled: bool = False):

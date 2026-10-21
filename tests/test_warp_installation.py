@@ -15,6 +15,7 @@ from unittest import mock
 
 from warp_sph_realtime import warp_installer as installer
 from warp_sph_realtime import warp_runtime
+
 _original_user_site_path = installer._user_site_warp_path
 _original_download = installer._download_wheel
 

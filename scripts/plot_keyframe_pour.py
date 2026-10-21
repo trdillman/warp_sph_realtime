@@ -6,12 +6,12 @@ import json
 from pathlib import Path
 
 import matplotlib
+
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
+import numpy as np
 from matplotlib.animation import FuncAnimation, PillowWriter
 from matplotlib.patches import Circle, Rectangle
-import numpy as np
-
 
 LABELS = {"adam": "Gradients", "coordinate": "Individual coordinate", "cem": "Cross-entropy",
           "grouped_coordinate": "Move whole path"}
@@ -47,7 +47,7 @@ def summarize(data):
             "per_seed": [{"seed": t["seed"], "budget": t["best"], "time": t["best_at_time_cutoff"],
                           "first_success_units": f["units"] if f else None,
                           "first_success_seconds": f["completed_seconds"] if f else None}
-                         for t, f in zip(rows, first)],
+                         for t, f in zip(rows, first, strict=True)],
         }
     return result
 
@@ -108,7 +108,7 @@ def main():
     z_limits = (min(-0.01, minimum[2] - 0.01), max(0.60, maximum[2] + 0.05))
     fig, axes = plt.subplots(2, 3, figsize=(12, 6.5))
     dots = []
-    for column, (title, candidate) in enumerate(zip(titles, candidates)):
+    for column, (title, candidate) in enumerate(zip(titles, candidates, strict=True)):
         top, side = axes[0, column], axes[1, column]
         top.add_patch(Rectangle((-1.67, -0.22), 0.44, 0.44, fill=False, edgecolor="#15876b", linewidth=2,
                                label="Target aperture"))

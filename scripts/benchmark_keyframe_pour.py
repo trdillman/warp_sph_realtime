@@ -1,20 +1,19 @@
 """Paired offline emitter optimization; never invoked by the Blender modal path."""
 
 import argparse
-from datetime import datetime, timezone
 import hashlib
 import json
-from pathlib import Path
 import platform
 import shutil
 import subprocess
 import time
+from datetime import UTC, datetime
+from pathlib import Path
 
 import numpy as np
 import warp as wp
 
 from warp_sph_realtime.experimental.keyframe_pour import KeyframePour, outcome_rank
-
 
 METHODS = ("adam", "coordinate", "cem", "grouped_coordinate")
 BUDGET = 64
@@ -124,8 +123,8 @@ def validate_selected(experiment, candidate, retain_frames=False):
             or trajectory["recomputed_coverage"] != candidate["coverage"]
             or not trajectory["finite"] or trajectory["hard_floor_clamps"]
             or trajectory["max_solid_penetration"] > 1e-5
-            or any(x < b - 1e-6 for x, b in zip(trajectory["minimum"], [-2.5, -2.5, 0]))
-            or any(x > b + 1e-6 for x, b in zip(trajectory["maximum"], [2.5, 2.5, 5]))):
+            or any(x < b - 1e-6 for x, b in zip(trajectory["minimum"], [-2.5, -2.5, 0], strict=True))
+            or any(x > b + 1e-6 for x, b in zip(trajectory["maximum"], [2.5, 2.5, 5], strict=True))):
         raise RuntimeError("Selected trajectory does not pass independent safety/outcome checks")
     if (result["coverage"] != candidate["coverage"] or result["spill"] != candidate["spill"]
             or not np.isclose(result["loss"], candidate["loss"], rtol=1e-5, atol=1e-7)):
@@ -152,7 +151,7 @@ def main():
     path = args.output / "pilot.json" if args.pilot else args.output / "comparison.json"
     if path.exists():
         raise FileExistsError(path)
-    report = {"status": "running", "created_utc": datetime.now(timezone.utc).isoformat(),
+    report = {"status": "running", "created_utc": datetime.now(UTC).isoformat(),
               "source_sha256": source_identity(args.output), "pilot": args.pilot,
               "trials": [], "gradient_checks": [], "aa": []}
 

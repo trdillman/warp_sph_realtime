@@ -4,11 +4,25 @@ on:
   push:
     branches: [main]
   pull_request:
+  workflow_call:  # also run by release.yml before anything is built
+
+permissions:
+  contents: read
 
 jobs:
   check:
     # GitHub-hosted runners have no CUDA GPU: CUDA-only tests skip, CPU kernels and mocks still run.
-    runs-on: ubuntu-latest
+    # Windows-only tests (long-path guard) run on windows-latest; the Blender 5.2 qualification tests
+    # need WARPSPH_BLENDER_EXE and skip on both.
+    name: check (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    defaults:
+      run:
+        shell: bash
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5

@@ -77,8 +77,8 @@ def trajectory_errors(trajectory, candidate):
     errors = []
     if not trajectory["finite"] or trajectory["hard_floor_clamps"] or trajectory["max_solid_penetration"] > 1e-5:
         errors.append("unsafe trajectory")
-    if any(x < bound - 1e-6 for x, bound in zip(trajectory["minimum"], [-2.5, -2.5, 0])) or any(
-            x > bound + 1e-6 for x, bound in zip(trajectory["maximum"], [2.5, 2.5, 5])):
+    if any(x < bound - 1e-6 for x, bound in zip(trajectory["minimum"], [-2.5, -2.5, 0], strict=True)) or any(
+            x > bound + 1e-6 for x, bound in zip(trajectory["maximum"], [2.5, 2.5, 5], strict=True)):
         errors.append("domain violation")
     for metric in ("coverage", "spill"):
         if trajectory[f"recomputed_{metric}"] != candidate[metric]:
@@ -98,10 +98,10 @@ def qualification_errors(report):
                         [0.06, 0.01, 0.04, -0.01, 0.02, 0.01, 0, -0.01]]
 
     def same_controls(a, b):
-        return len(a) == len(b) == 8 and all(math.isfinite(x) and abs(x - y) <= 1e-7 for x, y in zip(a, b))
+        return len(a) == len(b) == 8 and all(math.isfinite(x) and abs(x - y) <= 1e-7 for x, y in zip(a, b, strict=True))
 
     if len(initial) == 2 and not all(same_controls(row["controls"], expected)
-                                     for row, expected in zip(initial, expected_initial)):
+                                     for row, expected in zip(initial, expected_initial, strict=True)):
         errors.append("initial derivative probes do not match fixed controls")
     for row in selected:
         trials = [trial for trial in report["trials"] if trial["method"] == "adam" and trial["seed"] == row["selected_seed"]]
@@ -153,7 +153,7 @@ def verify(path):
             errors.append("incomplete gradient vector")
         if not check["passed"] or any(not math.isfinite(a) or not math.isfinite(b) or
                 abs(a - b) > check["atol"] + check["rtol"] * abs(b)
-                for a, b in zip(check["analytic"], check["finite_difference"])):
+                for a, b in zip(check["analytic"], check["finite_difference"], strict=True)):
             errors.append("numerical gradient mismatch")
     pairs = [(row["seed"], row["method"]) for row in report["trials"]]
     expected = {(seed, method) for seed in contract["seeds"] for method in contract["methods"]}

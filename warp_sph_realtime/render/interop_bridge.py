@@ -2,6 +2,7 @@ import contextlib
 import ctypes
 import os
 import sys
+
 import gpu
 import warp as wp
 
@@ -644,7 +645,7 @@ class GLTextureNative:
         for name in range(1, MAX_TEXTURE_NAME):
             if not gl.glIsTexture(name):
                 continue
-            for value, pname in zip(size, (GL_TEXTURE_WIDTH, GL_TEXTURE_HEIGHT, GL_TEXTURE_INTERNAL_FORMAT)):
+            for value, pname in zip(size, (GL_TEXTURE_WIDTH, GL_TEXTURE_HEIGHT, GL_TEXTURE_INTERNAL_FORMAT), strict=True):
                 gl.glGetTextureLevelParameteriv(name, 0, pname, ctypes.byref(value))
             if tuple(v.value for v in size) != (width, height, GL_RGBA32F):
                 continue

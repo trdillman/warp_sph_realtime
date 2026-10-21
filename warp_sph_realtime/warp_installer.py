@@ -27,18 +27,17 @@ import json
 import os
 import platform as _platform
 import shutil
+import stat
 import sys
 import tempfile
 import zipfile
 from collections.abc import Callable
 from dataclasses import dataclass
-import stat
 from pathlib import Path
-from urllib.request import urlopen
 from urllib.parse import urlparse
+from urllib.request import urlopen
 
-from .warp_runtime import warp_version_support, CERTIFIED_WARP_VERSION
-
+from .warp_runtime import CERTIFIED_WARP_VERSION, warp_version_support
 
 _CHUNK_SIZE = 1024 * 1024
 _LOCK_PATH = Path(__file__).with_name("warp_wheels.lock.json")

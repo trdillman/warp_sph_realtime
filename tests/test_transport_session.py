@@ -10,7 +10,10 @@ from types import SimpleNamespace
 
 from warp_sph_realtime.render import session as ts
 from warp_sph_realtime.render.transport import (
-    COMPLETED, Capabilities, FatalTransportError, RecoverableTransportError,
+    COMPLETED,
+    Capabilities,
+    FatalTransportError,
+    RecoverableTransportError,
 )
 
 ROOT = Path(__file__).resolve().parents[1]

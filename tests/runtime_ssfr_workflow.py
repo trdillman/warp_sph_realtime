@@ -3,18 +3,20 @@
 Run in a disposable factory profile with the candidate enabled. Deadlines and
 sample counts are verification settings; solver/physics properties stay default.
 """
-import bpy
-import gpu
 import ctypes
 import hashlib
 import importlib
 import json
 import os
-from pathlib import Path
 import statistics
 import time
 import traceback
+from pathlib import Path
+
+import bpy
+import gpu
 from mathutils import Vector
+
 _module = os.environ.get('SSFR_MODULE', 'warp_sph_realtime')
 a = importlib.import_module(_module + '.addon')
 v = importlib.import_module(_module + '.render.viewport_draw')

@@ -2,8 +2,8 @@ import numpy as np
 import pytest
 import warp as wp
 
-from warp_sph_realtime.experimental.differentiable_pour import PourExperiment
 from scripts.benchmark_differentiable_pour import optimize
+from warp_sph_realtime.experimental.differentiable_pour import PourExperiment
 
 
 @pytest.mark.skipif(not wp.is_cuda_available(), reason="CUDA required")
