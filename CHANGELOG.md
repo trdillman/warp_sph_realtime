@@ -38,6 +38,24 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   deviation is 6-10 % of Z at 8-48 cells per column width, lagging when coarse and leading when fine, with no
   energy growth and 0.2 % bulk rest-density error; `docs/VALIDATION.md` has the method, numbers and limitations,
   including that the reference table could not be checked against the paywalled 1952 paper.
+- Record, bake and playback (P1.6, P2.2). New `cache/` package: `FrameStore` (a VRAM ring of device snapshots with a
+  second CUDA stream and pinned host buffers, so the readback is asynchronous and never stalls the solver, plus a
+  writer thread and a disk adapter) writes one plain `.npz` per frame with `position`, `velocity` and `id`.
+  **Record / Bake Cache** sub-panel: bake a frame range from the initial state in timer-driven chunks (never a blocking
+  loop) with progress and Cancel; **Resume** after cancel, failure or a closed session; **Invalidate From Current Frame**;
+  a cache folder per scene (default next to the saved .blend, temp when unsaved, `scene.warp_sph.cache_dir`); a size
+  estimate (28 bytes per particle per frame) and free-disk check before baking. Frames are written atomically and in
+  order, so cancel or a crash leaves a consistent prefix; resume refuses a cache with different settings. **Show Cache as
+  Point Cloud** adds a `PointCloud` object synced to the timeline by a `frame_change_post` handler, with `velocity`,
+  `id` and `radius` attributes; it renders in Cycles. The readback exists only in the explicit bake action, never in the live
+  transports. `cache/` is `bpy`-free except `cache/blender_adapter.py`. Measured on an RTX 4080 SUPER
+  (`scripts/benchmark_cache_record.py`, median of 3): recording adds about 7 to 8 ms per frame at 66 steps per frame (real
+  time at 24 fps) for 91k and 1M particles; when the solver outruns the disk (about 500 to 650 MB/s here, 28 MB per frame
+  at 1M particles) the disk sets the pace and the ring applies backpressure.
+- Stable particle id (`RealtimeWCSPHSolver.pid`): every step rewrites `pos_sim` / `vel` in spatial-sort order, so the array
+  index did not identify a particle. `k_reorder_soa_id` (the existing reorder plus the id) replaces the reorder launch in `step()`; the id arrays are
+  not in the CUDA graph. Measured at 1M particles: 5.94 ms per substep against 5.86 ms before (within run-to-run
+  noise); the telemetry footprint grows by 8 bytes per particle.
 - Warp install runs in the background (P1.4): the download, checksum check and extraction run on a worker thread
   polled by a Blender timer, so the UI stays responsive. Add-on Preferences show a progress bar and a Cancel
   button; the wheel is downloaded to a temporary file, verified and only then extracted and promoted, so Cancel

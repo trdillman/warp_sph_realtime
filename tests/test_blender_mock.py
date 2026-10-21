@@ -105,14 +105,17 @@ class TestBlenderIntegrationAndDemos(unittest.TestCase):
         ]
         self.assertIs(bpy_mock.types.Scene.warp_sph["type"], props.WARPSPH_SceneSettings)
         settings = props.WARPSPH_SceneSettings.__annotations__
-        self.assertEqual(sorted(settings), sorted(expected_props))
+        cache_props = ["cache_dir", "bake_start", "bake_end", "bake_steps"]  # P2.2: new, nothing to migrate
+        self.assertEqual(sorted(settings), sorted(expected_props + cache_props))
         self.assertEqual(sorted(props.LEGACY_NAMES), sorted(expected_props))  # every old flat setting migrates
         self.assertFalse([n for n in vars(bpy_mock.types.Scene) if n.startswith("warp_sph_")])
         self.assertTrue(hasattr(bpy_mock.types.Object, "warp_sph"))
         registered = {cls.__name__ for cls in _registered_classes}
         for op in ("WM_OT_warp_sph_pause", "WM_OT_warp_sph_step_frame", "WARPSPH_ObjectSettings",
                    "WARPSPH_SceneSettings", "OBJECT_OT_warp_sph_set_role", "OBJECT_OT_warp_sph_add_fluid_scene",
-                   "OBJECT_PT_warp_sph", "VIEW3D_PT_warp_sph_advanced"):
+                   "OBJECT_PT_warp_sph", "VIEW3D_PT_warp_sph_advanced", "VIEW3D_PT_warp_sph_cache",
+                   "WM_OT_warp_sph_bake", "WM_OT_warp_sph_bake_cancel", "WM_OT_warp_sph_cache_invalidate",
+                   "WM_OT_warp_sph_cache_clear", "WM_OT_warp_sph_cache_playback"):
             self.assertIn(op, registered)
         # Small-range values need fine click steps (Blender step is in 1/100 units)
         radius = settings["particle_radius"]

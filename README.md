@@ -14,6 +14,7 @@
 * **One-Click Interactive Demo Scenes:**
   * **Demo 1 (`DOUBLE_DAM_PILLARS`):** Opposing double dam-break crashing into a central sphere and 4 vertical cylindrical pillars.
   * **Demo 2 (`BLOCK_FLOP_SPLASH`):** Heavy suspended fluid cube dropping into a resting shallow puddle basin.
+* **Record, bake and play back (P1.6, P2.2):** bake a frame range to a per-scene cache folder (one `.npz` per frame with `position`, `velocity` and a stable particle `id`), watch it in the viewport while it runs, cancel or resume it, invalidate from any frame, and scrub the result on the timeline as a point cloud object that renders in Cycles. The bake runs in small timer-driven chunks, so the UI stays responsive, and the GPU-to-host copy is asynchronous (pinned memory, second CUDA stream); it is an explicit bake action and never part of the live-view path.
 * **Live GPU Telemetry & Dynamic Buffer Scaling:** Adjust particle counts on the fly from `100,000` to `4,000,000` particles while monitoring smoothed FPS, frame time (ms), VRAM footprint (MB), and throughput (particles/ms).
 
 ---
@@ -79,6 +80,23 @@ The panel also shows the current `dt` and approximate simulated-time speed relat
 
 Fine adjustment: hold **Shift** while dragging any value for 10× finer control, or hover a value and use **Ctrl + mouse wheel** to step it.
 
+### Record / Bake Cache
+Open **Record / Bake Cache** under the main panel (the simulation need not be running: **Bake** starts it).
+1. **Cache Folder**: leave empty for the default, `<blend folder>/<name>_warp_sph_cache/<scene>` next to the saved
+   .blend (a temporary folder while the file is unsaved), or pick a folder. Each scene has its own.
+2. Set **Start** / **End** (frame 1 is the initial state) and **Steps / Frame** (0 = real time: the steps that make one
+   frame last `1 / frame rate` seconds of simulated time). The panel shows the size before you bake: 28 bytes per
+   particle per frame, and warns if the drive is too small.
+3. **Bake** simulates from the initial state and saves each frame; a progress bar and **Cancel** show while it runs, and
+   the viewport follows. Cancel (or Esc, or a failure) keeps every frame saved so far. **Resume** continues after the
+   last saved frame (or extends **End**); it refuses a cache baked with different particle count or solver settings.
+   **Invalidate From Current Frame** deletes that frame onward so **Resume** re-simulates it; **Delete** removes the cache.
+4. **Show Cache as Point Cloud** adds an object that follows the timeline (frames outside the cached range show the
+   nearest cached frame). It has `velocity`, `id` and `radius` point attributes and renders in Cycles as spheres of the
+   particle radius.
+The solver state is the particle positions and velocities, so a resumed bake continues bit for bit like an uninterrupted one
+on the same GPU and driver. Changing the scene's objects after a bake is not detected: invalidate from frame 1.
+
 ---
 
 ## Running the Test Suite
@@ -102,7 +120,9 @@ warp_sph_realtime/          Blender extension package (the folder that is zipped
   __init__.py               register()/unregister(); lazily imports addon
   addon.py                  Operators, panels, modal timer (thin UI)
   props.py                  scene.warp_sph settings group, old-file migration, GPU memory estimate
-  sim_session.py            Per-scene SimSession: runtime state, start/tick/stop/dispose
+  sim_session.py            Per-scene SimSession: runtime state, start/tick/stop/dispose, timer-driven bake
+  cache_ui.py               Record / Bake Cache panel and operators
+  cache/                    Frame cache: disk format, VRAM ring, writer thread, bake planning, playback point cloud
   sim/                      WCSPH solver (sim_core)
   scene/                    Regime presets, demo scene initialisers
   render/                   OpenGL and Vulkan transports, gpu-module points/spheres/SSFR, legacy GL SSFR shaders, viewport drawing

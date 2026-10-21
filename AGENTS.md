@@ -72,7 +72,7 @@ This file provides strict architectural invariants, build/test commands, and har
    * One-time self-tests and separately identified correctness probes may read back; these do not qualify the no-readback steady-state performance lane. A GPU-to-GPU copy and a host wait are distinct from CPU position readback.
 2. **Structure of Arrays (SoA) & Coalesced Sorting:**
    * Solver per-particle GPU buffers remain flat 1D SoA arrays (`wp.vec3` or `float`). The rendering transport may pack a separate flat `wp.vec4` buffer into an RGBA32F texture; this does not change solver layout. Initialize padded texels and draw exactly the logical particle count.
-   * Never remove `k_reorder_soa` before the density and force passes; unsorted neighbor queries thrash the GPU L2 cache by up to 88% once the fluid becomes turbulent.
+   * Never remove `k_reorder_soa` before the density and force passes (`step()` launches `k_reorder_soa_id`, the same reorder that also carries the particle id; `k_reorder_soa` remains for the experimental callers); unsorted neighbor queries thrash the GPU L2 cache by up to 88% once the fluid becomes turbulent.
 3. **Warp 1.17 CUDA Graph Compatibility:**
    * Any kernel added inside `RealtimeWCSPHSolver.rebuild_cuda_graph()` (`wp.ScopedCapture`) **must not** perform dynamic memory allocation (`wp.zeros`, `wp.empty`), host synchronization (`wp.synchronize_device`), or CPU print statements.
    * Note that `wp.HashGrid.build()` uses internal radix sort / prefix scan state and must remain **outside** `wp.ScopedCapture` unless using fixed-allocation graph-safe hash grid APIs.
@@ -88,13 +88,15 @@ All paths are relative to the `warp_sph_realtime/` package folder. Use relative 
 * `__init__.py` — `register()` / `unregister()` only; lazily imports `addon`.
 * `addon.py` — Thin UI: Blender `Operator`, `Panel` (main and Advanced) and the modal timer, which call the scene's `SimSession`. Imports Warp and CUDA-dependent modules only inside `_activate_runtime()`.
 * `props.py` — `scene.warp_sph` settings `PropertyGroup` (stiffness stored in thousands; use `stiffness_pa()`), the one-time migration of the old flat `scene.warp_sph_*` properties (`load_post`, and a timer after register because `bpy.data` is restricted there), and the GPU memory estimate.
-* `sim_session.py` — `SimSession` (one per scene): all runtime state and the start/tick/stop/dispose lifecycle; reads Warp bindings from `sim_session.runtime`, which only `addon._activate_runtime()` fills.
+* `sim_session.py` — `SimSession` (one per scene): all runtime state and the start/tick/stop/dispose lifecycle; reads Warp bindings from `sim_session.runtime`, which only `addon._activate_runtime()` fills. Also drives a bake in timer chunks (`begin_bake`, `tick`).
+* `cache_ui.py` — Record / Bake Cache sub-panel and operators (thin UI over `SimSession.begin_bake` and `cache/`).
+* `cache/` — Frame cache (record, bake, playback): `disk.py`, `gpu.py`, `frame_store.py`, `bake.py` are `bpy`-free and never import Warp (it is passed in); only `blender_adapter.py` imports `bpy`. Recording may read back (explicit user action, pinned async copy); never add readback to a live transport.
 * `warp_installer.py` / `warp_runtime.py` / `warp_wheels.lock.json` — SHA-256-locked Warp wheel install into extension user storage and the runtime gate. Kept at the package root because storage is keyed by `__package__`.
 * `render/interop_bridge.py` — `ctypes` OpenGL VAO/VBO creation and `cudaGraphicsGLRegisterBuffer` mapping; cudart/GL seam (`GLTextureNative`) for the texture adapter.
 * `render/transport_gl.py` — GLInterop texture adapter (`cudaGraphicsGLRegisterImage`, GPU copy, no CPU readback) behind the P0.11 transport seam.
 * `render/viewport_draw.py` — Blender `gpu.shader` draw callbacks and SSFR passes.
 * `render/ssfr_shaders.py` — SSFR GLSL sources and CPU reference math.
-* `sim/sim_core.py` — Primary `RealtimeWCSPHSolver`, cubic spline kernels, SoA reordering, and CUDA Graph capture.
+* `sim/sim_core.py` — Primary `RealtimeWCSPHSolver`, cubic spline kernels, SoA reordering, and CUDA Graph capture. `pos_sim` / `vel` are rewritten in sorted order every step: use `pid` (stable particle id, reordered by `k_reorder_soa_id`) for identity.
 * `scene/demo_scenes.py` — GPU particle initializers and Blender wireframe/collider helper meshes for Demo 1 & Demo 2.
 * `sim/validation.py` — Headless physics validation (dam-break front vs Martin & Moyce, conservation, energy, rest density) on any Warp device; see `docs/VALIDATION.md`.
 * `sim/colliders.py` — Static mesh colliders: one `wp.Mesh` per collider (winding-number signed distance), mesh ids passed to kernels as a uint64 array.
