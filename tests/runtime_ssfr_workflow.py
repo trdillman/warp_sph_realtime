@@ -46,7 +46,7 @@ draws=[]
 phase='start'
 deadline=time.monotonic()+30
 a._activate_runtime()  # bind the lazy draw callback before wrapping it
-original=a.draw_particles_viewport
+original=a.sim_session.runtime.draw_particles_viewport
 
 
 def save(): (OUT/'gui-workflow.json').write_text(json.dumps(R,indent=2))
@@ -73,7 +73,7 @@ def observed(buf,running):
             draws.append((time.perf_counter()-t)*1000)
     except Exception:
         R['errors'].append(traceback.format_exc());save()
-a.draw_particles_viewport=observed
+a.sim_session.runtime.draw_particles_viewport=observed
 
 
 def tick():
@@ -90,22 +90,22 @@ def tick():
                 area.tag_redraw()
                 return .3
             if phase=='stopping':
-                if a.RT.gl_buf is not None:
+                if a.sim_session.get(scene).gl_buf is not None:
                     if time.monotonic()>deadline:raise TimeoutError('stop did not release CUDA buffer')
                     return .2
                 R['cases'].append({'cycle_stop':idx//5+1,'cuda_buffer_released':True,
-                                   'solver_released':a.RT.solver is None})
+                                   'solver_released':a.sim_session.get(scene).solver is None})
                 if idx==len(CASES)-1:
                     R['status']='PASS';save();bpy.ops.wm.quit_blender();return None
                 phase='start';return .3
-            if len(draws)<8 or a.RT.step_count<8:
+            if len(draws)<8 or a.sim_session.get(scene).step_count<8:
                 if time.monotonic()>deadline:raise TimeoutError('no fresh rendered simulation steps')
                 area.tag_redraw();return .2
             data=v._SSFR_RENDERER._ctx_resources
             R['cases'].append({'cycle':idx//5+1,'mode':CASES[idx][0],'camera':CASES[idx][1],
-                               'rendered_frames':len(draws),'step_count':a.RT.step_count,
+                               'rendered_frames':len(draws),'step_count':a.sim_session.get(scene).step_count,
                                'submission_median_ms':statistics.median(draws[2:]),
-                               'solver_step_ms':a.RT.frame_time_ms,'vram_solver_mb':a.RT.vram_mb,
+                               'solver_step_ms':a.sim_session.get(scene).frame_time_ms,'vram_solver_mb':a.sim_session.get(scene).vram_mb,
                                'contexts':len(data),'fbo_sizes':[[d['width'],d['height']] for d in data.values()]})
             # Capture the actual viewport after a final liquid case; not an offline render.
             if idx in (0,1,4):

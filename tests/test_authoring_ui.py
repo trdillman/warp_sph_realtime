@@ -41,7 +41,7 @@ gpu.platform = NS(backend_type_get=lambda: 'VULKAN')
 sys.modules['gpu'] = gpu
 
 import warp_sph_realtime as ext
-from warp_sph_realtime import addon
+from warp_sph_realtime import addon, sim_session
 from warp_sph_realtime.scene.description import MeshData, validate_closed_mesh
 
 class FakeMesh:
@@ -193,14 +193,20 @@ def view3d_panel_scene_box():
     labels = [e[1] for e in draw_panel(ctx) if e[0] == 'label']
     assert 'Domain (1): WarpSPH Domain' in labels and 'Colliders (1): WarpSPH Collider' in labels
     assert not [e for e in draw_panel(ctx) if e[0] == 'label' and e[2] == 'ERROR' and not e[1].startswith('Runtime')]
-    addon.RT.running, addon.RT.active_demo = True, addon.CUSTOM_SCENE           # running: changes need restart
-    addon.RT.solver = NS(num_particles=90000, dt=0.001, substeps=2)
+    session = sim_session.get(ctx.scene)
+    session.running, session.active_demo = True, addon.CUSTOM_SCENE             # running: changes need restart
+    session.solver = NS(num_particles=90000, dt=0.001, substeps=2)
     try:
         labels = [e[1] for e in draw_panel(ctx) if e[0] == 'label']
         assert 'Particles: 90,000 (from the fill)' in labels
         assert 'Running: Stop and Start to apply scene changes' in labels
+        ctx.scene.name = 'Main'
+        other = make_context()                                                  # another scene: one run per process
+        labels = [e[1] for e in draw_panel(other) if e[0] == 'label']
+        assert "Running in scene 'Main': stop it there first" in labels
+        assert 'Particles: 90,000 (from the fill)' not in labels                # the other scene's own session
     finally:
-        addon.RT.running, addon.RT.solver, addon.RT.active_demo = False, None, 'DOUBLE_DAM_PILLARS'
+        session.running, session.solver, session.active_demo = False, None, 'DOUBLE_DAM_PILLARS'
 
 @case
 def object_panel_shows_role():

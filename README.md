@@ -100,7 +100,8 @@ python -m unittest discover -s tests -v
 warp_sph_realtime/          Blender extension package (the folder that is zipped)
   blender_manifest.toml     Extension metadata
   __init__.py               register()/unregister(); lazily imports addon
-  addon.py                  Operators, panel, scene properties, modal runtime
+  addon.py                  Operators, panels, scene properties, modal timer (thin UI)
+  sim_session.py            Per-scene SimSession: runtime state, start/tick/stop/dispose
   sim/                      WCSPH solver (sim_core)
   scene/                    Regime presets, demo scene initialisers
   render/                   OpenGL and Vulkan transports, gpu-module points/spheres/SSFR, legacy GL SSFR shaders, viewport drawing

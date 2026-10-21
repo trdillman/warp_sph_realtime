@@ -12,6 +12,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   guards it); `scripts/build_extension.py` selects the zip by manifest version, prints its SHA-256 and takes
   `--tag` to refuse a tag that differs from the manifest. A `v*` tag now runs `.github/workflows/release.yml`:
   CI, pinned Blender 5.2.0 `extension validate` and `build`, workflow artifact, and a GitHub Release.
+- Runtime state moved from `addon.py` globals into a per-scene `SimSession` (`sim_session.py`) with
+  start/tick/stop/dispose; `addon.py` is now thin UI. Behaviour is unchanged for a single scene. One run per
+  Blender process: Start in a second scene while another runs reports which scene to stop first, and the
+  panel there says so. A run whose scene is deleted stops with a warning.
 
 ### Added
 - Warp install runs in the background (P1.4): the download, checksum check and extraction run on a worker thread

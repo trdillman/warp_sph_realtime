@@ -13,7 +13,8 @@ graph TD
     subgraph Host ["Blender 5.2+ host and UI"]
         Manifest["blender_manifest.toml<br/>(metadata, permissions, build exclusions)"]
         Init["__init__.py<br/>(register / unregister, lazy addon import)"]
-        Addon["addon.py<br/>(operators, panel, modal timer, telemetry)"]
+        Addon["addon.py<br/>(operators, panels, modal timer)"]
+        SimSession["sim_session.py<br/>(per-scene SimSession: start, tick, stop, dispose)"]
         Installer["warp_installer.py / warp_runtime.py<br/>(hash-locked Warp install, runtime gate)"]
         SceneCfg["scene/scene_config.py + demo_scenes.py<br/>(regime presets, Demo 1 and Demo 2)"]
     end
@@ -37,7 +38,10 @@ graph TD
     Manifest -.-> Init
     Init --> Addon
     Addon --> Installer
-    Addon --> SceneCfg
+    Addon --> SimSession
+    SimSession --> SceneCfg
+    SimSession --> Session
+    SimSession --> Interop
     SceneCfg --> SimCore
     SimCore -->|"wp.copy into mapped VBO"| Interop
     Interop --> ViewDraw
@@ -58,7 +62,8 @@ They are not zero GPU copy; see the top of [`VULKAN_ZERO_COPY_PLAN.md`](./VULKAN
 |---|---|
 | `blender_manifest.toml` | Extension metadata (schema 1.0.0, Blender 5.2.0+), `files` and `network` permissions, tags, build exclusions (`experimental/` is not zipped). |
 | `__init__.py` | `register()` / `unregister()` only; imports `addon` lazily so the extension registers without Warp. |
-| `addon.py` | Operators, sidebar panel, scene properties, modal timer and telemetry; imports CUDA modules only on Start. |
+| `addon.py` | Thin UI: operators, panels, scene properties and the modal timer, which call the scene's `SimSession`; imports CUDA modules only on Start (`_activate_runtime`). |
+| `sim_session.py` | `SimSession`, one per scene: all runtime state (solver, transport session or legacy VBO, draw handler, timer, telemetry) with `start` / `tick` / `stop` / `dispose`, transactional reallocation, quarantine on fatal errors. One run per process; `process_state()` flags survive add-on reloads. |
 | `warp_installer.py`, `warp_runtime.py`, `warp_wheels.lock.json` | SHA-256-locked `warp-lang==1.17.0` (CUDA 12.9) install into extension storage and the runtime gate. `plan_install` (main thread, reads Blender) and `run_plan` (no `bpy`, cancellable: temp download or verified local-wheel copy, then atomic promotion) split the install; the Warp source (download / local wheel / existing folder, P1.11) selects the single directory Warp may be imported from, and the foreign-Warp guard accepts only that one. |
 | `install_job.py` | Pure-Python worker thread for `run_plan` with a lock-protected progress snapshot and a cancel flag (P1.4). |
 | `install_ui.py` | Preferences UI: Warp source, progress bar and Cancel (polled by a `bpy.app.timers` timer), first-run hardware check panel, install/cancel operators. The only `bpy` consumer of `install_job`. |
