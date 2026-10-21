@@ -3,7 +3,7 @@
 Duck-typed against the Blender API (no `bpy` import), so it is unit-testable with a fake object model
 and can never pull bpy into sim/. Objects opt in through the add-on's object settings:
 
-    obj.warp_sph.role in {"NONE", "DOMAIN", "FLUID", "COLLIDER"}
+    obj.warp_sph.role in {"NONE", "DOMAIN", "FLUID", "COLLIDER", "EMITTER"}
 
 Objects whose role is NONE fall back to the early custom property `obj["warp_sph_role"]`, so scenes
 authored before the UI existed keep working.
@@ -12,17 +12,30 @@ Roles:
     DOMAIN    the simulation box: the object's world-space axis-aligned bounding box (a cube is expected;
               a rotated domain uses its enclosing axis-aligned box). Exactly one is required.
     FLUID     a closed mesh volume, filled with particles when the simulation starts.
-    COLLIDER  a closed, static mesh solid.
+    COLLIDER  a closed mesh solid. If its object is animated (keyframes, drivers, constraints or an
+              animated parent), it moves rigidly with its object: location and rotation. The mesh shape
+              is read once at the start frame, so deformation (armatures, shape keys) is not followed,
+              and an animated scale stops the run with an error.
+    EMITTER   a mesh surface (need not be closed) that injects particles over a frame range, with the
+              settings obj.warp_sph.emit_* (velocity mode, speed or vector, rate, frame start and end).
 
-Assumes 1 Blender unit = 1 metre.
+Units: the scene's unit scale (metres per Blender unit) converts geometry, gravity and motion to
+metres for the solver; particle positions are converted back for display.
 """
 
 import numpy as np
 
-from .description import MeshData, SceneDescription, SceneValidationError
+from .description import (
+    DEFAULT_PARTICLE_BUDGET,
+    ColliderMotion,
+    EmitterData,
+    MeshData,
+    SceneDescription,
+    SceneValidationError,
+)
 
 ROLE_PROP = "warp_sph_role"  # legacy custom-property fallback
-ROLES = ("DOMAIN", "FLUID", "COLLIDER")
+ROLES = ("DOMAIN", "FLUID", "COLLIDER", "EMITTER")
 NO_ROLE = "NONE"
 
 
@@ -36,8 +49,8 @@ def object_role(obj) -> str | None:
     return None if role in (None, NO_ROLE) else str(role)
 
 
-def _world_mesh(obj, depsgraph, role: str) -> MeshData:
-    """Evaluated (modifiers applied), triangulated, world-space copy of a mesh object."""
+def _world_mesh(obj, depsgraph, role: str, unit: float = 1.0) -> MeshData:
+    """Evaluated (modifiers applied), triangulated, world-space copy of a mesh object, in metres."""
     evaluated = obj.evaluated_get(depsgraph)
     mesh = evaluated.to_mesh()
     if mesh is None:
@@ -54,7 +67,7 @@ def _world_mesh(obj, depsgraph, role: str) -> MeshData:
         evaluated.to_mesh_clear()
 
     matrix = np.array(evaluated.matrix_world, dtype=np.float64).reshape(4, 4)
-    vertices = local.reshape(-1, 3).astype(np.float64) @ matrix[:3, :3].T + matrix[:3, 3]
+    vertices = (local.reshape(-1, 3).astype(np.float64) @ matrix[:3, :3].T + matrix[:3, 3]) * unit
     triangles = tris.reshape(-1, 3)
     if np.linalg.det(matrix[:3, :3]) < 0.0:  # mirrored transform reverses face orientation
         triangles = triangles[:, ::-1]
@@ -96,7 +109,7 @@ def scene_warnings(scene) -> list[str]:
         warnings.append("No domain: mark a box as Domain")
     elif len(domains) > 1:
         warnings.append(f"{len(domains)} domains; exactly one is allowed")
-    if not by_role.get("FLUID"):
+    if not by_role.get("FLUID") and not by_role.get("EMITTER"):
         warnings.append("No fluid: mark a closed mesh as Fluid")
     if len(domains) == 1:
         box = world_bounds(domains[0])
@@ -110,11 +123,50 @@ def scene_warnings(scene) -> list[str]:
     return warnings
 
 
+def unit_scale(scene) -> float:
+    """Metres per Blender unit (Scene Properties > Units > Unit Scale); 1.0 when unset."""
+    settings = getattr(scene, "unit_settings", None)
+    scale = float(getattr(settings, "scale_length", 1.0) or 1.0)
+    return scale if scale > 0.0 else 1.0
+
+
+def _is_animated(obj) -> bool:
+    """True if the object's world transform can change over time: keyframes or drivers, constraints, or
+    an animated parent. Shape changes (armatures, shape keys) are not looked at; they are not followed."""
+    while obj is not None:
+        anim = getattr(obj, "animation_data", None)
+        if anim is not None and (getattr(anim, "action", None) is not None or len(getattr(anim, "drivers", ()))):
+            return True
+        if len(getattr(obj, "constraints", ())):
+            return True
+        obj = getattr(obj, "parent", None)
+    return False
+
+
+def _emitter(obj, depsgraph, unit: float) -> EmitterData:
+    settings = getattr(obj, "warp_sph", None)
+
+    def get(name, default):
+        return getattr(settings, f"emit_{name}", default) if settings is not None else default
+
+    return EmitterData(
+        mesh=_world_mesh(obj, depsgraph, "EMITTER", unit),
+        velocity_mode=str(get("velocity_mode", "NORMAL")),
+        speed=float(get("speed", 2.0)) * unit,
+        vector=tuple(float(c) * unit for c in get("vector", (0.0, 0.0, -2.0))),
+        rate=float(get("rate", 0.0)),
+        frame_start=float(get("frame_start", 1.0)),
+        frame_end=float(get("frame_end", 250.0)),
+    )
+
+
 def description_from_blender(scene, depsgraph) -> SceneDescription:
-    """Reads every scene object with a role into a validated SceneDescription.
+    """Reads every scene object with a role into a validated SceneDescription, in metres.
 
     Exactly one DOMAIN object is required (its world-space bounding box is the simulation domain).
     FLUID and COLLIDER objects must be closed meshes; unsupported geometry raises SceneValidationError.
+    Geometry is read at the current frame, which is also the simulation's start frame; animated
+    colliders get a ColliderMotion whose later poses come from sync_collider_keyframes.
     """
     by_role: dict[str, list] = {role: [] for role in ROLES}
     for role, objs in objects_by_role(scene).items():
@@ -130,15 +182,52 @@ def description_from_blender(scene, depsgraph) -> SceneDescription:
     if len(domains) != 1:
         found = ", ".join(o.name for o in domains) or "none"
         raise SceneValidationError(f"exactly one DOMAIN object is required; found {len(domains)} ({found})")
-    domain_mesh = _world_mesh(domains[0], depsgraph, "DOMAIN")
+    unit = unit_scale(scene)
+    domain_mesh = _world_mesh(domains[0], depsgraph, "DOMAIN", unit)
     if len(domain_mesh.vertices) == 0:
         raise SceneValidationError(f"domain object '{domains[0].name}' has no vertices")
 
-    gravity = tuple(scene.gravity) if getattr(scene, "use_gravity", True) else (0.0, 0.0, 0.0)
+    # Blender's gravity is in m/s^2 whatever the unit scale.
+    gravity = tuple(float(g) for g in scene.gravity) if getattr(scene, "use_gravity", True) else (0.0, 0.0, 0.0)
+    colliders = by_role["COLLIDER"]
+    motion = []
+    for index, obj in enumerate(colliders):
+        if _is_animated(obj):
+            matrix = np.array(obj.matrix_world, dtype=np.float64).reshape(4, 4)
+            motion.append(ColliderMotion(index, obj.name, matrix[:3, :3], matrix[:3, 3] * unit))
+    render = getattr(scene, "render", None)
+    fps = float(getattr(render, "fps", 24)) / float(getattr(render, "fps_base", 1.0) or 1.0)
+    settings = getattr(scene, "warp_sph", None)
     return SceneDescription(
         domain_min=tuple(domain_mesh.vertices.min(axis=0)),
         domain_max=tuple(domain_mesh.vertices.max(axis=0)),
         gravity=gravity,
-        fluid_volumes=tuple(_world_mesh(o, depsgraph, "FLUID") for o in by_role["FLUID"]),
-        colliders=tuple(_world_mesh(o, depsgraph, "COLLIDER") for o in by_role["COLLIDER"]),
+        fluid_volumes=tuple(_world_mesh(o, depsgraph, "FLUID", unit) for o in by_role["FLUID"]),
+        colliders=tuple(_world_mesh(o, depsgraph, "COLLIDER", unit) for o in colliders),
+        emitters=tuple(_emitter(o, depsgraph, unit) for o in by_role["EMITTER"]),
+        collider_motion=tuple(motion),
+        unit_scale=unit,
+        start_frame=float(getattr(scene, "frame_current", 1)),
+        fps=fps,
+        particle_budget=int(getattr(settings, "max_particles", DEFAULT_PARTICLE_BUDGET)),
     )
+
+
+def sync_collider_keyframes(scene, solver) -> None:
+    """Feeds the solver the animated colliders' world matrices for the frames its next step needs.
+
+    Main thread only. Each Blender frame is evaluated once (scene.frame_set) and its matrices handed to
+    the solver; afterwards the scene is left at the simulation's current frame, so the viewport shows
+    the colliders where the fluid sees them. Does nothing when no collider is animated or the needed
+    frames are already known.
+    """
+    frames = solver.collider_frames_needed()
+    if not frames:
+        return
+    names = solver.animated_collider_names
+    for frame in frames:
+        scene.frame_set(frame)
+        solver.set_collider_keyframe(frame, [np.array(scene.objects[n].matrix_world) for n in names])
+    current = solver.current_frame
+    if scene.frame_current != current:
+        scene.frame_set(current)

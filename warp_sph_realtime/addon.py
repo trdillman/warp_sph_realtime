@@ -11,7 +11,7 @@ from __future__ import annotations
 import importlib
 
 import bpy
-from bpy.props import EnumProperty, PointerProperty
+from bpy.props import EnumProperty, FloatProperty, FloatVectorProperty, IntProperty, PointerProperty
 
 from . import cache_ui, diagnostics, install_ui, props, sim_session, warp_installer, warp_runtime
 from .render.gpu_points import settings_from_scene
@@ -229,7 +229,8 @@ ROLE_ITEMS = [
     ("DOMAIN", "Domain", "Simulation box: the object's world-space axis-aligned bounding box (use a cube). "
                          "Exactly one per scene"),
     ("FLUID", "Fluid", "Closed mesh volume, filled with fluid particles when the simulation starts"),
-    ("COLLIDER", "Collider", "Closed, static mesh obstacle"),
+    ("COLLIDER", "Collider", "Closed mesh obstacle; follows the object's animated location and rotation"),
+    ("EMITTER", "Emitter", "Mesh surface that releases fluid particles over a frame range"),
 ]
 
 
@@ -240,6 +241,22 @@ class WARPSPH_ObjectSettings(bpy.types.PropertyGroup):
         items=ROLE_ITEMS,
         default="NONE",
     )
+    emit_velocity_mode: EnumProperty(
+        name="Direction",
+        items=[("NORMAL", "Normal", "Particles leave along the face normals at Speed"),
+               ("VECTOR", "Vector", "Particles leave with the Velocity vector")],
+        default="NORMAL",
+    )
+    emit_speed: FloatProperty(name="Speed", description="Emission speed along the face normals",
+                              default=2.0, min=0.0, soft_max=10.0, unit='VELOCITY')
+    emit_vector: FloatVectorProperty(name="Velocity", default=(0.0, 0.0, -2.0), size=3, subtype='VELOCITY')
+    emit_rate: FloatProperty(
+        name="Rate (particles/s)",
+        description="Particles released per second; 0 = a full stream (one particle per spacing of travel). "
+                    "Higher values are capped at the full stream",
+        default=0.0, min=0.0, soft_max=1_000_000.0)
+    emit_frame_start: IntProperty(name="Start Frame", default=1)
+    emit_frame_end: IntProperty(name="End Frame", default=250)
 
 
 def _assign_role(obj, role: str):
@@ -363,9 +380,19 @@ class OBJECT_PT_warp_sph(bpy.types.Panel):
         help_text = {
             "DOMAIN": "Simulation box: this object's world bounding box",
             "FLUID": "Closed mesh, filled with particles on Start",
-            "COLLIDER": "Closed static obstacle",
+            "COLLIDER": "Closed obstacle; animated location and rotation move it",
+            "EMITTER": "Surface that releases particles over its frame range",
         }.get(role or "", "Not part of the simulation")
         layout.label(text=help_text, icon='INFO')
+        if role == "EMITTER":
+            settings = obj.warp_sph
+            col = layout.column(align=True)
+            col.prop(settings, "emit_velocity_mode", expand=True)
+            col.prop(settings, "emit_speed" if settings.emit_velocity_mode == "NORMAL" else "emit_vector")
+            col.prop(settings, "emit_rate")
+            row = col.row(align=True)
+            row.prop(settings, "emit_frame_start")
+            row.prop(settings, "emit_frame_end")
         if obj.warp_sph.role == "NONE" and role is not None:
             layout.label(text=f"Role {role} from the legacy 'warp_sph_role' property")
         if context.scene.warp_sph.scene_source != 'CUSTOM':
@@ -390,21 +417,34 @@ def _draw_custom_scene(box, scene, session):
         by_role, warnings = {}, [f"Cannot read scene roles: {exc}"]
     col = box.column(align=True)
     col.prop(settings, "particle_spacing")
+    emitting = bool(by_role.get("EMITTER"))
+    if emitting:
+        col.prop(settings, "max_particles")
     solver = session.solver
     custom_running = session.running and session.active_demo == CUSTOM_SCENE and solver is not None
-    if custom_running:
+    if custom_running and getattr(solver, "nozzle_pos", None) is not None:  # running with emitters
+        col.label(text=f"Particles: {solver.active_count:,} of {solver.num_particles:,}")
+        if solver.emission_exhausted:
+            col.label(text="Particle budget reached: emitters stopped", icon='ERROR')
+        _draw_vram_warning(col, solver.num_particles)
+    elif custom_running:
         col.label(text=f"Particles: {solver.num_particles:,} (from the fill)")
         _draw_vram_warning(col, solver.num_particles)
+    elif emitting:
+        _draw_vram_warning(col, settings.max_particles)
     else:
-        _draw_vram_warning(col, props.custom_particle_estimate(by_role.get("FLUID", []), settings.particle_spacing))
+        spacing = settings.particle_spacing / _scene_api().unit_scale(scene)  # in scene units
+        _draw_vram_warning(col, props.custom_particle_estimate(by_role.get("FLUID", []), spacing))
     box.operator("object.warp_sph_add_fluid_scene", icon='ADD')
     box.label(text="Set selected objects as:")
     row = box.row(align=True)
     for role, text, icon in (("DOMAIN", "Domain", 'MESH_CUBE'), ("FLUID", "Fluid", 'MOD_FLUIDSIM'),
-                             ("COLLIDER", "Collider", 'PHYSICS'), ("NONE", "Clear", 'X')):
+                             ("COLLIDER", "Collider", 'PHYSICS'), ("EMITTER", "Emitter", 'EXPORT'),
+                             ("NONE", "Clear", 'X')):
         row.operator("object.warp_sph_set_role", text=text, icon=icon).role = role
     col = box.column(align=True)
-    for role, title in (("DOMAIN", "Domain"), ("FLUID", "Fluid"), ("COLLIDER", "Colliders")):
+    for role, title in (("DOMAIN", "Domain"), ("FLUID", "Fluid"), ("COLLIDER", "Colliders"),
+                        ("EMITTER", "Emitters")):
         objs = by_role.get(role, [])
         names = ", ".join(o.name for o in objs[:3]) + (", ..." if len(objs) > 3 else "")
         col.label(text=f"{title} ({len(objs)}): {names or '-'}")

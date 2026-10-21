@@ -262,6 +262,8 @@ class Solver:
         solver.stiffness, solver.cfl_factor = stiffness, cfl_factor
         return solver
     def get_vram_usage_mb(self): return 1.0
+    def copy_positions(self, out): pass
+    def collider_frames_needed(self): return []  # no animated colliders
     step_error = None
     def step(self, out, use_graph=True):
         if Solver.step_error: raise Solver.step_error

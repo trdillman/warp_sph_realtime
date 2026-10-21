@@ -44,6 +44,12 @@ class WARPSPH_SceneSettings(bpy.types.PropertyGroup):
         step=0.1,        # 0.001 m per click
         precision=4,
     )
+    max_particles: IntProperty(
+        name="Max Particles",
+        description="Particle budget of a Custom scene with emitters: the GPU pool is allocated once at this "
+                    "size and emitters stop when it is full. Scenes without emitters use exactly their fill",
+        default=1_000_000, min=1000, max=4_000_000, step=100_000,
+    )
     demo_scene: EnumProperty(name="Demo Scene", items=DEMO_ITEMS, default="DOUBLE_DAM_PILLARS")
     particle_count: IntProperty(
         name="Particles",

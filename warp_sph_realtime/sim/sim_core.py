@@ -1,7 +1,10 @@
+import math
+from dataclasses import dataclass
+
 import numpy as np
 import warp as wp
 
-from ..scene.description import SceneDescription
+from ..scene.description import SceneDescription, rigid_key
 from .colliders import MeshSet, mesh_signed_distance
 
 wp.init()
@@ -374,8 +377,42 @@ def clamp_to_domain(x: wp.vec3, v: wp.vec3, domain_min: wp.vec3, domain_max: wp.
     return px, pv
 
 
+@wp.func
+def collider_distance(mesh_id: wp.uint64, xform: wp.transform, x: wp.vec3,
+                      radius: float) -> tuple[float, wp.vec3, wp.vec3]:
+    """mesh_signed_distance for a collider placed by a rigid transform (mesh stored in its local frame)."""
+    d, n_local, cp_local = mesh_signed_distance(mesh_id, wp.transform_point(wp.transform_inverse(xform), x), radius)
+    return d, wp.transform_vector(xform, n_local), wp.transform_point(xform, cp_local)
+
+
+@wp.func
+def collider_velocity(lin: wp.vec3, ang: wp.vec3, xform: wp.transform, x: wp.vec3) -> wp.vec3:
+    """Velocity of the collider's material point at x (rigid motion about its pivot)."""
+    return lin + wp.cross(ang, x - wp.transform_get_translation(xform))
+
+
 @wp.kernel
-def k_scene_forces_and_copyback(
+def k_scene_density(
+    grid: wp.uint64,
+    pos_sorted: wp.array[wp.vec3],
+    density_sorted: wp.array[float],
+    mass: float,
+    h: float,
+    rest_density: float,
+    active: wp.array[wp.int32],
+):
+    """k_compute_density_coalesced (default contact mode) for the first active[0] particles only.
+
+    Launched over the whole pool so the captured graph never changes; the live count is read on device.
+    """
+    tid = int(wp.tid())
+    if tid >= active[0]:
+        return
+    density_sorted[tid] = wp.max(particle_density(grid, pos_sorted, pos_sorted[tid], mass, h), rest_density)
+
+
+@wp.kernel
+def k_scene_forces(
     grid: wp.uint64,
     pos_sorted: wp.array[wp.vec3],
     vel_sorted: wp.array[wp.vec3],
@@ -391,17 +428,18 @@ def k_scene_forces_and_copyback(
     domain_min: wp.vec3,
     domain_max: wp.vec3,
     gravity: wp.vec3,
-    collider_ids: wp.array[wp.uint64],
-    num_colliders: int,
-    collider_radius: float,
+    active: wp.array[wp.int32],
 ):
-    """Authored-scene variant of k_wcsph_forces_and_copyback: user gravity and static mesh colliders.
+    """Scene-mode fluid forces, user gravity and soft domain walls, integrated into the output buffers.
 
-    Colliders get the same soft wall law as the domain planes, driven by mesh signed distance within
-    `collider_radius`, plus a hard projection to the surface if a particle still ends up inside.
-    The legacy kernel is left untouched because the experimental differentiable code launches it.
+    Like k_wcsph_forces_and_copyback without the analytic obstacles; k_scene_boundaries then applies
+    the colliders and the hard domain clamp. Colliders are a separate kernel so their mesh-query code
+    does not raise the register use (and lower the occupancy) of the neighbour loop. The legacy kernel
+    is left untouched because the experimental differentiable code launches it.
     """
     tid = int(wp.tid())
+    if tid >= active[0]:
+        return
     xi = pos_sorted[tid]
     vi = vel_sorted[tid]
     f_pressure, f_visc = particle_forces(grid, pos_sorted, vel_sorted, density_sorted,
@@ -418,27 +456,181 @@ def k_scene_forces_and_copyback(
         wall_accel(xi[2] - domain_min[2], -vi[2], r0, sound_speed)
         - wall_accel(domain_max[2] - xi[2], vi[2], r0, sound_speed),
     )
-
-    for c in range(num_colliders):
-        d, n, _cp = mesh_signed_distance(collider_ids[c], xi, collider_radius)
-        if d < r0:
-            acc += n * wall_accel(d, -wp.dot(vi, n), r0, sound_speed)
-
     v_next = vi + acc * dt
-    x_next = xi + v_next * dt
+    vel_out[tid] = v_next
+    pos_vbo_out[tid] = xi + v_next * dt
+
+
+@wp.kernel
+def k_scene_boundaries(
+    pos_sorted: wp.array[wp.vec3],
+    vel_sorted: wp.array[wp.vec3],
+    pos_out: wp.array[wp.vec3],
+    vel_out: wp.array[wp.vec3],
+    h: float,
+    rest_density: float,
+    stiffness: float,
+    dt: float,
+    domain_min: wp.vec3,
+    domain_max: wp.vec3,
+    collider_ids: wp.array[wp.uint64],
+    num_colliders: int,
+    collider_radius: float,
+    collider_xform: wp.array[wp.transform],
+    collider_lin: wp.array[wp.vec3],
+    collider_ang: wp.array[wp.vec3],
+    active: wp.array[wp.int32],
+):
+    """Rigid mesh colliders and the hard domain clamp, after k_scene_forces integrated the fluid.
+
+    Colliders get the same soft wall law as the domain planes, driven by mesh signed distance within
+    `collider_radius` of the substep's start position, plus a hard projection to the surface if a
+    particle still ends up inside. The soft law's acceleration a enters exactly as if it had been part
+    of the integration (v += a dt, x += a dt^2). Each collider is placed by `collider_xform` (identity
+    for static ones) and both laws act on the velocity relative to the collider's surface, so a moving
+    collider pushes and drags the fluid. Transforms, collider velocities and the active particle count
+    are device buffers, so the captured graph reads their current values.
+    """
+    tid = int(wp.tid())
+    if tid >= active[0]:
+        return
+    xi = pos_sorted[tid]
+    vi = vel_sorted[tid]
+    x_next = pos_out[tid]
+    v_next = vel_out[tid]
+    sound_speed = wp.sqrt(7.0 * stiffness / rest_density)
+    r0 = 0.5 * h
+
+    acc = wp.vec3(0.0, 0.0, 0.0)
+    for c in range(num_colliders):
+        xform = collider_xform[c]
+        d, n, _cp = collider_distance(collider_ids[c], xform, xi, collider_radius)
+        if d < r0:
+            v_rel = vi - collider_velocity(collider_lin[c], collider_ang[c], xform, xi)
+            acc += n * wall_accel(d, -wp.dot(v_rel, n), r0, sound_speed)
+    v_next = v_next + acc * dt
+    x_next = x_next + acc * (dt * dt)
 
     for c in range(num_colliders):
-        d, n, cp = mesh_signed_distance(collider_ids[c], x_next, collider_radius)
+        xform = collider_xform[c]
+        d, n, cp = collider_distance(collider_ids[c], xform, x_next, collider_radius)
         if d < 0.0:
             x_next = cp + n * (0.01 * h)
-            vn = wp.dot(v_next, n)
+            vn = wp.dot(v_next - collider_velocity(collider_lin[c], collider_ang[c], xform, x_next), n)
             if vn < 0.0:
                 v_next = v_next - 1.5 * vn * n
 
     x_next, v_next = clamp_to_domain(x_next, v_next, domain_min, domain_max, 0.5)
 
     vel_out[tid] = v_next
-    pos_vbo_out[tid] = x_next
+    pos_out[tid] = x_next
+
+
+@wp.kernel
+def k_set_active(active: wp.array[wp.int32], count: int):
+    active[0] = count
+
+
+@wp.kernel
+def k_emit(
+    nozzle_pos: wp.array[wp.vec3],
+    nozzle_vel: wp.array[wp.vec3],
+    offset: int,
+    count: int,
+    first_index: int,
+    first_slot: int,
+    rate: float,
+    elapsed: float,
+    pos: wp.array[wp.vec3],
+    vel: wp.array[wp.vec3],
+):
+    """Activates pool slots [first_slot, first_slot + dim) with an emitter's particles first_index, ...
+
+    Particle g leaves nozzle (g mod count) of the emitter's shuffled nozzles at (g + 1) / rate seconds
+    after the emitter started; it is placed where it has travelled since then (`elapsed` is the time
+    since the start), so a steady stream has no gaps at substep boundaries.
+    """
+    j = int(wp.tid())
+    g = first_index + j
+    k = offset + g % count
+    v = nozzle_vel[k]
+    age = wp.max(elapsed - float(g + 1) / rate, 0.0)
+    pos[first_slot + j] = nozzle_pos[k] + v * age
+    vel[first_slot + j] = v
+
+
+@wp.kernel
+def k_write_key(key_p: wp.array[wp.vec3], key_q: wp.array[wp.quat], index: int, p: wp.vec3, q: wp.quat):
+    key_p[index] = p
+    key_q[index] = q
+
+
+@wp.kernel
+def k_collider_motion(
+    key_p: wp.array[wp.vec3],
+    key_q: wp.array[wp.quat],
+    motion_collider: wp.array[wp.int32],
+    num_motion: int,
+    slot_a: int,
+    slot_b: int,
+    alpha: float,
+    key_rate: float,
+    collider_xform: wp.array[wp.transform],
+    collider_lin: wp.array[wp.vec3],
+    collider_ang: wp.array[wp.vec3],
+):
+    """Pose and velocity of each animated collider between two frame keys (alpha in [0, 1]).
+
+    Position is interpolated linearly and rotation by slerp; the velocities are the key differences
+    times `key_rate` (keys per second; 0 holds the collider still).
+    """
+    m = int(wp.tid())
+    pa = key_p[slot_a * num_motion + m]
+    pb = key_p[slot_b * num_motion + m]
+    qa = key_q[slot_a * num_motion + m]
+    qb = key_q[slot_b * num_motion + m]
+    if wp.dot(qa, qb) < 0.0:  # shortest arc
+        qb = -qb
+    c = motion_collider[m]
+    collider_xform[c] = wp.transform(pa + (pb - pa) * alpha, wp.quat_slerp(qa, qb, alpha))
+    collider_lin[c] = (pb - pa) * key_rate
+    dq = qb * wp.quat_inverse(qa)  # world-frame rotation from key a to key b
+    axis = wp.vec3(dq[0], dq[1], dq[2])
+    w = dq[3]
+    if w < 0.0:
+        axis = -axis
+        w = -w
+    s = wp.length(axis)
+    omega = axis * (2.0 / wp.max(w, 1e-6))  # small-angle limit of 2 * atan2(s, w) / s
+    if s > 1e-6:
+        omega = axis * (2.0 * wp.atan2(s, w) / s)
+    collider_ang[c] = omega * key_rate
+
+
+@wp.kernel
+def k_scale_copy(src: wp.array[wp.vec3], dst: wp.array[wp.vec3], scale: float):
+    tid = int(wp.tid())
+    dst[tid] = src[tid] * scale
+
+
+# Pool slots without a particle sit here: far outside any view, so they are clipped, never drawn.
+PARKED_POSITION = 1.0e30
+
+# Frame keys kept per animated collider (a ring indexed by frame number).
+KEY_RING = 8
+
+
+@dataclass
+class _EmitterSchedule:
+    """Host-side emission clock of one emitter (all times in simulation seconds)."""
+
+    name: str
+    offset: int        # first nozzle in the solver's nozzle arrays
+    count: int         # nozzles
+    rate: float        # particles per second
+    t_start: float
+    t_end: float
+    emitted: int = 0
 
 
 class RealtimeWCSPHSolver:
@@ -467,10 +659,27 @@ class RealtimeWCSPHSolver:
         self.domain_min = wp.vec3(-2.5, -2.5, 0.0)
         self.domain_max = wp.vec3(2.5, 2.5, 5.0)
         self.gravity = wp.vec3(0.0, 0.0, -9.81)
-        # Authored-scene mode (set_scene): user gravity + static mesh colliders. Off for the legacy demos.
+        # Scene mode (set_scene): a SceneDescription's gravity, mesh colliders and emitters. Off for the
+        # raw solver that the experimental differentiable code drives.
         self.scene_mode = False
         self.colliders: MeshSet | None = None
         self.collider_radius = 0.0
+        self.collider_xform = self.collider_lin = self.collider_ang = None
+        self._motions = ()
+        self._key_p = self._key_q = self._motion_collider = None
+        self._key_frames: dict[int, int] = {}  # frame -> ring slot
+        # Particle pool: slots [0, active_count) hold particles, the rest wait for emitters (parked).
+        # num_particles is the pool size; the device copy of the count is what the captured graph reads.
+        self.active_count = num_particles
+        self.active = wp.array([num_particles], dtype=wp.int32, device=self.device)
+        self.sim_time = 0.0
+        self.unit_scale = 1.0
+        self.start_frame = 1.0
+        self.fps = 24.0
+        self._emitters: list[_EmitterSchedule] = []
+        self.nozzle_pos = self.nozzle_vel = None
+        self.emission_exhausted = False
+        self._exhaustion_unreported = False
 
         # O(n) spatial hash grid (128^3 cells)
         self.grid = wp.HashGrid(128, 128, 128, device=self.device)
@@ -528,6 +737,38 @@ class RealtimeWCSPHSolver:
 
     def _launch_density_and_forces(self):
         """Density + force/integrate kernels on the sorted buffers; shared by eager steps and graph capture."""
+        if self.scene_mode:
+            assert self.colliders is not None
+            wp.launch(
+                kernel=k_scene_density,
+                dim=self.num_particles,
+                inputs=[self.grid.id, self.pos_sorted, self.density_sorted,
+                        self.mass, self.h, self.rest_density, self.active],
+                device=self.device,
+            )
+            wp.launch(
+                kernel=k_scene_forces,
+                dim=self.num_particles,
+                inputs=[
+                    self.grid.id, self.pos_sorted, self.vel_sorted, self.density_sorted,
+                    self.pos_sim, self.vel, self.mass, self.h, self.rest_density,
+                    self.stiffness, self.viscosity, self.dt, self.domain_min, self.domain_max,
+                    self.gravity, self.active,
+                ],
+                device=self.device,
+            )
+            wp.launch(
+                kernel=k_scene_boundaries,
+                dim=self.num_particles,
+                inputs=[
+                    self.pos_sorted, self.vel_sorted, self.pos_sim, self.vel, self.h, self.rest_density,
+                    self.stiffness, self.dt, self.domain_min, self.domain_max,
+                    self.colliders.ids, self.colliders.count, self.collider_radius,
+                    self.collider_xform, self.collider_lin, self.collider_ang, self.active,
+                ],
+                device=self.device,
+            )
+            return
         wp.launch(
             kernel=k_compute_density_coalesced,
             dim=self.num_particles,
@@ -535,20 +776,6 @@ class RealtimeWCSPHSolver:
                     self.mass, self.h, self.rest_density, self.enable_obstacles],
             device=self.device,
         )
-        if self.scene_mode:
-            assert self.colliders is not None
-            wp.launch(
-                kernel=k_scene_forces_and_copyback,
-                dim=self.num_particles,
-                inputs=[
-                    self.grid.id, self.pos_sorted, self.vel_sorted, self.density_sorted,
-                    self.pos_sim, self.vel, self.mass, self.h, self.rest_density,
-                    self.stiffness, self.viscosity, self.dt, self.domain_min, self.domain_max,
-                    self.gravity, self.colliders.ids, self.colliders.count, self.collider_radius,
-                ],
-                device=self.device,
-            )
-            return
         wp.launch(
             kernel=k_wcsph_forces_and_copyback,
             dim=self.num_particles,
@@ -561,19 +788,188 @@ class RealtimeWCSPHSolver:
             device=self.device,
         )
 
-    def set_scene(self, desc: SceneDescription):
-        """Adopts an authored scene's domain, gravity and static mesh colliders (builds one wp.Mesh each).
+    def set_scene(self, desc: SceneDescription, active_count: int | None = None):
+        """Adopts a scene's domain, gravity, unit scale, mesh colliders (one wp.Mesh each, built once) and
+        emitters. Call set_particle_spacing first (emitter nozzles use its spacing) and
+        rebuild_cuda_graph() afterwards.
 
-        Particle spacing and positions are separate (set_particle_spacing / from_scene). Disables the
-        analytic demo obstacles. Call rebuild_cuda_graph() afterwards.
+        `active_count` is how many pool slots already hold particles (default: all); the caller places
+        them and parks the rest. Animated colliders start at their start-frame pose; later poses come
+        from set_collider_keyframe. Disables the analytic demo obstacles.
         """
+        device = self.device
         self.domain_min = wp.vec3(*desc.domain_min)
         self.domain_max = wp.vec3(*desc.domain_max)
         self.gravity = wp.vec3(*desc.gravity)
         self.enable_obstacles = 0
-        self.colliders = MeshSet(desc.colliders, self.device)
+        self.unit_scale, self.start_frame, self.fps = desc.unit_scale, desc.start_frame, desc.fps
+        self.sim_time = 0.0
+
+        # Colliders: moving ones are stored relative to their pivot and placed by a transform.
+        count = len(desc.colliders)
+        origins = np.zeros((count, 3))
+        poses = np.zeros((max(count, 1), 7), dtype=np.float32)
+        poses[:, 6] = 1.0  # identity rotation (x, y, z, w)
+        for motion in desc.collider_motion:
+            origins[motion.collider] = motion.pivot
+            poses[motion.collider, :3] = motion.pivot
+        self.colliders = MeshSet(desc.colliders, device, origins)
+        self.collider_xform = wp.array(poses, dtype=wp.transform, device=device)
+        self.collider_lin = wp.zeros(max(count, 1), dtype=wp.vec3, device=device)
+        self.collider_ang = wp.zeros(max(count, 1), dtype=wp.vec3, device=device)
+        self._motions = desc.collider_motion
+        self._key_frames = {}
+        if self._motions:
+            m = len(self._motions)
+            self._motion_collider = wp.array([mo.collider for mo in self._motions], dtype=wp.int32, device=device)
+            key_p = np.zeros((KEY_RING, m, 3), dtype=np.float32)
+            key_q = np.zeros((KEY_RING, m, 4), dtype=np.float32)
+            key_q[..., 3] = 1.0
+            first = math.floor(self.start_frame)
+            key_p[first % KEY_RING] = [mo.pivot for mo in self._motions]  # start pose: pivot, no rotation
+            self._key_p = wp.array(key_p.reshape(-1, 3), dtype=wp.vec3, device=device)
+            self._key_q = wp.array(key_q.reshape(-1, 4), dtype=wp.quat, device=device)
+            self._key_frames[first] = first % KEY_RING
+
+        self._set_active_count(self.num_particles if active_count is None else active_count)
+        self._setup_emitters(desc)
+        if self._emitters:
+            self.grid.reserve(self.num_particles)  # the grid never grows while the pool fills
         self.scene_mode = True
         self.collider_radius = self.h  # re-derived in set_particle_spacing
+
+    def _setup_emitters(self, desc: SceneDescription):
+        self._emitters = []
+        self.nozzle_pos = self.nozzle_vel = None
+        self.emission_exhausted = False
+        self._exhaustion_unreported = False
+        if not desc.emitters:
+            return
+        from ..scene.fill import emitter_nozzle_arrays
+
+        # A particle starts at most one substep of travel past its nozzle (k_emit), so nozzles keep one
+        # spacing plus that travel from every wall and collider: no particle starts in a boundary layer.
+        spacing = 0.5 * self.h
+        speeds = [abs(e.speed) if e.velocity_mode == "NORMAL" else math.hypot(*e.vector) for e in desc.emitters]
+        clearance = spacing + max(speeds) * self.dt
+        positions, velocities, ranges = emitter_nozzle_arrays(desc, spacing, self.device, clearance)
+        self.nozzle_pos = wp.array(positions, dtype=wp.vec3, device=self.device)
+        self.nozzle_vel = wp.array(velocities, dtype=wp.vec3, device=self.device)
+        for emitter, (offset, count, natural) in zip(desc.emitters, ranges, strict=True):
+            # Above the natural rate particles would start closer than one spacing: clamp to it.
+            rate = natural if emitter.rate <= 0.0 else min(emitter.rate, natural)
+            self._emitters.append(_EmitterSchedule(
+                emitter.mesh.name, offset, count, rate,
+                max((emitter.frame_start - desc.start_frame) / desc.fps, 0.0),
+                (emitter.frame_end - desc.start_frame) / desc.fps))
+
+    @property
+    def emitter_rates(self) -> dict[str, float]:
+        """Particles per second of each emitter while it is on (after the full-inflow clamp)."""
+        return {e.name: e.rate for e in self._emitters}
+
+    def _set_active_count(self, count: int):
+        self.active_count = int(count)
+        wp.launch(k_set_active, dim=1, inputs=[self.active, self.active_count], device=self.device)
+
+    def _emit(self):
+        """Activates the particles that the emitters released by the current simulation time.
+
+        Host bookkeeping plus one small launch per emitting emitter, outside graph capture; nothing is
+        allocated. Once the pool is full, emission stops for the rest of the run.
+        """
+        if not self._emitters or self.emission_exhausted:
+            return
+        n = self.active_count
+        for e in self._emitters:
+            if self.sim_time <= e.t_start:
+                continue
+            due = math.floor(e.rate * (min(self.sim_time, e.t_end) - e.t_start) + 1e-9) - e.emitted
+            if due <= 0:
+                continue
+            if due > self.num_particles - n:
+                due = self.num_particles - n
+                self.emission_exhausted = self._exhaustion_unreported = True
+            if due > 0:
+                wp.launch(k_emit, dim=due, inputs=[
+                    self.nozzle_pos, self.nozzle_vel, e.offset, e.count, e.emitted, n, e.rate,
+                    self.sim_time - e.t_start, self.pos_sim, self.vel], device=self.device)
+                e.emitted += due
+                n += due
+            if self.emission_exhausted:
+                break
+        if n != self.active_count:
+            self._set_active_count(n)
+
+    def take_exhaustion_notice(self) -> bool:
+        """True once, after emission stopped because the particle budget is used up."""
+        notice, self._exhaustion_unreported = self._exhaustion_unreported, False
+        return notice
+
+    # -- animated colliders --------------------------------------------------------------------------
+
+    def _frame_at(self, t: float) -> float:
+        return self.start_frame + t * self.fps
+
+    @property
+    def current_frame(self) -> int:
+        """The scene frame the simulation clock is in."""
+        return math.floor(self._frame_at(self.sim_time))
+
+    @property
+    def animated_collider_names(self) -> list[str]:
+        """Object names of the animated colliders, in the order set_collider_keyframe expects."""
+        return [motion.name for motion in self._motions]
+
+    def collider_frames_needed(self) -> list[int]:
+        """Scene frames whose animated-collider transforms the next step() needs and does not have.
+
+        The caller reads each frame's world matrices (once per frame) and passes them to
+        set_collider_keyframe before stepping. Empty when no collider is animated.
+        """
+        if not self._motions:
+            return []
+        first = math.floor(self._frame_at(self.sim_time))
+        last = math.floor(self._frame_at(self.sim_time + self.substeps * self.dt)) + 1
+        frames = range(first, min(last, first + KEY_RING - 1) + 1)
+        return [f for f in frames if f not in self._key_frames]
+
+    def set_collider_keyframe(self, frame: int, matrices):
+        """Stores the animated colliders' world matrices (4x4, scene units, in collider_motion order) at
+        `frame`. Raises SceneValidationError if a collider's motion is not rigid."""
+        frame = int(frame)
+        if len(matrices) != len(self._motions):
+            raise ValueError(f"expected {len(self._motions)} collider matrices, got {len(matrices)}")
+        keys = [rigid_key(motion, matrix, self.unit_scale) for motion, matrix in zip(self._motions, matrices, strict=True)]
+        slot = frame % KEY_RING
+        for old in [f for f, s in self._key_frames.items() if s == slot]:
+            del self._key_frames[old]
+        for m, (origin, quat) in enumerate(keys):
+            wp.launch(k_write_key, dim=1, inputs=[
+                self._key_p, self._key_q, slot * len(self._motions) + m,
+                wp.vec3(*origin.tolist()), wp.quat(*quat.tolist())], device=self.device)
+        self._key_frames[frame] = slot
+
+    def _update_colliders(self):
+        """Poses and velocities of the animated colliders for the coming substep (end-of-substep time)."""
+        if not self._motions:
+            return
+        f = self._frame_at(self.sim_time + self.dt)
+        fa = math.floor(f)
+        slot_a, slot_b = self._key_frames.get(fa), self._key_frames.get(fa + 1)
+        alpha, key_rate = f - fa, self.fps
+        if slot_a is None or slot_b is None:
+            # A missing key holds the nearest known pose still (no caller fed the frames).
+            known = slot_a if slot_a is not None else slot_b
+            if known is None:
+                before = [k for k in self._key_frames if k <= fa]
+                known = self._key_frames[max(before) if before else min(self._key_frames)]
+            slot_a = slot_b = known
+            alpha, key_rate = 0.0, 0.0
+        wp.launch(k_collider_motion, dim=len(self._motions), inputs=[
+            self._key_p, self._key_q, self._motion_collider, len(self._motions), slot_a, slot_b,
+            float(alpha), float(key_rate), self.collider_xform, self.collider_lin, self.collider_ang],
+            device=self.device)
 
     @classmethod
     def from_scene(cls, desc: SceneDescription, spacing: float, substeps: int = 2,
@@ -583,7 +979,10 @@ class RealtimeWCSPHSolver:
 
         Fills the fluid volumes on a cubic lattice at `spacing` (h = 2*spacing, mass from the same
         lattice, so the fill is exactly at rest density), starts at rest, and captures the CUDA graph.
-        Raises SceneFillError if the fill is empty or exceeds `max_particles`.
+        Without emitters the pool is exactly the fill. With emitters it is the scene's particle budget,
+        allocated once: the fill takes the first slots and emitters activate the rest.
+        Raises SceneFillError if the fill is empty (and there are no emitters), exceeds `max_particles`
+        or the budget, or an emitter cannot emit.
         """
         from ..scene.fill import SceneFillError, fill_particles
 
@@ -592,14 +991,25 @@ class RealtimeWCSPHSolver:
             raise SceneFillError(
                 f"scene fills {len(points)} particles at spacing {spacing}, above the {max_particles} limit; "
                 "increase the particle spacing")
-        solver = cls(num_particles=len(points), h=2.0 * spacing, substeps=substeps, enable_obstacles=0)
+        capacity = len(points)
+        if desc.emitters:
+            capacity = desc.particle_budget
+            if capacity > max_particles:
+                raise SceneFillError(f"particle budget {capacity} is above the {max_particles} limit")
+            if len(points) > capacity:
+                raise SceneFillError(
+                    f"scene fills {len(points)} particles at spacing {spacing}, above the particle budget "
+                    f"{capacity}; raise Max Particles or increase the particle spacing")
+        solver = cls(num_particles=capacity, h=2.0 * spacing, substeps=substeps, enable_obstacles=0)
         if stiffness is not None:
             solver.stiffness = stiffness
         if cfl_factor is not None:
             solver.cfl_factor = cfl_factor
         solver.set_particle_spacing(spacing)
-        solver.set_scene(desc)
-        solver.pos_sim.assign(points)
+        solver.set_scene(desc, active_count=len(points))
+        initial = np.full((capacity, 3), PARKED_POSITION, dtype=np.float32)
+        initial[:len(points)] = points
+        solver.pos_sim.assign(initial)
         solver.vel.zero_()
         solver.rebuild_cuda_graph()
         return solver
@@ -608,26 +1018,44 @@ class RealtimeWCSPHSolver:
         bytes_per_particle = (5 * 12) + 4 + 12 + 2 * 4  # + pid and pid_sorted
         return (self.num_particles * bytes_per_particle) / (1024.0 * 1024.0)
 
+    def copy_positions(self, out: wp.array):
+        """Writes the particle positions to `out` in scene units (pool slots without a particle stay parked)."""
+        if self.unit_scale == 1.0:
+            wp.copy(out, self.pos_sim)
+        else:
+            wp.launch(k_scale_copy, dim=self.num_particles, inputs=[self.pos_sim, out, 1.0 / self.unit_scale],
+                      device=self.device)
+
     def step(self, pos_vbo_wp: wp.array, use_graph: bool = True):
         for _ in range(self.substeps):
-            self.grid.build(points=self.pos_sim, radius=self.h)
+            n = self.num_particles
+            if self.scene_mode:
+                self._emit()
+                self._update_colliders()
+                n = self.active_count
+            # Only the live particles are hashed and sorted; views share memory, nothing is allocated.
+            pos = self.pos_sim if n == self.num_particles else self.pos_sim[:n]
+            pos_sorted = self.pos_sorted if n == self.num_particles else self.pos_sorted[:n]
+            if n > 0:
+                self.grid.build(points=pos, radius=self.h)
 
-            wp.launch(
-                kernel=k_reorder_soa_id,
-                dim=self.num_particles,
-                inputs=[self.grid.id, self.pos_sim, self.vel, self.pid,
-                        self.pos_sorted, self.vel_sorted, self.pid_sorted],
-                device=self.device,
-            )
-            # pos_sim / vel leave this substep in sorted order, so the sorted ids become the ids. A swap, not a
-            # copy: the id arrays are never captured in the CUDA graph.
-            self.pid, self.pid_sorted = self.pid_sorted, self.pid
+                wp.launch(
+                    kernel=k_reorder_soa_id,
+                    dim=n,
+                    inputs=[self.grid.id, self.pos_sim, self.vel, self.pid,
+                            self.pos_sorted, self.vel_sorted, self.pid_sorted],
+                    device=self.device,
+                )
+                # pos_sim / vel leave this substep in sorted order, so the sorted ids become the ids. A swap,
+                # not a copy: the id arrays are never captured in the CUDA graph.
+                self.pid, self.pid_sorted = self.pid_sorted, self.pid
 
-            self.grid.build(points=self.pos_sorted, radius=self.h)
+                self.grid.build(points=pos_sorted, radius=self.h)
 
-            if use_graph and self.cuda_graph is not None:
-                wp.capture_launch(self.cuda_graph)
-            else:
-                self._launch_density_and_forces()
+                if use_graph and self.cuda_graph is not None:
+                    wp.capture_launch(self.cuda_graph)
+                else:
+                    self._launch_density_and_forces()
+            self.sim_time += self.dt
 
-        wp.copy(pos_vbo_wp, self.pos_sim)
+        self.copy_positions(pos_vbo_wp)

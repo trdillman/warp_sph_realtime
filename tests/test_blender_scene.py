@@ -1,10 +1,19 @@
 """description_from_blender against a small fake of the bpy object model (no Blender needed)."""
 
+from types import SimpleNamespace as NS
+
 import numpy as np
 import pytest
 
 from tests.scene_fixtures import box_mesh
-from warp_sph_realtime.scene.blender_scene import ROLE_PROP, description_from_blender, object_role, scene_warnings
+from warp_sph_realtime.scene.blender_scene import (
+    ROLE_PROP,
+    description_from_blender,
+    object_role,
+    scene_warnings,
+    sync_collider_keyframes,
+    unit_scale,
+)
 from warp_sph_realtime.scene.description import SceneValidationError
 
 
@@ -191,3 +200,115 @@ def test_scene_warnings_cover_missing_roles_and_fluid_outside_domain():
     assert scene_warnings(FakeScene([domain, inside, outside])) == ["Fluid 'Spill' extends outside the domain"]
     assert scene_warnings(FakeScene([domain, second, inside, lamp])) == [
         "'Lamp' is a LIGHT, not a mesh", "2 domains; exactly one is allowed"]
+
+
+# --- P2.1: emitters, unit scale, frame clock, animated colliders ----------------------------------
+
+def plane_mesh(half, z):
+    verts = [(-half, -half, z), (half, -half, z), (half, half, z), (-half, half, z)]
+    return type("M", (), {"vertices": verts, "triangles": [(0, 2, 1), (0, 3, 2)]})  # facing down
+
+
+def emitter_obj(name="Tap", **settings):
+    obj = FakeObject(name, plane_mesh(0.1, 0.0), matrix=translation(0, 0, 1.5))
+    obj.warp_sph = NS(role="EMITTER", **settings)
+    return obj
+
+
+def test_emitter_settings_unit_scale_and_frame_clock():
+    tap = emitter_obj(emit_velocity_mode="VECTOR", emit_speed=1.0, emit_vector=(0.0, 0.0, -300.0),
+                      emit_rate=500.0, emit_frame_start=10, emit_frame_end=40)
+    scene = FakeScene([tap, domain_obj()], gravity=(0.0, 0.0, -9.81))
+    scene.unit_settings = NS(scale_length=0.01)                     # centimetres
+    scene.frame_current = 7
+    scene.render = NS(fps=30, fps_base=1.001)
+    scene.warp_sph = NS(max_particles=123_456)
+    desc = description_from_blender(scene, None)
+    assert desc.unit_scale == 0.01 and desc.start_frame == 7.0 and desc.fps == pytest.approx(30 / 1.001)
+    assert desc.particle_budget == 123_456 and desc.fluid_volumes == ()
+    assert desc.domain_min == pytest.approx((-0.005, -0.005, 0.005))  # geometry in metres
+    assert desc.gravity == pytest.approx((0.0, 0.0, -9.81))           # Blender gravity is already m/s^2
+    (e,) = desc.emitters
+    assert (e.velocity_mode, e.rate, e.frame_start, e.frame_end) == ("VECTOR", 500.0, 10.0, 40.0)
+    assert e.vector == pytest.approx((0.0, 0.0, -3.0))                # 300 cm/s
+    np.testing.assert_allclose(e.mesh.vertices[:, 2], 0.015, atol=1e-7)
+
+
+def test_emitter_defaults_and_unit_default():
+    desc = description_from_blender(FakeScene([emitter_obj(), domain_obj()]), None)
+    (e,) = desc.emitters
+    assert (e.velocity_mode, e.speed, e.rate) == ("NORMAL", 2.0, 0.0)
+    assert desc.unit_scale == 1.0 and desc.collider_motion == ()
+    assert unit_scale(NS(unit_settings=NS(scale_length=0.0))) == 1.0
+
+
+def animated(obj, kind):
+    if kind == "action":
+        obj.animation_data = NS(action=object(), drivers=[])
+    elif kind == "driver":
+        obj.animation_data = NS(action=None, drivers=[object()])
+    elif kind == "constraint":
+        obj.constraints = [object()]
+    elif kind == "parent":
+        obj.parent = NS(animation_data=NS(action=object(), drivers=[]), parent=None)
+    return obj
+
+
+@pytest.mark.parametrize("kind", ["action", "driver", "constraint", "parent"])
+def test_animated_colliders_get_a_motion(kind):
+    still = FakeObject("Still", box_mesh((-0.1, -0.1, -0.1), (0.1, 0.1, 0.1)), "COLLIDER", translation(-0.3, 0, 1.0))
+    paddle = animated(FakeObject("Paddle", box_mesh((-0.1, -0.1, -0.1), (0.1, 0.1, 0.1)), "COLLIDER",
+                                 translation(0.3, 0, 1.0)), kind)
+    fluid = FakeObject("Water", box_mesh((-0.1, -0.1, -0.1), (0.1, 0.1, 0.1)), "FLUID", translation(0, 0, 1.3))
+    scene = FakeScene([still, paddle, fluid, domain_obj()])
+    scene.unit_settings = NS(scale_length=2.0)
+    desc = description_from_blender(scene, None)
+    (m,) = desc.collider_motion
+    assert (m.collider, m.name) == ([c.name for c in desc.colliders].index("Paddle"), "Paddle")
+    assert m.pivot == pytest.approx((0.6, 0.0, 2.0))  # metres
+    np.testing.assert_allclose(m.start_linear, np.eye(3))
+
+
+def test_scene_warnings_accept_an_emitter_instead_of_fluid():
+    domain = with_settings(FakeObject("Domain", matrix=translation(0, 0, 1.0)), "DOMAIN")
+    domain.bound_box = box_corners((-1, -1, -1), (1, 1, 1))
+    assert scene_warnings(FakeScene([domain, emitter_obj()])) == []
+    assert scene_warnings(FakeScene([domain])) == ["No fluid: mark a closed mesh as Fluid"]
+
+
+class KeyedSolver:
+    def __init__(self, frames, current):
+        self.frames, self.current_frame, self.keys = frames, current, []
+        self.animated_collider_names = ["Paddle"]
+
+    def collider_frames_needed(self):
+        return self.frames
+
+    def set_collider_keyframe(self, frame, matrices):
+        self.keys.append((frame, [np.asarray(m) for m in matrices]))
+
+
+class FrameScene:
+    """frame_set moves the paddle to x = frame, like an animated object."""
+
+    def __init__(self, frame):
+        self.paddle = NS(matrix_world=translation(frame, 0, 0))
+        self.objects = {"Paddle": self.paddle}
+        self.frame_current, self.calls = frame, []
+
+    def frame_set(self, frame):
+        self.calls.append(frame)
+        self.frame_current = frame
+        self.paddle.matrix_world = translation(frame, 0, 0)
+
+
+def test_sync_collider_keyframes_reads_each_frame_once_and_returns_to_the_sim_frame():
+    scene = FrameScene(1)
+    solver = KeyedSolver([2, 3], current=2)
+    sync_collider_keyframes(scene, solver)
+    assert [f for f, _ in solver.keys] == [2, 3]
+    assert [m[0][0, 3] for _, m in solver.keys] == [2.0, 3.0]
+    assert scene.calls == [2, 3, 2] and scene.frame_current == 2
+    scene.calls.clear()
+    sync_collider_keyframes(scene, KeyedSolver([], current=5))  # nothing needed: the timeline is untouched
+    assert scene.calls == []

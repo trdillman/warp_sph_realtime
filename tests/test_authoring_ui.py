@@ -70,7 +70,7 @@ def make_context(objects=(), selected=()):
                         demo_scene='DOUBLE_DAM_PILLARS', substeps=2, stiffness=90.0, time_step_scale=0.4,
                         use_cuda_graph=True, show_particles=True, render_mode='POINTS', depth_test=True,
                         point_size=2.0, particle_radius=0.02, particle_color=(1, 1, 1, 1), filter_iterations=2,
-                        filter_sigma=4.0, absorption=(0.85, 0.22, 0.05))
+                        filter_sigma=4.0, absorption=(0.85, 0.22, 0.05), max_particles=500_000)
     collection = Collection(scene)
     collection.linked = []
     return NS(scene=scene, selected_objects=list(selected), collection=collection, object=None)
@@ -190,8 +190,9 @@ def view3d_panel_scene_box():
     ctx.scene.warp_sph.scene_source = 'CUSTOM'
     log = draw_panel(ctx)
     assert ('prop', 'particle_spacing') in log and ('prop', 'particle_count') not in log
-    assert [e[2] for e in log if e[:2] == ('op', 'object.warp_sph_set_role')] == ['Domain', 'Fluid', 'Collider', 'Clear']
+    assert [e[2] for e in log if e[:2] == ('op', 'object.warp_sph_set_role')] == ['Domain', 'Fluid', 'Collider', 'Emitter', 'Clear']
     assert ('op', 'object.warp_sph_add_fluid_scene', None) in log
+    assert ('prop', 'max_particles') not in log                                  # no emitter: no budget
     errors = [e[1] for e in log if e[0] == 'label' and e[2] == 'ERROR' and not e[1].startswith('Runtime')]
     assert errors == ['No domain: mark a box as Domain', 'No fluid: mark a closed mesh as Fluid'], errors
     addon.OBJECT_OT_warp_sph_add_fluid_scene().execute(ctx)
@@ -214,6 +215,30 @@ def view3d_panel_scene_box():
         session.running, session.solver, session.active_demo = False, None, 'DOUBLE_DAM_PILLARS'
 
 @case
+def view3d_panel_emitter_budget():
+    ctx = make_context()
+    ctx.scene.warp_sph.scene_source = 'CUSTOM'
+    addon.OBJECT_OT_warp_sph_add_fluid_scene().execute(ctx)
+    tap = FakeObj('Tap')
+    tap.warp_sph.role = 'EMITTER'
+    ctx.scene.objects.append(tap)
+    log = draw_panel(ctx)
+    assert ('prop', 'max_particles') in log and ('label', 'Emitters (1): Tap', 'NONE') in log
+    assert not [e for e in log if e[0] == 'label' and e[2] == 'ERROR' and not e[1].startswith('Runtime')]
+    session = sim_session.get(ctx.scene)
+    session.running, session.active_demo = True, addon.CUSTOM_SCENE
+    session.solver = NS(num_particles=500_000, active_count=1234, nozzle_pos=object(), emission_exhausted=False,
+                        dt=0.001, substeps=2)
+    try:
+        labels = [e[1] for e in draw_panel(ctx) if e[0] == 'label']
+        assert 'Particles: 1,234 of 500,000' in labels and not [t for t in labels if 'budget' in t]
+        session.solver.emission_exhausted = True
+        labels = [e[1] for e in draw_panel(ctx) if e[0] == 'label']
+        assert 'Particle budget reached: emitters stopped' in labels
+    finally:
+        session.running, session.solver, session.active_demo = False, None, 'DOUBLE_DAM_PILLARS'
+
+@case
 def object_panel_shows_role():
     obj = FakeObj('Box')
     ctx = make_context([obj])
@@ -227,7 +252,16 @@ def object_panel_shows_role():
     obj.warp_sph.role = 'COLLIDER'
     ctx.object = obj
     panel.draw(ctx)
-    assert ('prop', 'role') in log and any('static obstacle' in e[1] for e in log if e[0] == 'label')
+    assert ('prop', 'role') in log and any('animated location' in e[1] for e in log if e[0] == 'label')
+    assert ('prop', 'emit_rate') not in log
+    log.clear()
+    obj.warp_sph = NS(role='EMITTER', emit_velocity_mode='NORMAL')
+    panel.draw(ctx)
+    assert ('prop', 'emit_speed') in log and ('prop', 'emit_rate') in log and ('prop', 'emit_vector') not in log
+    log.clear()
+    obj.warp_sph.emit_velocity_mode = 'VECTOR'
+    panel.draw(ctx)
+    assert ('prop', 'emit_vector') in log and ('prop', 'emit_speed') not in log
 
 def draw_advanced(ctx):
     log = []

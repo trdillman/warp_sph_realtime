@@ -1,8 +1,9 @@
 import bpy
 import warp as wp
 
-# Inner x-extent of each dam slab; pillars occupy |x| in [0.67, 1.03].
-DAM_SLAB_INNER_X = 1.15
+from .demo_description import DAM_SLAB_INNER_X, demo_description, demo_spacing
+
+__all__ = ["DAM_SLAB_INNER_X", "build_blender_demo_helpers", "launch_demo_scene_init", "remove_blender_demo_helpers"]
 
 @wp.kernel
 def k_init_double_dambreak_pillars(
@@ -136,15 +137,19 @@ def build_blender_demo_helpers(scene_type: str):
 
 
 def launch_demo_scene_init(solver, scene_type: str):
-    """Initializes GPU SoA particle positions, velocities, and SDF obstacles for the chosen demo."""
+    """Initializes GPU SoA particle positions and velocities, and adopts the demo's SceneDescription.
+
+    The demo obstacles go through the mesh-collider path (solver.set_scene), like authored colliders.
+    Call solver.rebuild_cuda_graph() afterwards.
+    """
     num_p = solver.num_particles
-    spacing = max(0.016, 0.024 * ((1_000_000 / max(num_p, 1)) ** (1.0 / 3.0)))
+    spacing = demo_spacing(num_p)
     # Smoothing length and particle mass must follow the spawn spacing, otherwise
     # dense presets start far above rest density and the Tait EOS explodes.
     solver.set_particle_spacing(spacing)
+    solver.set_scene(demo_description(scene_type, num_p))
 
     if scene_type == "DOUBLE_DAM_PILLARS":
-        solver.enable_obstacles = 1
         slab_width = 2.35 - DAM_SLAB_INNER_X
         slab_nx = max(1, int(slab_width / spacing))
         slab_ny = max(1, int(4.7 / spacing))
@@ -156,7 +161,6 @@ def launch_demo_scene_init(solver, scene_type: str):
         )
     else:
         # Scene 2: Block Flop into Puddle (High-Speed Crown Splash)
-        solver.enable_obstacles = 0
         puddle_count = int(num_p * 0.60)
         puddle_nx = max(1, int(4.8 / spacing))
         puddle_ny = max(1, int(4.8 / spacing))
