@@ -14,14 +14,19 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   CUDA modules only on Start. Adds `files` and `network` manifest permissions.
 - Vulkan GPU interop transport (GPU copy, no CPU readback) for the exact certified Blender 5.2.0
   build, a labelled Readback fallback for other Vulkan builds, and a `gpu`-module points/spheres
-  renderer. SSFR remains OpenGL-only; on Vulkan it shows spheres with a note.
+  renderer.
 - GLInterop texture transport (`render/transport_gl.py`, GPU copy, no CPU readback) for Points mode on
   Blender's OpenGL backend. It registers an RGBA32F `GPUTexture` with CUDA (`cudaGraphicsGLRegisterImage`),
   publishes positions on the solver stream, is drawn by the `gpu`-module points renderer through the
   same `TransportSession` seam as Vulkan, and falls back once to the labelled Readback transport. The route
-  is chosen when Start is pressed; SSFR liquid and sphere impostors keep the legacy OpenGL VBO path
-  until P0.13. The Blender Python `GPUTexture` has no GL name, so the adapter identifies it by content
+  is chosen when Start is pressed; SSFR liquid and sphere impostors started on OpenGL keep the legacy
+  OpenGL VBO path. The Blender Python `GPUTexture` has no GL name, so the adapter identifies it by content
   once at setup and verifies the copy path with a 4x4 known-answer self-test.
+- SSFR liquid on Vulkan and on OpenGL transport sessions: `render/gpu_ssfr.py` ports the depth-impostor,
+  narrow-range filter, half-res thickness and depth-tested composite passes to Blender's `gpu` module
+  (per-renderer offscreen targets, reallocated on resize). Differences from the legacy raw-GL renderer: no
+  refraction offset (the scene behind the liquid is attenuated in place) and scene occlusion only at composite.
+  The legacy OpenGL VBO path keeps its raw-GL SSFR.
 - Manifest `tags = ["Physics"]`.
 - Experimental differentiable-pour, keyframe and compliant-contact studies (not shipped).
 - Pause / single-step simulation controls and fine-step particle radius.
