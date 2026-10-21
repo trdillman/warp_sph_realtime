@@ -2,9 +2,11 @@
 ``cache/``; everything else in the package is importable without Blender.
 
 Playback is a ``PointCloud`` datablock (Cycles renders its points as spheres of the ``radius`` attribute; verified
-on Blender 5.2) with ``velocity`` (FLOAT_VECTOR) and ``id`` (INT) point attributes. A ``frame_change_post``
-handler loads the cached frame for the scene's current frame. Frames outside the cached range show the
-nearest cached frame. The handler reads only ``.npz`` files: it needs neither Warp nor a running simulation.
+on Blender 5.2) with ``velocity`` (FLOAT_VECTOR), ``id`` (INT) and ``age`` (FLOAT, seconds since the particle was
+first cached, see ``age.py``) point attributes. A ``frame_change_post`` handler loads the cached frame for the
+scene's current frame (the USD / Alembic exporters step frames through the same handlers; verified on Blender
+5.2). Frames outside the cached range show the nearest cached frame. The handler reads only ``.npz`` files:
+it needs neither Warp nor a running simulation.
 
 NumPy and ``.disk`` are imported inside the functions that need them, so registering the add-on (which
 installs the handler) never imports a third-party package.
@@ -26,6 +28,7 @@ PLAYBACK_PROP = "warp_sph_cache_playback"  # custom property that marks the play
 OBJECT_NAME = "WarpSPH Cache"
 
 _loaded: dict[int, tuple] = {}  # point cloud pointer -> (dir, frame, file mtime, count, radius) last applied
+_emission: dict[str, object] = {}  # cache directory -> age.EmissionIndex
 _reported: set[str] = set()     # distinct handler failures already logged
 
 
@@ -61,6 +64,7 @@ def remove_playback_object(scene) -> bool:
         return False
     cloud = obj.data
     _loaded.pop(cloud.as_pointer(), None)
+    _emission.clear()
     bpy.data.objects.remove(obj)
     if cloud.users == 0:
         bpy.data.pointclouds.remove(cloud)
@@ -76,8 +80,9 @@ def _attribute(cloud, name: str, data_type: str):
     return attr
 
 
-def apply_frame(cloud, frame: Frame, radius: float) -> None:
-    """Write one cached frame into the point cloud (positions bit-identical to the file)."""
+def apply_frame(cloud, frame: Frame, radius: float, age=None) -> None:
+    """Write one cached frame into the point cloud (positions bit-identical to the file). ``age`` (seconds per
+    particle, optional) fills the ``age`` attribute."""
     import numpy as np
     count = frame.count
     if len(cloud.points) != count:
@@ -85,10 +90,33 @@ def apply_frame(cloud, frame: Frame, radius: float) -> None:
     cloud.attributes["position"].data.foreach_set("vector", frame.position.ravel())
     _attribute(cloud, "velocity", 'FLOAT_VECTOR').data.foreach_set("vector", frame.velocity.ravel())
     _attribute(cloud, "id", 'INT').data.foreach_set("value", frame.id)
+    if age is not None:
+        _attribute(cloud, "age", 'FLOAT').data.foreach_set("value", age)
     key = cloud.as_pointer()
     if _loaded.get(key, (None,) * 5)[3:] != (count, radius):
         _attribute(cloud, "radius", 'FLOAT').data.foreach_set("value", np.full(count, radius, dtype=np.float32))
     cloud.update_tag()
+
+
+def particle_ages(scene, disk, span: tuple[int, int], number: int, ids):
+    """Age (seconds) of the particles ``ids`` of cached frame ``number``; zeros if the id scan fails (logged once)."""
+    import numpy as np
+
+    from .age import EmissionIndex, seconds_per_frame
+    from .disk import CacheError
+    try:
+        index = _emission.get(str(disk.directory))
+        if index is None:
+            index = _emission[str(disk.directory)] = EmissionIndex(disk)
+        index.sync(span[0], number)
+        fps = scene.render.fps / scene.render.fps_base if hasattr(scene, "render") else 24.0
+        return index.ages(ids, number, seconds_per_frame(disk.manifest(), fps))
+    except CacheError as exc:
+        message = f"particle age unavailable: {exc}"
+        if message not in _reported:
+            _reported.add(message)
+            _LOG.warning("WarpSPH cache playback: %s (logged once)", message)
+        return np.zeros(len(ids), dtype=np.float32)
 
 
 def show_frame(scene, frame_number: int) -> bool:
@@ -114,7 +142,7 @@ def show_frame(scene, frame_number: int) -> bool:
     if _loaded.get(key) == state:
         return False
     frame = disk.read_frame(number)
-    apply_frame(cloud, frame, radius)
+    apply_frame(cloud, frame, radius, particle_ages(scene, disk, span, number, frame.id))
     _loaded[key] = (str(disk.directory), number, mtime, frame.count, radius)
     return True
 
@@ -152,4 +180,5 @@ def unregister() -> None:
     while handlers is not None and on_frame_change_post in handlers:
         handlers.remove(on_frame_change_post)
     _loaded.clear()
+    _emission.clear()
     _reported.clear()
