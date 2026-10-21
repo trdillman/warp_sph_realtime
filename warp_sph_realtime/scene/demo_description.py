@@ -36,6 +36,29 @@ def demo_spacing(num_particles: int) -> float:
     return max(0.016, 0.024 * ((1_000_000 / max(num_particles, 1)) ** (1.0 / 3.0)))
 
 
+def wall_inset(base: float, spacing: float) -> float:
+    """Distance of a demo's outermost particle centres from a wall: `base`, but at least 1.25 spacings.
+
+    The solver's soft wall layer is one spacing wide and expels particles inside it, so a demo block
+    must start outside it (the same clearance `fill_particles` keeps). The default one-million particle
+    demos are unchanged because `base` is already larger than that at their 0.024 m spacing.
+    """
+    return max(base, 1.25 * spacing)
+
+
+def dam_layout(spacing: float) -> tuple[float, float, int, int]:
+    """Demo 1's slabs: (edge, z0, nx, ny). Each slab spans x in [INNER, edge] by |y| <= edge from height z0."""
+    edge = DOMAIN_MAX[0] - wall_inset(0.15, spacing)
+    z0 = DOMAIN_MIN[2] + wall_inset(0.08, spacing)
+    return edge, z0, max(1, int((edge - DAM_SLAB_INNER_X) / spacing)), max(1, int(2.0 * edge / spacing))
+
+
+def flop_layout(spacing: float) -> tuple[float, float, int]:
+    """Demo 2's puddle: (edge, z0, nx): a square of side 2 * edge on the floor, nx particles each way."""
+    edge = DOMAIN_MAX[0] - wall_inset(0.1, spacing)
+    return edge, DOMAIN_MIN[2] + wall_inset(0.05, spacing), max(1, int(2.0 * edge / spacing))
+
+
 def uv_sphere(center, radius: float, segments: int = SEGMENTS, rings: int = SEGMENTS // 2) -> tuple:
     """Closed, outward-facing UV sphere (vertices, triangles). Vertices sit slightly outside `radius` so
     the flat faces approximate the true sphere from both sides instead of cutting inside it."""
@@ -120,18 +143,17 @@ def demo_description(scene_type: str, num_particles: int) -> SceneDescription:
     """SceneDescription of a demo: its domain, gravity, obstacle collider and fluid blocks."""
     s = demo_spacing(num_particles)
     if scene_type == "DOUBLE_DAM_PILLARS":
-        nx = max(1, int((2.35 - DAM_SLAB_INNER_X) / s))
-        ny = max(1, int(4.7 / s))
+        edge, z0, nx, ny = dam_layout(s)
         half_n = num_particles // 2  # the init kernel puts the remaining particles in the mirrored slab
-        fluids = (_block(-2.35, -2.35, 0.08, nx, ny, half_n, s, "Dam left"),
-                  _block(2.35 - (nx - 1) * s, -2.35, 0.08, nx, ny, num_particles - half_n, s, "Dam right"))
+        fluids = (_block(-edge, -edge, z0, nx, ny, half_n, s, "Dam left"),
+                  _block(edge - (nx - 1) * s, -edge, z0, nx, ny, num_particles - half_n, s, "Dam right"))
         colliders = (demo_obstacles(),)
     else:
         puddle = int(num_particles * 0.60)
-        nx = max(1, int(4.8 / s))
+        edge, z0, nx = flop_layout(s)
         side = max(1, int(round((num_particles - puddle) ** (1.0 / 3.0))))
         half_w = 0.5 * side * s
-        fluids = (_block(-2.4, -2.4, 0.05, nx, nx, puddle, s, "Puddle"),
+        fluids = (_block(-edge, -edge, z0, nx, nx, puddle, s, "Puddle"),
                   _block(-half_w, -half_w, 2.2, side, side, num_particles - puddle, s, "Block"))
         colliders = ()
     return SceneDescription(DOMAIN_MIN, DOMAIN_MAX, GRAVITY, fluids, colliders)

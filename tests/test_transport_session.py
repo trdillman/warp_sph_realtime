@@ -248,18 +248,19 @@ class Solver:
     def __init__(self, num_particles, h, substeps, enable_obstacles):
         if Solver.fail: raise Solver.fail
         self.num_particles, self.substeps, self.pos_sim, self.steps = num_particles, substeps, 'pos', 0
-        self.stiffness = self.cfl_factor = 0.0
-    rebuild_error = None
+        self.stiffness = self.cfl_factor = self.viscosity = 0.0
+    rebuild_error, rebuilds = None, 0
     def rebuild_cuda_graph(self):
         if Solver.rebuild_error: raise Solver.rebuild_error
+        Solver.rebuilds += 1
     def update_time_step(self): pass
     from_scene_calls, fill_count, fill_error = [], 777, None
     @classmethod
-    def from_scene(cls, desc, spacing, substeps=2, stiffness=None, cfl_factor=None):
-        Solver.from_scene_calls.append((desc, spacing, substeps, stiffness, cfl_factor))
+    def from_scene(cls, desc, spacing, substeps=2, stiffness=None, cfl_factor=None, viscosity=None):
+        Solver.from_scene_calls.append((desc, spacing, substeps, stiffness, cfl_factor, viscosity))
         if Solver.fill_error: raise Solver.fill_error
         solver = cls(Solver.fill_count, 2.0 * spacing, substeps, 0)
-        solver.stiffness, solver.cfl_factor = stiffness, cfl_factor
+        solver.stiffness, solver.cfl_factor, solver.viscosity = stiffness, cfl_factor, viscosity
         return solver
     def get_vram_usage_mb(self): return 1.0
     def copy_positions(self, out): pass
@@ -334,7 +335,7 @@ RT = _Current()
 def make_context(areas=('VIEW_3D',)):
     scene = Scene()
     scene.warp_sph = NS(particle_count=1000, demo_scene='DOUBLE_DAM_PILLARS', substeps=2, stiffness=1.0,
-                        time_step_scale=0.4, use_cuda_graph=True, show_particles=True, scene_source='DEMO',
+                        time_step_scale=0.4, viscosity=0.15, use_cuda_graph=True, show_particles=True, scene_source='DEMO',
                         particle_spacing=0.02, render_mode='SSFR_LIQUID')  # the real defaults
     return NS(scene=scene, window=Window(), window_manager=WM(), screen=NS(areas=[Area(a) for a in areas]),
               evaluated_depsgraph_get=lambda: 'depsgraph')
@@ -547,6 +548,19 @@ def graph_rebuild_error_is_fatal(ctx):
     assert op.modal(ctx, TIMER) == {'CANCELLED'} and not RT.running and RT.session is None
     assert 'graph rebuild failed' in RT.restart_required and solver.steps == 0
     assert session in sim_session._QUARANTINE and solver in sim_session._QUARANTINE and session.transport.closes == 0
+
+@case
+def viscosity_change_recaptures_the_graph_once(ctx):
+    op, _ = start(ctx)
+    solver = RT.solver
+    assert solver.viscosity == 0.15                               # demo solvers get the setting too
+    assert op.modal(ctx, TIMER) == {'PASS_THROUGH'}
+    before = Solver.rebuilds
+    assert op.modal(ctx, TIMER) == {'PASS_THROUGH'} and Solver.rebuilds == before  # unchanged: no recapture
+    ctx.scene.warp_sph.viscosity = 3.0
+    assert op.modal(ctx, TIMER) == {'PASS_THROUGH'}
+    assert solver.viscosity == 3.0 and Solver.rebuilds == before + 1 and RT.running
+    assert op.modal(ctx, TIMER) == {'PASS_THROUGH'} and Solver.rebuilds == before + 1  # picked up once
 
 @case
 def step_once_survives_backpressure(ctx):
@@ -852,7 +866,7 @@ def custom_start_builds_solver_from_description(ctx):
     op, result = start(ctx)
     assert result == {'RUNNING_MODAL'} and RT.running and RT.active_demo == addon.CUSTOM_SCENE, result
     assert DESC.calls == [(ctx.scene, 'depsgraph')]                     # evaluated depsgraph
-    assert Solver.from_scene_calls == [('desc', 0.025, 2, 1000.0, 0.4)]  # spacing + speed; stiffness x1000
+    assert Solver.from_scene_calls == [('desc', 0.025, 2, 1000.0, 0.4, 0.15)]  # spacing + speed; stiffness x1000
     assert RT.solver.num_particles == 777 and FACTORY.counts == [777]  # output sized from the fill
     assert HELPERS == ['removed']                                       # no demo wireframes
     session = RT.session

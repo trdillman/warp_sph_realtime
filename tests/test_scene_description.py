@@ -99,8 +99,10 @@ class TestFill:
         collider = box_mesh((-0.2, -0.2, 0.3), (0.2, 0.2, 0.6))
         desc = scene([box_mesh((-0.5, -0.5, 0.1), (0.5, 0.5, 0.9))], [collider])
         pts = fill_particles(desc, spacing)
-        assert (box_signed_distance(pts, (-0.2, -0.2, 0.3), (0.2, 0.2, 0.6)) >= 0.0).all()
-        assert len(pts) == 20 * 20 * 16 - 8 * 8 * 6
+        # One spacing of clearance from the collider surface (the solver's soft layer), not just outside it.
+        assert (box_signed_distance(pts, (-0.2, -0.2, 0.3), (0.2, 0.2, 0.6)) >= spacing - 1e-6).all()
+        assert len(pts) == 20 * 20 * 16 - 10 * 10 * 8
+        assert len(fill_particles(desc, spacing, clearance=0.0)) == 20 * 20 * 16 - 8 * 8 * 6
 
     def test_overlapping_fluid_volumes_do_not_double_count(self):
         a = box_mesh((-0.5, -0.5, 0.1), (0.1, 0.5, 0.9), "a")

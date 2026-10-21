@@ -13,7 +13,7 @@ import importlib
 import bpy
 from bpy.props import EnumProperty, FloatProperty, FloatVectorProperty, IntProperty, PointerProperty
 
-from . import cache_ui, diagnostics, install_ui, props, sim_session, warp_installer, warp_runtime
+from . import cache_ui, diagnostics, install_ui, physics_presets, props, sim_session, warp_installer, warp_runtime
 from .render.gpu_points import settings_from_scene
 from .render.transport import COMPLETED
 from .sim_session import CUSTOM_SCENE
@@ -148,6 +148,29 @@ class WM_OT_warp_sph_load_demo(bpy.types.Operator):
                 return {'CANCELLED'}
         else:
             bpy.ops.wm.warp_sph_start()
+        return {'FINISHED'}
+
+
+class WM_OT_warp_sph_physics_preset(bpy.types.Operator):
+    bl_idname = "wm.warp_sph_physics_preset"
+    bl_label = "Fluid Preset"
+    bl_description = ("Set stiffness, time step, viscosity and sub-steps for a kind of fluid. "
+                      "A running simulation picks the new values up immediately")
+
+    preset: EnumProperty(items=physics_presets.PRESET_ITEMS, default="WATER", options={'HIDDEN'})
+
+    @classmethod
+    def description(cls, context, properties):
+        for key, label, text in physics_presets.PRESET_ITEMS:
+            if key == properties.preset:
+                values = physics_presets.PRESETS[key]
+                return (f"{label}: {text}. Sets stiffness {values['stiffness']:g}, time step "
+                        f"{values['time_step_scale']:g}, viscosity {values['viscosity']:g}, "
+                        f"sub-steps {values['substeps']}")
+        return cls.bl_description
+
+    def execute(self, context):
+        physics_presets.apply_preset(context.scene.warp_sph, self.preset)
         return {'FINISHED'}
 
 
@@ -433,8 +456,8 @@ def _draw_custom_scene(box, scene, session):
     elif emitting:
         _draw_vram_warning(col, settings.max_particles)
     else:
-        spacing = settings.particle_spacing / _scene_api().unit_scale(scene)  # in scene units
-        _draw_vram_warning(col, props.custom_particle_estimate(by_role.get("FLUID", []), spacing))
+        # The spacing is in scene units, like the fluid objects' dimensions.
+        _draw_vram_warning(col, props.custom_particle_estimate(by_role.get("FLUID", []), settings.particle_spacing))
     box.operator("object.warp_sph_add_fluid_scene", icon='ADD')
     box.label(text="Set selected objects as:")
     row = box.row(align=True)
@@ -464,6 +487,20 @@ def _draw_demo_scene(box, settings):
     col.prop(settings, "demo_scene", text="Demo")
     col.prop(settings, "particle_count", slider=True)
     _draw_vram_warning(col, settings.particle_count)
+
+
+def _draw_fluid_physics(box, settings, session):
+    """Preset buttons (the one whose values are all set is highlighted) and the viscosity."""
+    active = physics_presets.active_preset(settings)
+    row = box.row(align=True)
+    for key, label, _text in physics_presets.PRESET_ITEMS:
+        row.operator("wm.warp_sph_physics_preset", text=label, depress=(key == active)).preset = key
+    col = box.column(align=True)
+    col.prop(settings, "viscosity")
+    solver = session.solver if session.running else None
+    limit = getattr(solver, "effective_viscosity", None)
+    if limit is not None and limit < solver.viscosity - 1e-9:
+        col.label(text=f"Limited to {limit:.2f} at this particle size (stability)", icon='INFO')
 
 
 class VIEW3D_PT_warp_sph(bpy.types.Panel):
@@ -523,6 +560,10 @@ class VIEW3D_PT_warp_sph(bpy.types.Panel):
             _draw_demo_scene(box_demo, settings)
         if session.running and (session.active_demo == CUSTOM_SCENE) != (settings.scene_source == 'CUSTOM'):
             box_demo.label(text="Scene source changes apply on the next Start", icon='INFO')
+
+        box_fluid = layout.box()
+        box_fluid.label(text="Fluid", icon='MOD_FLUIDSIM')
+        _draw_fluid_physics(box_fluid, settings, session)
 
         box_speed = layout.box()
         box_speed.label(text="Simulation Speed vs. Stability", icon='TIME')
@@ -698,6 +739,7 @@ def register():
     bpy.types.Scene.warp_sph = PointerProperty(type=props.WARPSPH_SceneSettings)
     bpy.utils.register_class(WM_OT_warp_sph_start)
     bpy.utils.register_class(WM_OT_warp_sph_load_demo)
+    bpy.utils.register_class(WM_OT_warp_sph_physics_preset)
     bpy.utils.register_class(WM_OT_warp_sph_stop)
     bpy.utils.register_class(WM_OT_warp_sph_pause)
     bpy.utils.register_class(WM_OT_warp_sph_step_frame)
@@ -737,6 +779,7 @@ def unregister():
     bpy.utils.unregister_class(WM_OT_warp_sph_copy_diagnostics)
     bpy.utils.unregister_class(WM_OT_warp_sph_use_opengl)
     bpy.utils.unregister_class(WM_OT_warp_sph_stop)
+    bpy.utils.unregister_class(WM_OT_warp_sph_physics_preset)
     bpy.utils.unregister_class(WM_OT_warp_sph_load_demo)
     bpy.utils.unregister_class(WM_OT_warp_sph_start)
     del bpy.types.Scene.warp_sph

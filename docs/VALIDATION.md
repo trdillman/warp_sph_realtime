@@ -137,11 +137,21 @@ compilation). Tolerances are regression guards set above the numbers in this fil
 - The front is a particle-derived edge and the comparison interpolates linearly between 15 sparse points.
 - Energy and rest-density checks use a blocky closed-tank case. They do not cover colliders, authored scenes or the
   experimental `enable_obstacles` modes.
-- A finding outside the benchmark: a lattice whose particle centres start half a spacing from a wall (the cell-centred
-  `fill_particles` convention when fluid touches the domain boundary) is inside the solver's soft wall layer and
-  is expelled violently. In a closed-tank probe (12 x 6 x 24 block, spacing 0.021 m) the largest velocity component
-  reached 46 m/s (above the 25 m/s sound speed) and the mean particle height ended 24 % above its start (0.25 m
-  to 0.31 m). Starting one spacing from the wall, as the
-  benchmark does, is calm. This benchmark sidesteps it by construction; it is not fixed here.
+- **Fixed after this benchmark was written: the initial fill started inside the wall layer.** A lattice whose
+  particle centres start half a spacing from a wall (the old cell-centred `fill_particles` convention when fluid
+  touches the domain boundary) is inside the solver's soft wall layer and was expelled violently. In a closed-tank
+  probe (12 x 6 x 24 block, spacing 0.021 m) the largest velocity component reached 46 m/s (above the 25 m/s sound
+  speed) and the mean particle height ended 24 % above its start (0.25 m to 0.31 m). `fill_particles` now keeps
+  every particle at least one spacing from the domain walls and collider surfaces, which is where `wall_accel`'s
+  force reaches zero (its layer is `r0 = h/2 = spacing` wide). Re-measured through the real fill path
+  (`tests/test_fill_clearance.py`: 8 x 8 x 7 fluid in a 0.5 x 0.5 x 1 m tank, spacing 0.05 m, 100 steps, identical
+  on CPU and GPU): peak speed 57.8 m/s and mean height +178 % with the old half-spacing clearance, 2.0 m/s and
+  -35 % with the new one. The remaining drop is the fluid spreading into the half spacing of slack that the
+  cell-centred lattice leaves (it starts 1.5 spacings from a lower wall; contact is at 1) and then settling; it is
+  not a blast. The dam-break, energy and rest-density numbers above are **unchanged by this fix** (re-run: all
+  seven fronts and the rest block reproduce to the printed digits), because the benchmark places its own lattice
+  one spacing from the walls and never calls `fill_particles`. The two built-in demos place particles with their
+  own kernels; they start 0.15 m (Demo 1) and 0.1 m (Demo 2) from the side walls and 0.08 m / 0.05 m above the
+  floor, which is already at least one spacing at 1M particles, and now enforce one spacing at coarser settings.
 - A lattice start is not a settled hydrostatic state: the run begins with acoustic transients while the lowest
   layers compress into the soft floor layer. The settling run shows them as a brief kinetic-energy bump.

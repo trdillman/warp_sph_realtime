@@ -131,6 +131,20 @@ def missing_values_keep_the_defaults():
     assert partial.warp_sph.substeps == 5 and partial.warp_sph.stiffness == 90.0 and partial.saved == {}
 
 @case
+def physics_controls_added_in_p25_keep_their_defaults_in_old_files():
+    # Viscosity never existed as a flat property: an old file gets the default (the solver's 0.15, so the
+    # run is unchanged) and nothing is invented. Particle spacing keeps the saved number, now read as scene
+    # length units (identical at the default Unit Scale of 1); the solver gets it times the unit scale.
+    assert 'viscosity' not in props.LEGACY_NAMES and DEFAULTS['viscosity'] == 0.15
+    scene = Scene(saved=OLD_FILE)
+    props.migrate_scenes([scene])
+    s = scene.warp_sph
+    assert s.viscosity == 0.15 and not s.is_property_set('viscosity')
+    assert s.particle_spacing == 0.01 and props.spacing_metres(s, 1.0) == 0.01
+    assert abs(props.spacing_metres(s, 0.01) - 1e-4) < 1e-12
+    assert props.WARPSPH_SceneSettings.__annotations__['particle_spacing'].kw['unit'] == 'LENGTH'
+
+@case
 def migration_runs_once():
     scene = Scene(saved=OLD_FILE)
     props.migrate_scenes([scene])

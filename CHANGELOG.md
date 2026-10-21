@@ -6,6 +6,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Changed
+- **Particle Spacing** is now a length in scene units (`subtype='DISTANCE'`, `unit='LENGTH'`, range 0.0001 to 1000),
+  shown and typed with the scene's units and Unit Scale like the objects, instead of a number of metres. It is
+  multiplied by the Unit Scale for the solver. With the default Unit Scale of 1 nothing changes, and old files keep
+  their value (migrated as saved); a file saved by a development build with another Unit Scale reads the same number
+  as scene units.
 - `RealtimeWCSPHSolver` takes an optional `device` (default `"cuda:0"`, unchanged for the add-on). `"cpu"` launches
   the kernels eagerly with no CUDA graph; it exists for headless validation in CI.
 - Custom scenes use Blender's scene **Unit Scale** (Blender units to metres) and scene **Gravity** (P2.1).
@@ -51,6 +56,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   Blender 5.2 note: Geometry Nodes modifier inputs are set through `modifier.properties.inputs.<identifier>.value`
   (ID-property access no longer works) and a Python edit needs `object.update_tag()` to re-evaluate. Point cloud
   objects do not export to USD or Alembic in Blender 5.2, so the export is of the meshed object.
+- Physics controls (P2.5): a **Fluid** box with **Water**, **Viscous** and **Stylised** presets (stiffness, time
+  step, viscosity and sub-steps together; the active one is highlighted) and a **Viscosity** setting (kg/s per
+  particle, default 0.15 as before, range 0 to 20). A change applies live: the CUDA graph is recaptured once, as for
+  stiffness. The explicit viscous force is capped where it would overshoot (`RealtimeWCSPHSolver.effective_viscosity`);
+  the panel shows when the cap is active. `from_scene` takes a `viscosity`.
 - Particle ids for emitted particles (P1.6 with P2.1): each particle an emitter releases gets a fresh unique id, so
   cached frames keep one id per particle as the pool fills. A bake of an emitter scene records the live particle count
   per frame (frames grow), resume restores the emitters' progress and the clock, and bakes now feed animated-collider
@@ -148,6 +158,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - GitHub Actions CI running ruff, pyright, and pytest (CUDA tests skip on hosted runners).
 
 ### Fixed
+- The initial particle fill of a custom scene started half a spacing from the domain walls and colliders, inside the
+  solver's one-spacing boundary layer, so the layer threw the fluid out (a resting box peaked at 58 m/s and its mean
+  height rose 178 %). The fill now keeps one spacing from walls and collider surfaces (where the boundary force is
+  zero); the same box peaks at 2 m/s and does not rise. The built-in demos keep the same clearance at coarse
+  particle counts (unchanged at 1M).
 - Legacy OpenGL path: the particle VBO is always unmapped from CUDA, even when a solver step fails while it is mapped (`ZeroCopyGLBuffer52.mapped()`); after a sticky CUDA error the step error is kept and the unmap failure is attached to it.
 - SSFR: matching-format MSAA depth resolve before half-res scaling, exception-safe GL state
   restoration, cleanup after failed shader / partial renderer initialization, and rejection of
