@@ -6,17 +6,18 @@ only in this verifier, never in the production simulation/draw path.
 import ctypes as c
 import hashlib
 import importlib
-import json
 import itertools
+import json
 import os
-from pathlib import Path
 import traceback
+from pathlib import Path
 from types import SimpleNamespace
 
 import bpy
 import gpu
-from mathutils import Matrix
 import warp as wp
+from mathutils import Matrix
+
 _module = os.environ.get('SSFR_MODULE', 'warp_sph_realtime')
 addon = importlib.import_module(_module)
 g = importlib.import_module(_module + '.render.interop_bridge')

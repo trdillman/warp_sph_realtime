@@ -1,5 +1,6 @@
 import warp as wp
 
+
 @wp.kernel
 def k_flag_surface_particles_for_split(
     density_sorted: wp.array[float],

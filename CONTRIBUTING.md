@@ -59,6 +59,12 @@ python scripts/build_extension.py --blender /path/to/blender [--install]
 * **`tests/test_blender_mock.py`:** Extension register/unregister, Demo 1 & Demo 2 GPU particle initializers, regime presets (`WATER`, `MILK`, `SHOCKWAVE`), and `blender_manifest.toml` schema validation.
 * **`tests/test_ssfr_renderer.py`:** SSFR filter/shading math and framebuffer-binding preservation during allocation and resize.
 
+### CI and releases
+* CI (`.github/workflows/ci.yml`) runs ruff, pyright and pytest on `ubuntu-latest` and `windows-latest` (Python 3.13, no GPU, so CUDA-gated tests skip).
+* Ruff selects `E4 E7 E9 F B UP I`. Tighten gradually: add a rule only after fixing its violations (no blanket `noqa`). `UP018` stays off because Warp kernels need `float(0.0)` / `int(0)` to declare mutable variables.
+* **The version lives only in `warp_sph_realtime/blender_manifest.toml`.** The add-on reads it at runtime and `tests/test_version_consistency.py` fails on any hard-coded copy.
+* To release: set the manifest `version` (e.g. `0.2.0-ea`), merge, then push tag `v<version>` (e.g. `v0.2.0-ea`). `.github/workflows/release.yml` re-runs CI, refuses a tag that differs from the manifest, validates and builds the zip with a SHA-256-pinned Blender 5.2.0 (`extension validate`, `extension build`, then validates the zip), uploads it as a workflow artifact and attaches it with `SHA256SUMS.txt` to a GitHub Release (a hyphenated version is marked pre-release).
+
 ---
 
 ## 4. Pull Request Checklist

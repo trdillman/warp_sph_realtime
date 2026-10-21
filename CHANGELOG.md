@@ -5,6 +5,14 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Changed
+- CI and release pipeline: the check job now also runs on `windows-latest`; Ruff additionally enforces `B`, `UP` and
+  `I` (violations fixed, `UP018` documented as incompatible with Warp kernels); the version is single-sourced from
+  `blender_manifest.toml` (Blender qualification tests derive the zip name from it, `tests/test_version_consistency.py`
+  guards it); `scripts/build_extension.py` selects the zip by manifest version, prints its SHA-256 and takes
+  `--tag` to refuse a tag that differs from the manifest. A `v*` tag now runs `.github/workflows/release.yml`:
+  CI, pinned Blender 5.2.0 `extension validate` and `build`, workflow artifact, and a GitHub Release.
+
 ### Added
 - Scene authoring: mark meshes as **Domain**, **Fluid** or **Collider** (object `warp_sph.role`, sidebar buttons and
   a Properties > Physics panel), choose **Custom** as the scene source, set the particle spacing, and press Start;

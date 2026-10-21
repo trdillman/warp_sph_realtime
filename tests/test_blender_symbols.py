@@ -2,12 +2,12 @@
 import copy
 import hashlib
 import json
-from pathlib import Path
 import struct
 import subprocess
 import sys
-from types import SimpleNamespace
 import uuid
+from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 

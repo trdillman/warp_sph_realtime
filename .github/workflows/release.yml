@@ -1,0 +1,77 @@
+name: Release
+
+# Push a tag `v<manifest version>` (for example v0.2.0-ea after bumping blender_manifest.toml to 0.2.0-ea).
+# The tag must equal "v" + the manifest version, or the build job fails before building anything.
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+env:
+  # Pinned official Blender build used for `extension validate` / `extension build`.
+  # Checksum from https://download.blender.org/release/Blender5.2/blender-5.2.0.sha256
+  BLENDER_URL: https://download.blender.org/release/Blender5.2/blender-5.2.0-linux-x64.tar.xz
+  BLENDER_SHA256: 96f6c181a30f4950607839dc84d42a354b250d8a0231b098b59b7bc69c351c48
+
+jobs:
+  check:
+    uses: ./.github/workflows/ci.yml
+
+  build:
+    needs: check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Install Blender runtime libraries
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libxi6 libxxf86vm1 libxfixes3 libxrender1 libxkbcommon0 libsm6 libgl1 libegl1
+      - name: Download pinned Blender 5.2.0
+        run: |
+          curl -fsSL --retry 3 -o "$RUNNER_TEMP/blender.tar.xz" "$BLENDER_URL"
+          echo "$BLENDER_SHA256  $RUNNER_TEMP/blender.tar.xz" | sha256sum --check -
+          mkdir "$RUNNER_TEMP/blender"
+          tar -xJf "$RUNNER_TEMP/blender.tar.xz" -C "$RUNNER_TEMP/blender" --strip-components=1
+          "$RUNNER_TEMP/blender/blender" --version
+          echo "BLENDER=$RUNNER_TEMP/blender/blender" >> "$GITHUB_ENV"
+      - name: Validate and build the extension
+        # Checks tag == v<manifest version>, runs `blender --command extension validate`, then `build`,
+        # and verifies the zip (no experimental/, packaged version == manifest version).
+        run: python scripts/build_extension.py --blender "$BLENDER" --tag "$GITHUB_REF_NAME"
+      - name: Validate the built zip
+        run: |
+          zip=$(ls dist/warp_sph_realtime-*.zip)
+          "$BLENDER" --factory-startup --command extension validate "$zip"
+          (cd dist && sha256sum "$(basename "$zip")" | tee SHA256SUMS.txt)
+      - uses: actions/upload-artifact@v4
+        with:
+          name: warp_sph_realtime-extension
+          path: |
+            dist/warp_sph_realtime-*.zip
+            dist/SHA256SUMS.txt
+          if-no-files-found: error
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write  # create the GitHub Release
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: warp_sph_realtime-extension
+          path: dist
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          flags=(--generate-notes --verify-tag)
+          # A hyphenated version (0.2.0-ea) is a pre-release.
+          [[ "$GITHUB_REF_NAME" == *-* ]] && flags+=(--prerelease)
+          gh release create "$GITHUB_REF_NAME" dist/warp_sph_realtime-*.zip dist/SHA256SUMS.txt \
+            --repo "$GITHUB_REPOSITORY" --title "$GITHUB_REF_NAME" "${flags[@]}"

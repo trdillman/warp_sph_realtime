@@ -22,7 +22,10 @@ line-length = 120
 extend-exclude = [".codex", "research_notes"]  # research probes kept verbatim as evidence
 
 [tool.ruff.lint]
-select = ["E4", "E7", "E9", "F"]
+select = ["E4", "E7", "E9", "F", "B", "UP", "I"]
+# UP018: Warp kernels need float(0.0)/int(0) to declare a dynamic (mutable) variable; a bare literal is a
+# constant and fails kernel codegen ("Error mutating a constant ... inside a dynamic loop").
+ignore = ["UP018"]
 
 [tool.ruff.lint.per-file-ignores]
 # Blender stubs must be installed in sys.modules before the package is imported.

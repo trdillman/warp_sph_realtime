@@ -1,6 +1,8 @@
 import subprocess
+
 import numpy as np
 import warp as wp
+
 
 def export_particles_xyz(pos_wp: wp.array, filepath: str):
     """Exports GPU particle positions to disk for SplashSurf meshing or VTK inspection."""

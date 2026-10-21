@@ -4,10 +4,11 @@ import json
 from pathlib import Path
 
 import matplotlib
+
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
-from matplotlib.patches import Circle, Rectangle
 import numpy as np
+from matplotlib.patches import Circle, Rectangle
 
 
 def main():
@@ -19,7 +20,7 @@ def main():
     names = {"adam": "Gradients (Adam)", "random": "Random search", "coordinate": "Coordinate search"}
     for axis, report, title in zip(axes[0], (floor, deflected),
                                    ("Floor: gradients pass; translation-only task",
-                                    "Obstacles: 3/6 gradient checks fail")):
+                                    "Obstacles: 3/6 gradient checks fail"), strict=True):
         for method, color in colors.items():
             traces = []
             units = np.arange(2, 25)
@@ -35,7 +36,7 @@ def main():
         axis.grid(alpha=0.2)
         axis.legend(fontsize=8)
     for axis, vertical, title in zip(axes[1], (1, 2),
-                                     ("Obstacle case, seed 0: top view", "Obstacle case, seed 0: side view")):
+                                     ("Obstacle case, seed 0: top view", "Obstacle case, seed 0: side view"), strict=True):
         trials = [t for t in deflected["trials"] if t["seed"] == 0]
         initial = np.array(trials[0]["initial_positions"])
         axis.scatter(initial[:, 0], initial[:, vertical], c="#aaaaaa", s=10, alpha=0.5,

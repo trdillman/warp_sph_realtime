@@ -7,9 +7,9 @@ This module is bpy-free; the gpu module is passed in or imported lazily.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
 import sys
 import types
+from dataclasses import dataclass
 from typing import Any
 
 WIDTH = 4096

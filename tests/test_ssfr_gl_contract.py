@@ -1,8 +1,8 @@
 """Driver-free fault controls; real framebuffer checks live in the GUI probe."""
 import ctypes
 import unittest
-from unittest.mock import MagicMock, Mock, patch
 from types import SimpleNamespace
+from unittest.mock import MagicMock, Mock, patch
 
 from test_ssfr_renderer import _load_viewport_draw, _StatefulGL
 
@@ -109,7 +109,7 @@ class PipelineGL(_StatefulGL):
     def glColorMask(self, *values): self.ints[0x0C23] = list(values)
     def glBlendFunc(self, src, dst): self.glBlendFuncSeparate(src, dst, src, dst)
     def glBlendFuncSeparate(self, *values):
-        for key, val in zip((0x80C9, 0x80C8, 0x80CB, 0x80CA), values): self.ints[key] = [val]
+        for key, val in zip((0x80C9, 0x80C8, 0x80CB, 0x80CA), values, strict=False): self.ints[key] = [val]
     def glBlendEquationSeparate(self, rgb, alpha):
         self.ints[0x8009], self.ints[0x883D] = [rgb], [alpha]
     def glGetError(self):

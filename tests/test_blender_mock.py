@@ -3,8 +3,10 @@ import sys
 import tomllib
 import types
 import unittest
+
 import numpy as np
 import warp as wp
+
 
 def _running_inside_blender() -> bool:
     # Type-stub packages (e.g. fake-bpy-module) are importable but have no runtime `bpy.app`.
@@ -55,10 +57,10 @@ if not _running_inside_blender():
     sys.modules["gpu"] = gpu_mock
 
 import warp_sph_realtime as extension_module
-from warp_sph_realtime.sim.sim_core import RealtimeWCSPHSolver
-from warp_sph_realtime.scene.scene_config import REGIME_PRESETS, apply_regime_preset
-from warp_sph_realtime.scene.demo_scenes import launch_demo_scene_init
 from warp_sph_realtime.render.interop_bridge import ZeroCopyGLBuffer52, wrap_device_vec3
+from warp_sph_realtime.scene.demo_scenes import launch_demo_scene_init
+from warp_sph_realtime.scene.scene_config import REGIME_PRESETS, apply_regime_preset
+from warp_sph_realtime.sim.sim_core import RealtimeWCSPHSolver
 
 
 class TestBlenderIntegrationAndDemos(unittest.TestCase):

@@ -1,5 +1,6 @@
 """No-Warp and no-OpenGL-device guard tests, independent of native libraries."""
 from __future__ import annotations
+
 import subprocess
 import sys
 import unittest

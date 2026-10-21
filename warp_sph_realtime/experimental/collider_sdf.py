@@ -1,5 +1,6 @@
 import warp as wp
 
+
 @wp.kernel
 def k_collide_sdf_primitives(
     pos: wp.array[wp.vec3],

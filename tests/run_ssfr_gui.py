@@ -6,10 +6,10 @@ installed candidate. See docs/verification/SSFR_REVIEW_REPAIR.md for commands.
 import argparse
 import importlib
 import os
-from pathlib import Path
 import runpy
 import sys
 import time
+from pathlib import Path
 
 import addon_utils
 import bpy

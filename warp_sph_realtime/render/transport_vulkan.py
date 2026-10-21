@@ -22,19 +22,28 @@ transport stops, makes no further calls and keeps all objects referenced until e
 from __future__ import annotations
 
 import ctypes as c
-from contextlib import contextmanager
 import os
-from pathlib import Path
 import threading
 import time
+from contextlib import contextmanager
+from pathlib import Path
 from typing import Any
 
 import numpy as np
 import warp as wp
 
 from .transport import (
-    COMPLETED, FAILED, MAX_COUNT, QUARANTINED, TEXEL_BYTES, Capabilities, FatalTransportError, Frame,
-    RecoverableTransportError, dimensions, process_state,
+    COMPLETED,
+    FAILED,
+    MAX_COUNT,
+    QUARANTINED,
+    TEXEL_BYTES,
+    Capabilities,
+    FatalTransportError,
+    Frame,
+    RecoverableTransportError,
+    dimensions,
+    process_state,
 )
 
 FREE, WRITING, READY, IN_FLIGHT = 'FREE', 'WRITING', 'READY', 'IN_FLIGHT'

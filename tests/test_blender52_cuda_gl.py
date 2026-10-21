@@ -10,10 +10,13 @@ import os
 import subprocess
 import tempfile
 import textwrap
+import tomllib
 import unittest
 from pathlib import Path
 
 ROOT=Path(__file__).resolve().parents[1]
+_MANIFEST=tomllib.loads((ROOT/"warp_sph_realtime"/"blender_manifest.toml").read_text(encoding="utf8"))
+PACKAGE_NAME=f"{_MANIFEST['id']}-{_MANIFEST['version']}.zip"  # version single-sourced from the manifest
 BLENDER=os.environ.get("WARPSPH_BLENDER_EXE", "")
 WHEEL=os.environ.get("WARPSPH_CERTIFIED_WHEEL", "")
 
@@ -98,7 +101,7 @@ class CertifiedBlender52CUDAInteropTest(unittest.TestCase):
             dist=root/"dist"
             dist.mkdir()
             run("--factory-startup","--command","extension","build","--source-dir",ROOT/"warp_sph_realtime","--output-dir",dist)
-            package=dist/"warp_sph_realtime-0.1.0.zip"
+            package=dist/PACKAGE_NAME
             self.assertTrue(package.is_file())
             run("--factory-startup","--command","extension","install-file","-r","user_default","-e",package)
             smoke=root/"cuda_gl.py"
