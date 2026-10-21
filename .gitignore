@@ -11,3 +11,8 @@ dist/
 .codex/context/
 .ruff_cache/
 evidence/
+
+# graft's local graph cache — regenerable, not committed (run `graft build`).
+/graft/
+.codex/poc-type-stubs/
+reports/review-project-progress/

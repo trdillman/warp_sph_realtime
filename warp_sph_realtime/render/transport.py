@@ -60,7 +60,7 @@ class Frame:
 @dataclass(frozen=True)
 class Capabilities:
     transport: str
-    zero_copy: bool
+    zero_copy: bool  # no host round trip; VulkanInterop still does one GPU buffer-to-texture copy per frame
     max_count: int
     ready: bool
     reason: str = ''

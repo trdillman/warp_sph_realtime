@@ -1,5 +1,15 @@
 # Vulkan zero-copy transport — implementation plan
 
+Terminology (2026-10-20): "zero-copy" in this plan, the file names and the `Capabilities.zero_copy`
+flag means **zero host copy**. Particle data stays in GPU memory shared by CUDA and Vulkan, with no
+readback to the CPU. It is not zero GPU copies. The VulkanInterop transport copies the shared buffer
+into the draw texture once per frame (64 MB, about 5 ms at 4M). The legacy OpenGL path is zero host-copy
+in the same sense, not zero-copy either. At the end of `step()`, `sim_core.py` copies `pos_sim` into the
+mapped VBO with `wp.copy` on the GPU. Vulkan makes that same copy into its shared buffer, and then the
+texture copy on top of it. Per frame, OpenGL makes one GPU copy and Vulkan makes two. User-facing text uses "Vulkan interop (GPU copy, no CPU
+readback)". Describe this transport as "zero host-copy" or "GPU-resident", never as plain zero-copy.
+Historical evidence and file names are left as they were.
+
 Status: bounded exact-build M0 prerequisite checklist PASS (2026-10-17 local date).
 Final reconciliation: `research_notes/Vulkan zero copy/m0_qualification_results.md`.
 M1 profiles/resolver implemented and verified (2026-10-18). M2–M4 implemented and
