@@ -14,6 +14,21 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   CI, pinned Blender 5.2.0 `extension validate` and `build`, workflow artifact, and a GitHub Release.
 
 ### Added
+- Warp install runs in the background (P1.4): the download, checksum check and extraction run on a worker thread
+  polled by a Blender timer, so the UI stays responsive. Add-on Preferences show a progress bar and a Cancel
+  button; the wheel is downloaded to a temporary file, verified and only then extracted and promoted, so Cancel
+  or a failure leaves no partial install. The worker never touches `bpy`.
+- First-run **Hardware Check** in Add-on Preferences (P1.4): GPU, NVIDIA driver, supported CUDA version, VRAM
+  and Blender graphics backend, read from `nvidia-smi` so it works before Warp is installed (it switches to
+  Warp's own values once Warp is active), with a plain verdict such as "update the NVIDIA driver".
+- **Warp source** choice in Add-on Preferences (P1.11): *Download* (default), *Install from local wheel file*
+  (offline; must match the SHA-256 lock, then the same verified extraction into private storage) or *Use existing
+  Warp folder* (a folder containing `warp`, for example a studio site-packages). An existing folder is added to
+  the import path at Start and is never modified or deleted (no `__pycache__` is written there); Start runs the
+  driver and known-answer self-test and names the folder if it fails. Only 1.17.x is accepted unless
+  "Allow uncertified version (unsupported)" is ticked, which shows a persistent warning. The foreign-Warp guard
+  accepts only the chosen folder, switching back to Download restores the owned install, and only Download needs
+  Blender's Allow Online Access. Copy Diagnostics reports which source is in use.
 - Scene authoring: mark meshes as **Domain**, **Fluid** or **Collider** (object `warp_sph.role`, sidebar buttons and
   a Properties > Physics panel), choose **Custom** as the scene source, set the particle spacing, and press Start;
   the fluid volumes are filled and the colliders built from the evaluated meshes. **Add Fluid Scene** creates a

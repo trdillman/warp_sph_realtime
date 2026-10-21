@@ -14,7 +14,7 @@ import time
 import bpy
 from bpy.props import BoolProperty, EnumProperty, FloatProperty, FloatVectorProperty, IntProperty, PointerProperty
 
-from . import diagnostics, warp_installer, warp_runtime
+from . import diagnostics, install_ui, warp_installer, warp_runtime
 from .render import session as transport_session
 from .render.gpu_points import settings_from_scene
 from .render.transport import COMPLETED, FAILED, QUARANTINED, FatalTransportError, process_state
@@ -131,10 +131,7 @@ def _addon_version() -> str:
 
 
 def _warp_owner() -> str:
-    blocked = warp_installer.foreign_warp_block_reason()
-    if blocked:
-        return "foreign: " + blocked
-    return "owned (WarpSPH-managed install)" if warp_installer.owned_install_status() else "not installed"
+    return warp_installer.describe_source()
 
 
 def _diagnostics_report() -> str:
@@ -145,7 +142,7 @@ def _diagnostics_report() -> str:
         blender_version=lambda: bpy.app.version_string,
         blender_build_hash=lambda: bpy.app.build_hash.decode(errors="replace"),
         gpu_backend=_gpu_backend,
-        warp_source=_warp_owner,  # P1.11 will extend this with the chosen Warp source
+        warp_source=_warp_owner,
         transport=lambda: RT.session.label if RT.session is not None else "none",
         last_error=RT.last_error,
         last_close=RT.last_close,
@@ -741,22 +738,6 @@ class OBJECT_OT_warp_sph_add_fluid_scene(bpy.types.Operator):
         return {'FINISHED'}
 
 
-class WM_OT_warp_sph_install(bpy.types.Operator):
-    bl_idname = "wm.warp_sph_install"
-    bl_label = "Install NVIDIA Warp"
-    bl_description = "Download and checksum-verify Warp 1.17.0 CUDA 12 into this extension's isolated user directory"
-
-    repair: BoolProperty(name="Repair Warp", default=False)
-
-    def execute(self, context):
-        if RT.running:
-            self.report({'ERROR'}, "Stop the simulation before changing the Warp runtime")
-            return {'CANCELLED'}
-        result = warp_installer.install_warp(force_reinstall=self.repair)
-        self.report({'INFO'} if result.success else {'ERROR'}, result.message)
-        return {'FINISHED'} if result.success else {'CANCELLED'}
-
-
 class WM_OT_warp_sph_copy_diagnostics(bpy.types.Operator):
     bl_idname = "wm.warp_sph_copy_diagnostics"
     bl_label = "Copy Diagnostics"
@@ -766,25 +747,6 @@ class WM_OT_warp_sph_copy_diagnostics(bpy.types.Operator):
         context.window_manager.clipboard = _diagnostics_report()
         self.report({'INFO'}, "WarpSPH diagnostics copied to the clipboard")
         return {'FINISHED'}
-
-
-class WARPSPH_Preferences(bpy.types.AddonPreferences):
-    bl_idname = __package__ or "warp_sph_realtime"
-
-    def draw(self, context):
-        box = self.layout.box()
-        box.label(text="NVIDIA Warp Runtime (CUDA 12.9)", icon='PREFERENCES')
-        state = warp_runtime.status()
-        box.label(text=state.message, icon='CHECKMARK' if state.available else 'ERROR')
-        if _startup_error:
-            box.label(text=_startup_error, icon='ERROR')
-        if not state.available:
-            box.operator("wm.warp_sph_install", text="Install NVIDIA Warp 1.17.0", icon='IMPORT')
-        row = box.row()
-        op = row.operator("wm.warp_sph_install", text="Repair Warp (restart required)", icon='FILE_REFRESH')
-        op.repair = True
-        box.label(text="WarpSPH never modifies Blender's Python or other extensions.")
-        box.operator("wm.warp_sph_copy_diagnostics", icon='COPYDOWN')
 
 
 class OBJECT_PT_warp_sph(bpy.types.Panel):
@@ -871,10 +833,13 @@ class VIEW3D_PT_warp_sph(bpy.types.Panel):
         status_box.label(text=state.message)
         if _startup_error:
             status_box.label(text=_startup_error, icon='ERROR')
-        if not state.available:
-            status_box.operator("wm.warp_sph_install", text="Install NVIDIA Warp", icon='IMPORT')
-        op = status_box.operator("wm.warp_sph_install", text="Repair Warp", icon='FILE_REFRESH')
-        op.repair = True
+        if install_ui.job_active():
+            status_box.label(text=install_ui.job_status_text(), icon='TIME')
+        elif not warp_installer.active_source().is_folder:
+            if not state.available:
+                status_box.operator("wm.warp_sph_install", text="Install NVIDIA Warp", icon='IMPORT')
+            op = status_box.operator("wm.warp_sph_install", text="Repair Warp", icon='FILE_REFRESH')
+            op.repair = True
         if RT.restart_required:
             status_box.label(text="GPU transport failed: restart Blender to run WarpSPH again", icon='ERROR')
             status_box.label(text=RT.restart_required)
@@ -1169,11 +1134,11 @@ def register():
     bpy.utils.register_class(WM_OT_warp_sph_pause)
     bpy.utils.register_class(WM_OT_warp_sph_step_frame)
     bpy.utils.register_class(WM_OT_warp_sph_use_opengl)
-    bpy.utils.register_class(WM_OT_warp_sph_install)
     bpy.utils.register_class(WM_OT_warp_sph_copy_diagnostics)
     bpy.utils.register_class(OBJECT_OT_warp_sph_set_role)
     bpy.utils.register_class(OBJECT_OT_warp_sph_add_fluid_scene)
-    bpy.utils.register_class(WARPSPH_Preferences)
+    install_ui.register(
+        is_running=lambda: RT.running, startup_error=lambda: _startup_error, active_warp=lambda: wp)
     bpy.utils.register_class(VIEW3D_PT_warp_sph)
     bpy.utils.register_class(OBJECT_PT_warp_sph)
     _install_handlers()
@@ -1191,11 +1156,10 @@ def unregister():
     bpy.utils.unregister_class(VIEW3D_PT_warp_sph)
     bpy.utils.unregister_class(WM_OT_warp_sph_step_frame)
     bpy.utils.unregister_class(WM_OT_warp_sph_pause)
-    bpy.utils.unregister_class(WARPSPH_Preferences)
+    install_ui.unregister()
     bpy.utils.unregister_class(OBJECT_OT_warp_sph_add_fluid_scene)
     bpy.utils.unregister_class(OBJECT_OT_warp_sph_set_role)
     bpy.utils.unregister_class(WM_OT_warp_sph_copy_diagnostics)
-    bpy.utils.unregister_class(WM_OT_warp_sph_install)
     bpy.utils.unregister_class(WM_OT_warp_sph_use_opengl)
     bpy.utils.unregister_class(WM_OT_warp_sph_stop)
     bpy.utils.unregister_class(WM_OT_warp_sph_load_demo)

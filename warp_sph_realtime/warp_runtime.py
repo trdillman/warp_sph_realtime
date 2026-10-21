@@ -6,10 +6,13 @@ The Python wheel and CUDA/OpenGL context must pass separate gates.
 from __future__ import annotations
 
 import importlib
+import re
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 
 CERTIFIED_WARP_VERSION = "1.17.0"
+CERTIFIED_WARP_SERIES = "1.17"  # an existing Warp folder may hold any 1.17.x
 CERTIFIED_CUDA_MAJOR = 12
 
 
@@ -31,9 +34,36 @@ def warp_version_support(version: str) -> tuple[str, str]:
     )
 
 
+def folder_version_support(version: str, allow_uncertified: bool = False) -> tuple[str, str]:
+    """Policy for a user-supplied Warp folder: 1.17.x is certified, anything else needs the opt-in."""
+    base = str(version).split("+", 1)[0]
+    if re.fullmatch(rf"{re.escape(CERTIFIED_WARP_SERIES)}\.\d+", base):
+        return "certified", ""
+    if allow_uncertified and base:
+        return "uncertified", (
+            f"Warp {version} is uncertified and unsupported (WarpSPH is qualified on {CERTIFIED_WARP_SERIES}.x)"
+        )
+    return "unsupported", (
+        f"Warp {version or 'unknown'} is not certified: WarpSPH supports Warp {CERTIFIED_WARP_SERIES}.x. "
+        "Use a 1.17.x folder, or tick 'Allow uncertified version (unsupported)' to use it at your own risk."
+    )
+
+
 def _installer():
     from . import warp_installer
     return warp_installer
+
+
+def _folder_status(installer, source) -> RuntimeStatus:
+    check = installer.check_existing_folder(source.folder, source.allow_uncertified)
+    if not check.ok:
+        return RuntimeStatus(False, check.message, version=check.version)
+    flag = "UNCERTIFIED, unsupported " if check.uncertified else ""
+    return RuntimeStatus(
+        True,
+        f"Warp {check.version} ({flag}existing folder, not modified); CUDA/OpenGL checked on Start",
+        version=check.version,
+    )
 
 
 def status() -> RuntimeStatus:
@@ -43,6 +73,9 @@ def status() -> RuntimeStatus:
         blocked = installer.foreign_warp_block_reason()
         if blocked:
             return RuntimeStatus(False, blocked)
+        source = installer.active_source()
+        if source.is_folder:
+            return _folder_status(installer, source)
         target = installer._default_install_target(create=False)
         pending = installer._pending_repair_path(target)
         if pending.is_file():
@@ -109,30 +142,20 @@ def run_self_test(wp) -> None:
     _self_test_passed = True
 
 
-def require_cuda_runtime():
-    """Verify owned distribution, imported module origin and CUDA availability.
-
-    Deliberately runs only when Start is explicitly requested. In particular, an
-    arbitrary 'warp' installed into Blender Python is never silently accepted.
-    """
-    installer = _installer()
-    blocked = installer.foreign_warp_block_reason()
-    if blocked:
-        raise RuntimeError(blocked)
-    installer.ensure_installed_warp_on_path()
-    state = status()
-    if not state.available:
-        raise RuntimeError(state.message)
+def _import_warp(folder_mode: bool):
     importlib.invalidate_caches()
-    wp = importlib.import_module("warp")
-    file_name = getattr(wp, "__file__", None)
-    site = installer._default_install_target(create=False)
-    if not file_name or not Path(file_name).resolve().is_relative_to(site.resolve()):
-        raise RuntimeError("Warp was imported from outside WarpSPH's owned directory; restart Blender")
-    version = str(getattr(wp, "__version__", getattr(getattr(wp, "config", None), "version", "")))
-    support, reason = warp_version_support(version)
-    if support != "certified":
-        raise RuntimeError(reason)
+    if not folder_mode:
+        return importlib.import_module("warp")
+    # A folder the user owns is never written to, so no __pycache__ may be created inside it.
+    previous = sys.dont_write_bytecode
+    sys.dont_write_bytecode = True
+    try:
+        return importlib.import_module("warp")
+    finally:
+        sys.dont_write_bytecode = previous
+
+
+def _check_cuda_device(wp) -> None:
     wp.init()
     if not wp.is_cuda_available():
         raise RuntimeError("Warp CUDA is unavailable: check NVIDIA GPU, driver and Warp CUDA 12.9 runtime")
@@ -144,4 +167,52 @@ def require_cuda_runtime():
         raise RuntimeError("WarpSPH requires CUDA device cuda:0")
     _check_driver(wp)
     run_self_test(wp)
+
+
+def require_cuda_runtime():
+    """Verify the chosen Warp source, the imported module origin and CUDA availability.
+
+    Deliberately runs only when Start is explicitly requested. In particular, an
+    arbitrary 'warp' installed into Blender Python is never silently accepted: Warp
+    must come from the owned install or from the one folder the user chose.
+    """
+    installer = _installer()
+    blocked = installer.foreign_warp_block_reason()
+    if blocked:
+        raise RuntimeError(blocked)
+    installer.ensure_installed_warp_on_path()
+    state = status()
+    if not state.available:
+        raise RuntimeError(state.message)
+    source = installer.active_source()
+    folder_mode = source.is_folder
+    where = f"Existing Warp folder {source.folder}" if folder_mode else "Warp"
+    try:
+        wp = _import_warp(folder_mode)
+    except Exception as exc:
+        if not folder_mode:
+            raise
+        raise RuntimeError(f"{where} could not be imported: {exc}") from exc
+    file_name = getattr(wp, "__file__", None)
+    root = installer.runtime_root()
+    if not file_name or not Path(file_name).resolve().is_relative_to(root.resolve()):
+        raise RuntimeError(
+            "Warp was imported from outside the Warp folder you chose; restart Blender"
+            if folder_mode else "Warp was imported from outside WarpSPH's owned directory; restart Blender"
+        )
+    version = str(getattr(wp, "__version__", getattr(getattr(wp, "config", None), "version", "")))
+    if folder_mode:
+        support, reason = folder_version_support(version, source.allow_uncertified)
+        if support == "unsupported":
+            raise RuntimeError(f"{where}: {reason}")
+    else:
+        support, reason = warp_version_support(version)
+        if support != "certified":
+            raise RuntimeError(reason)
+    try:
+        _check_cuda_device(wp)
+    except RuntimeError as exc:
+        if not folder_mode:
+            raise
+        raise RuntimeError(f"{where} (Warp {version}) failed the startup self-test: {exc}") from exc
     return wp

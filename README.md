@@ -28,9 +28,12 @@
 ## Installation
 
 1. Build the zip with `python scripts/build_extension.py` (writes `dist/warp_sph_realtime-<version>.zip`) and install it via `Edit > Preferences > Get Extensions > Install from Disk...`, **or** point a Local Extension Repository at the inner `warp_sph_realtime/` package folder. It registers even without NVIDIA Warp.
-2. In Add-on Preferences or the WarpSPH viewport sidebar, click Install NVIDIA Warp. Enable Blender Online Access before downloading.
-3. The extension verifies the exact wheel size, SHA-256, metadata and file paths, and places it only in its private extension user storage. No pip or Blender bundled Python modification is required.
-4. For repairs involving a loaded native runtime, click Repair Warp and restart Blender to safely apply the staged wheel.
+2. In Add-on Preferences (Edit > Preferences > Add-ons > WarpSPH), check the **Hardware Check** box (GPU, driver, CUDA support, VRAM, graphics backend; it works before Warp is installed), then pick a **Warp source**:
+   * **Download** (default): click Download and Install. Enable Blender Online Access first. The ~150 MB download runs in the background with a progress bar and a Cancel button; Cancel leaves nothing behind.
+   * **Install from local wheel file**: choose the certified `warp_lang-1.17.0` `.whl` for your platform and click Install. No network access is used. A file that does not match the SHA-256 lock is refused.
+   * **Use existing Warp folder**: choose the folder that contains the `warp` package (for example a studio-managed site-packages). WarpSPH only reads it, never modifies or deletes it, and checks the version, the NVIDIA driver and a known-answer GPU kernel when you press Start. Only Warp 1.17.x is accepted unless you tick "Allow uncertified version (unsupported)", which keeps a warning visible. Switching back to Download or a local wheel uses the install WarpSPH already owns.
+3. The download and local-wheel paths verify the exact wheel size, SHA-256, metadata and file paths, and place it only in the extension's private user storage. No pip or Blender bundled Python modification is required.
+4. For repairs involving a loaded native runtime, click Repair Warp and restart Blender to safely apply the staged wheel. Changing the Warp source after Warp has loaded needs a Blender restart.
 5. Start the simulation after the panel reports an installed runtime. Start checks CUDA and graphics-device compatibility and shows the active transport mode.
 
 Foreign and unmanaged Warp installations are preserved, never deleted. If another extension loaded its own Warp, use a separate Blender process with only WarpSPH enabled. Blender's official Extensions repository may reject downloadable Python modules; this flow is intended for self-hosted packages.
