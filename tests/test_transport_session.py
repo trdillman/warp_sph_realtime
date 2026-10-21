@@ -200,8 +200,10 @@ class Area:
     def __init__(self, type): self.type, self.redraws = type, 0
     def tag_redraw(self): self.redraws += 1
 class WM:
-    def __init__(self): self.timers, self.modals, self.removed = [], [], []
-    def event_timer_add(self, step, window=None): self.timers.append(window); return ('timer', len(self.timers))
+    def __init__(self): self.timers, self.modals, self.removed, self.steps, self.confirms = [], [], [], [], []
+    def event_timer_add(self, step, window=None):
+        self.timers.append(window); self.steps.append(step); return ('timer', len(self.timers))
+    def invoke_confirm(self, op, event, **kw): self.confirms.append((op, event)); return {'RUNNING_MODAL'}
     def event_timer_remove(self, timer): self.removed.append(timer)
     def modal_handler_add(self, op): self.modals.append(op)
 class Window:
@@ -219,7 +221,8 @@ for name in ('BoolProperty', 'EnumProperty', 'FloatProperty', 'FloatVectorProper
 bpy.utils = NS(register_class=lambda c: None, unregister_class=lambda c: None)
 def persistent(f): f._bpy_persistent = True; return f
 bpy.app = NS(online_access=False, online_access_override=True,
-             handlers=NS(load_pre=[], exit_pre=[], persistent=persistent))
+             handlers=NS(load_pre=[], exit_pre=[], undo_pre=[], redo_pre=[], persistent=persistent))
+PRE_HANDLERS = ('load_pre', 'exit_pre', 'undo_pre', 'redo_pre')
 sys.modules['bpy'] = bpy
 sys.modules['bpy.props'] = bpy.props
 gpu = types.ModuleType('gpu')
@@ -232,6 +235,7 @@ from warp_sph_realtime.render import session as ts
 from warp_sph_realtime.render.transport import Capabilities, FatalTransportError, RecoverableTransportError
 
 class Solver:
+    dt = 0.001
     fail = None
     def __init__(self, num_particles, h, substeps, enable_obstacles):
         if Solver.fail: raise Solver.fail
@@ -322,7 +326,9 @@ def case(fn):
     print('ok', fn.__name__)
 
 ext.register()
-assert addon._on_load_pre in bpy.app.handlers.load_pre and addon._on_load_pre in bpy.app.handlers.exit_pre
+assert all(addon._on_load_pre in getattr(bpy.app.handlers, n) for n in PRE_HANDLERS)
+addon._install_handlers()  # idempotent: never installs a handler twice
+assert all(getattr(bpy.app.handlers, n).count(addon._on_load_pre) == 1 for n in PRE_HANDLERS)
 assert addon._on_load_pre._bpy_persistent
 
 @case
@@ -330,6 +336,7 @@ def start_step_stop(ctx):
     op, result = start(ctx)
     assert result == {'RUNNING_MODAL'} and RT.running and RT.session.label == ts.VULKAN_LABEL, result
     assert ctx.window_manager.timers == [ctx.window] and RT.timer is not None
+    assert ctx.window_manager.steps == [0.001]  # P0.5: 1 ms timer chosen by measured latency; do not change
     assert op.modal(ctx, TIMER) == {'PASS_THROUGH'} and RT.solver.steps == 1 and RT.step_count == 1
     session = RT.session
     RT.session.transport.ready = False  # both slots busy: skip, never block or step
@@ -346,7 +353,7 @@ def immediate_disable(ctx):
     session = RT.session
     ext.unregister()
     assert session.transport.closes == 1 and RT.session is None and RT.timer is None
-    assert addon._on_load_pre not in bpy.app.handlers.load_pre
+    assert all(addon._on_load_pre not in getattr(bpy.app.handlers, n) for n in PRE_HANDLERS)
     assert op.modal(ctx, TIMER) == {'CANCELLED'}
     ext.register()
 
@@ -573,6 +580,145 @@ def resize_failed_old_close_quarantines_everything(ctx):
     assert new.closes == 0 and new in [getattr(o, 'transport', None) for o in addon._QUARANTINE]
     solvers = [o for o in addon._QUARANTINE if isinstance(o, Solver)]
     assert old_solver in solvers and any(o.num_particles == 2000 for o in solvers)
+
+@case
+def undo_and_redo_stop_the_run(ctx):
+    for name in ('undo_pre', 'redo_pre'):
+        ctx = reset()
+        op, _ = start(ctx)
+        session = RT.session
+        for handler in getattr(bpy.app.handlers, name):
+            handler(None)
+        assert session.transport.closes == 1 and RT.session is None and RT.solver is None and not RT.running, name
+        assert op.modal(ctx, TIMER) == {'CANCELLED'}
+        for handler in getattr(bpy.app.handlers, name):  # idempotent when nothing is running
+            handler(None)
+        assert session.transport.closes == 1
+
+def _capture_draw_log():
+    import logging
+    records = []
+    class Capture(logging.Handler):
+        def emit(self, record): records.append(record)
+    logger = logging.getLogger(addon.__name__)
+    handler = Capture()
+    logger.addHandler(handler)
+    return records, lambda: logger.removeHandler(handler)
+
+@case
+def draw_exception_reported_once_per_distinct_error(ctx):
+    records, detach = _capture_draw_log()
+    try:
+        op, _ = start(ctx)
+        calls = []
+        def broken(settings): calls.append(1); raise RuntimeError(broken.message)
+        broken.message = 'shader failed'
+        RT.session.draw = broken
+        for _ in range(5):                       # every redraw of every viewport
+            RT.running = True
+            addon.draw_particles_blender52()     # must never raise into Blender
+        assert len(calls) == 5 and len(records) == 1, len(records)
+        assert not RT.running and RT.last_error == 'Viewport draw failed: shader failed'
+        broken.message = 'different failure'
+        RT.running = True
+        addon.draw_particles_blender52()
+        assert len(records) == 2 and 'different failure' in records[1].getMessage()
+        assert op.modal(ctx, TIMER) == {'CANCELLED'} and RT.session is None  # timer tears the session down
+        start(make_context())                    # a new run reports the same error again
+        RT.session.draw = broken
+        broken.message = 'shader failed'
+        addon.draw_particles_blender52()
+        assert len(records) == 3
+    finally:
+        detach()
+
+@case
+def legacy_gl_draw_exception_is_contained_and_reported_once(ctx):
+    records, detach = _capture_draw_log()
+    real_draw = addon.draw_particles_viewport
+    try:
+        RT.session, RT.gl_buf, RT.running = None, object(), True
+        def broken(gl_buf, running): raise RuntimeError('GL draw failed')
+        addon.draw_particles_viewport = broken
+        for _ in range(3):
+            RT.running = True
+            addon.draw_particles_blender52()
+        assert len(records) == 1 and not RT.running and RT.last_error == 'Viewport draw failed: GL draw failed'
+    finally:
+        addon.draw_particles_viewport = real_draw
+        RT.gl_buf = None
+        detach()
+
+@case
+def fatal_draw_error_is_not_a_draw_report(ctx):
+    records, detach = _capture_draw_log()
+    try:
+        start(ctx)
+        def fatal(settings): raise FatalTransportError('device lost in draw')
+        RT.session.draw = fatal
+        addon.draw_particles_blender52()
+        assert RT.restart_required == 'device lost in draw' and not RT.running and not records
+    finally:
+        detach()
+
+@case
+def use_opengl_operator_is_confirmed_and_decided_by_what_runs(ctx):
+    prefs = NS(system=NS(gpu_backend='VULKAN'))
+    ctx.preferences = prefs
+    saved = []
+    save_result = [{'FINISHED'}]
+    bpy.ops = NS(wm=NS(save_userpref=lambda: saved.append(prefs.system.gpu_backend) or save_result[0]))
+    cls = addon.WM_OT_warp_sph_use_opengl
+    assert cls.bl_idname == 'wm.warp_sph_use_opengl' and cls.bl_label == 'Use OpenGL fast mode'
+    assert not cls.poll(ctx)                                  # nothing running
+    start(ctx)
+    assert RT.session.transport.capabilities().zero_copy and not cls.poll(ctx)   # zero-copy: no offer
+    addon._stop_session(ctx)
+    FACTORY.vulkan_error = RecoverableTransportError('external memory rejected')
+    ctx = bpy.context = make_context(); ctx.preferences = prefs
+    start(ctx)
+    prefs.system.gpu_backend = 'OPENGL'                       # preference says OpenGL, Vulkan is running
+    assert not RT.session.transport.capabilities().zero_copy and cls.poll(ctx)
+    prefs.system.gpu_backend = 'VULKAN'
+    op = cls()
+    assert op.invoke(ctx, 'evt') == {'RUNNING_MODAL'} and ctx.window_manager.confirms == [(op, 'evt')]
+    assert prefs.system.gpu_backend == 'VULKAN' and not saved  # nothing changes before confirmation
+    assert op.execute(ctx) == {'FINISHED'}
+    assert prefs.system.gpu_backend == 'OPENGL' and saved == ['OPENGL']
+    assert 'restart' in op.reports[-1][1].lower()
+    save_result[0] = {'CANCELLED'}                            # save refused: preference is put back
+    prefs.system.gpu_backend = 'VULKAN'
+    op = cls()
+    assert op.execute(ctx) == {'CANCELLED'} and prefs.system.gpu_backend == 'VULKAN'
+    assert op.reports[-1][0] == 'ERROR'
+    def boom(): raise RuntimeError('disk full')
+    bpy.ops.wm.save_userpref = boom
+    op = cls()
+    assert op.execute(ctx) == {'CANCELLED'} and prefs.system.gpu_backend == 'VULKAN'
+    assert 'disk full' in op.reports[-1][1]
+
+@case
+def panel_offers_opengl_only_for_running_readback(ctx):
+    class Layout:
+        def __init__(self, ops): self.ops = ops
+        def operator(self, idname, **kw): self.ops.append(idname); return NS()
+        def __getattr__(self, name): return lambda *a, **k: self
+    def panel_ops():
+        ops = []
+        panel = addon.VIEW3D_PT_warp_sph()
+        panel.layout = Layout(ops)
+        for k, v in dict(warp_sph_render_mode='POINTS', warp_sph_depth_test=True, warp_sph_point_size=2.0,
+                         warp_sph_particle_radius=0.02, warp_sph_particle_color=(1, 1, 1, 1)).items():
+            setattr(ctx.scene, k, v)
+        panel.draw(ctx)
+        return ops
+    assert 'wm.warp_sph_use_opengl' not in panel_ops()        # idle
+    start(ctx)
+    assert 'wm.warp_sph_use_opengl' not in panel_ops()        # zero-copy
+    addon._stop_session(ctx)
+    FACTORY.vulkan_error = RecoverableTransportError('external memory rejected')
+    start(ctx)
+    assert 'wm.warp_sph_use_opengl' in panel_ops()            # Readback running
 
 reset()
 ext.unregister()

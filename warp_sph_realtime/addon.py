@@ -8,6 +8,7 @@ extension registers (and can install Warp) on machines without it.
 from __future__ import annotations
 
 import importlib
+import logging
 import time
 
 import bpy
@@ -17,6 +18,8 @@ from . import warp_installer, warp_runtime
 from .render import session as transport_session
 from .render.gpu_points import settings_from_scene
 from .render.transport import COMPLETED, FAILED, QUARANTINED, FatalTransportError, process_state
+
+_LOG = logging.getLogger(__name__)
 
 wp = None
 ZeroCopyGLBuffer52 = None
@@ -66,6 +69,7 @@ class _SimRuntime:
     last_tick: float = 0.0
     last_close: str = ""
     last_error: str = ""
+    draw_errors: set = set()  # distinct draw failures already logged this run
 
     # Process-lifetime flags: they outlive add-on disable/enable (module reload).
     @property
@@ -94,21 +98,32 @@ def _gpu_backend() -> str:
     return gpu.platform.backend_type_get()
 
 
+def _report_draw_failure(exc: Exception):
+    """Stop the run and log each distinct draw failure once, never once per redraw."""
+    RT.last_error = f"Viewport draw failed: {exc}"
+    RT.running = False  # the modal timer stops the session; never raise every redraw
+    key = f"{type(exc).__name__}: {exc}"
+    if key not in RT.draw_errors:
+        RT.draw_errors.add(key)
+        _LOG.error("WarpSPH viewport draw failed (logged once per distinct error): %s", key, exc_info=exc)
+
+
 def draw_particles_blender52():
-    if RT.session is None:
-        draw_particles_viewport(RT.gl_buf, RT.running)
-        return
-    scene = bpy.context.scene
-    if not RT.running or not scene.warp_sph_show_particles:
-        return
     session = RT.session
     try:
+        if session is None:
+            # Legacy OpenGL path: the SSFR/sphere passes restore GL state in a finally block
+            # (_preserve_gl_state) and draw_points restores its own, so a failure leaves none behind.
+            draw_particles_viewport(RT.gl_buf, RT.running)
+            return
+        scene = bpy.context.scene
+        if not RT.running or not scene.warp_sph_show_particles:
+            return
         session.draw(settings_from_scene(scene, session.backend))
     except FatalTransportError as exc:
         _mark_fatal(str(exc))
     except Exception as exc:
-        RT.last_error = f"Viewport draw failed: {exc}"
-        RT.running = False  # the modal timer stops the session; never raise every redraw
+        _report_draw_failure(exc)
 
 
 def _mark_fatal(reason: str):
@@ -373,6 +388,7 @@ class WM_OT_warp_sph_start(bpy.types.Operator):
             return {'CANCELLED'}
 
         RT.last_error = ""
+        RT.draw_errors.clear()
         try:
             _activate_runtime()
             scene = context.scene
@@ -469,6 +485,47 @@ class WM_OT_warp_sph_step_frame(bpy.types.Operator):
         RT.paused = True
         RT.step_once = True
         return {'FINISHED'}
+
+
+def _readback_active() -> bool:
+    """True while the running transport is the Readback compatibility path (from what runs, not prefs)."""
+    session = RT.session
+    return session is not None and not session.transport.capabilities().zero_copy
+
+
+class WM_OT_warp_sph_use_opengl(bpy.types.Operator):
+    bl_idname = "wm.warp_sph_use_opengl"
+    bl_label = "Use OpenGL fast mode"
+    bl_description = ("Set Blender's graphics backend preference to OpenGL for zero-copy particle transport; "
+                      "takes effect after a restart")
+
+    @classmethod
+    def poll(cls, context):
+        return _readback_active()
+
+    def invoke(self, context, event):
+        return context.window_manager.invoke_confirm(
+            self, event, message="Switch Blender's graphics backend to OpenGL and save preferences? "
+                                 "Blender must be restarted.")
+
+    def execute(self, context):
+        system = context.preferences.system
+        previous = system.gpu_backend
+        system.gpu_backend = 'OPENGL'
+        try:
+            saved = bpy.ops.wm.save_userpref()
+        except Exception as exc:
+            saved, error = {'CANCELLED'}, str(exc)
+        else:
+            error = "preferences were not saved"
+        if 'FINISHED' not in saved:
+            system.gpu_backend = previous
+            self.report({'ERROR'}, f"WarpSPH could not switch to OpenGL: {error}")
+            return {'CANCELLED'}
+        self.report({'WARNING'}, "Graphics backend set to OpenGL and saved: restart Blender to apply it")
+        return {'FINISHED'}
+
+
 class WM_OT_warp_sph_install(bpy.types.Operator):
     bl_idname = "wm.warp_sph_install"
     bl_label = "Install NVIDIA Warp"
@@ -530,6 +587,8 @@ class VIEW3D_PT_warp_sph(bpy.types.Panel):
                              icon='CHECKMARK' if RT.session.transport.capabilities().zero_copy else 'INFO')
             if RT.session.reason:
                 status_box.label(text=RT.session.reason)
+            if _readback_active():
+                status_box.operator("wm.warp_sph_use_opengl", icon='PREFERENCES')
         elif RT.interop_unavailable:
             status_box.label(text=RT.interop_unavailable + " (Readback until restart)", icon='INFO')
         if RT.last_close and RT.last_close != COMPLETED:
@@ -626,8 +685,16 @@ class VIEW3D_PT_warp_sph(bpy.types.Panel):
             col_stat.label(text=f"Transport waits: {RT.session.waits}  |  drops: {drops}")
 
 
+_STOP_HANDLERS = ("load_pre", "exit_pre", "undo_pre", "redo_pre")
+
+
 def _on_load_pre(*_args):
-    """A file load frees the old window/screen: release the session first (plan M4)."""
+    """Stop the run before the session's Blender state is replaced (plan M4).
+
+    A file load frees the old window/screen. Undo/redo also stop it: they swap in an earlier
+    scene state (properties, helper objects) under a running solver and its window-bound
+    session, and no ordering guarantee makes keeping the run alive provably safe.
+    """
     _stop_session(getattr(bpy, "context", None))
 
 
@@ -642,7 +709,7 @@ def _install_handlers():
     persistent = getattr(handlers, "persistent", None)
     if persistent is not None and not getattr(_on_load_pre, "_bpy_persistent", False):
         persistent(_on_load_pre)
-    for name in ("load_pre", "exit_pre"):
+    for name in _STOP_HANDLERS:
         hooks = getattr(handlers, name, None)
         if hooks is not None and _on_load_pre not in hooks:
             hooks.append(_on_load_pre)
@@ -652,7 +719,7 @@ def _remove_handlers():
     handlers = _app_handlers()
     if handlers is None:
         return
-    for name in ("load_pre", "exit_pre"):
+    for name in _STOP_HANDLERS:
         hooks = getattr(handlers, name, None)
         while hooks is not None and _on_load_pre in hooks:
             hooks.remove(_on_load_pre)
@@ -790,6 +857,7 @@ def register():
     bpy.utils.register_class(WM_OT_warp_sph_stop)
     bpy.utils.register_class(WM_OT_warp_sph_pause)
     bpy.utils.register_class(WM_OT_warp_sph_step_frame)
+    bpy.utils.register_class(WM_OT_warp_sph_use_opengl)
     bpy.utils.register_class(WM_OT_warp_sph_install)
     bpy.utils.register_class(WARPSPH_Preferences)
     bpy.utils.register_class(VIEW3D_PT_warp_sph)
@@ -804,6 +872,7 @@ def unregister():
     bpy.utils.unregister_class(WM_OT_warp_sph_pause)
     bpy.utils.unregister_class(WARPSPH_Preferences)
     bpy.utils.unregister_class(WM_OT_warp_sph_install)
+    bpy.utils.unregister_class(WM_OT_warp_sph_use_opengl)
     bpy.utils.unregister_class(WM_OT_warp_sph_stop)
     bpy.utils.unregister_class(WM_OT_warp_sph_load_demo)
     bpy.utils.unregister_class(WM_OT_warp_sph_start)

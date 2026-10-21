@@ -1,7 +1,7 @@
 """Driver-free fault controls; real framebuffer checks live in the GUI probe."""
 import ctypes
 import unittest
-from unittest.mock import Mock, patch
+from unittest.mock import MagicMock, Mock, patch
 from types import SimpleNamespace
 
 from test_ssfr_renderer import _load_viewport_draw, _StatefulGL
@@ -150,6 +150,23 @@ class DrawContracts(unittest.TestCase):
         with patch.object(self.gl, 'glDrawArrays', side_effect=RuntimeError('draw fault')):
             with self.assertRaisesRegex(RuntimeError, 'draw fault'): self.draw()
         self.assertEqual(self.snapshot(), before)
+    def test_raw_points_draw_failure_restores_gl_state(self):
+        buffer = v._ig.ZeroCopyGLBuffer52.__new__(v._ig.ZeroCopyGLBuffer52)
+        buffer.vbo, buffer.vaos, buffer.num_particles = ctypes.c_uint(72), {}, 5
+        shader = Mock()
+        scene = SimpleNamespace(warp_sph_render_mode='POINTS', warp_sph_show_particles=True, warp_sph_depth_test=False,
+                                warp_sph_particle_color=(.1, .3, .8, .5), warp_sph_point_size=3.0)
+        before = self.snapshot()
+        with patch.object(v._ig, '_GLInterop', self.gl), \
+                patch.object(v.bpy, 'context', SimpleNamespace(scene=scene), create=True), \
+                patch.object(v.gpu, 'shader', SimpleNamespace(from_builtin=lambda name: shader), create=True), \
+                patch.object(v.gpu, 'matrix', SimpleNamespace(get_model_view_matrix=MagicMock,
+                                                              get_projection_matrix=MagicMock), create=True), \
+                patch.object(self.gl, 'glDrawArrays', side_effect=RuntimeError('draw fault')):
+            with self.assertRaisesRegex(RuntimeError, 'draw fault'):
+                v.draw_particles_viewport(buffer, True)
+        self.assertEqual(self.snapshot(), before)
+
     def test_lazy_real_vao_creation_restores_incoming_array_buffer(self):
         buffer = v._ig.ZeroCopyGLBuffer52.__new__(v._ig.ZeroCopyGLBuffer52)
         buffer.vbo, buffer.vaos, buffer.num_particles = ctypes.c_uint(72), {}, 5
