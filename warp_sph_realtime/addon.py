@@ -13,7 +13,7 @@ import importlib
 import bpy
 from bpy.props import EnumProperty, PointerProperty
 
-from . import diagnostics, install_ui, props, sim_session, warp_installer, warp_runtime
+from . import cache_ui, diagnostics, install_ui, props, sim_session, warp_installer, warp_runtime
 from .render.gpu_points import settings_from_scene
 from .render.transport import COMPLETED
 from .sim_session import CUSTOM_SCENE
@@ -669,6 +669,7 @@ def register():
         is_running=lambda: sim_session.active() is not None, startup_error=lambda: _startup_error,
         active_warp=lambda: sim_session.runtime.wp)
     bpy.utils.register_class(VIEW3D_PT_warp_sph)
+    cache_ui.register()  # sub-panel of the main panel, shown above Advanced
     bpy.utils.register_class(VIEW3D_PT_warp_sph_advanced)
     bpy.utils.register_class(OBJECT_PT_warp_sph)
     _install_handlers()
@@ -686,6 +687,7 @@ def unregister():
     sim_session.dispose_all(getattr(bpy, "context", None))
     bpy.utils.unregister_class(OBJECT_PT_warp_sph)
     bpy.utils.unregister_class(VIEW3D_PT_warp_sph_advanced)
+    cache_ui.unregister()
     bpy.utils.unregister_class(VIEW3D_PT_warp_sph)
     bpy.utils.unregister_class(WM_OT_warp_sph_step_frame)
     bpy.utils.unregister_class(WM_OT_warp_sph_pause)

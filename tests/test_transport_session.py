@@ -984,6 +984,69 @@ def removed_scene_stops_the_run(ctx):
     sim_session.get(make_context().scene)
     assert freed not in sim_session.sessions() and CUR[0] not in sim_session.sessions()  # idle dead ones pruned
 
+class FakeJob:
+    """Stands in for cache.bake.BakeJob: the session only drives run_chunk and reads progress (P2.2)."""
+    def __init__(self, finish_after=3):
+        self.state, self.chunks, self.frames_done, self.error = 'RUNNING', 0, 0, ''
+        self.finish_after, self.closes = finish_after, []
+        self.plan = NS(first=1, total=10)
+        self.store = NS(close=lambda: self.closes.append(1))
+    @property
+    def active(self): return self.state in ('RUNNING', 'CANCELLING', 'FINISHING')
+    def run_chunk(self, budget):
+        self.chunks += 1
+        if self.state == 'CANCELLING':
+            self.state = 'CANCELLED'
+            return False
+        self.frames_done += 1
+        if self.frames_done == self.finish_after: self.state = 'DONE'
+        return True
+    def cancel(self):
+        if self.state == 'RUNNING': self.state = 'CANCELLING'
+
+@case
+def bake_ticks_drive_the_job_not_the_solver(ctx):
+    op, _ = start(ctx)
+    job, steps, shown = FakeJob(), RT.solver.steps, RT.session.transport.frame
+    RT.bake = job
+    for _ in range(3):
+        assert op.modal(ctx, TIMER) == {'PASS_THROUGH'}
+    assert job.chunks == 3 and RT.solver.steps == steps          # the live step is replaced, never added
+    assert RT.session.transport.frame > shown                    # the viewport follows the bake
+    assert RT.bake is None and RT.paused and RT.bake_result == 'Baked frames 1-3 (3 frames)', RT.bake_result
+    assert job.closes == [1] and 'Baked' in op.reports[-1][1]    # writer drained before the job is dropped
+
+@case
+def bake_cancel_and_stop_leave_no_job(ctx):
+    op, _ = start(ctx)
+    job = FakeJob(finish_after=99)
+    RT.bake = job
+    op.modal(ctx, TIMER)
+    RT.cancel_bake()
+    assert job.state == 'CANCELLING' and RT.bake is job          # cancel is a request; the tick finishes it
+    op.modal(ctx, TIMER)
+    assert RT.bake is None and 'cancelled' in RT.bake_result and job.closes == [1]
+    again = FakeJob(finish_after=99)
+    RT.bake = again
+    RT.stop(ctx)                                                 # stop mid-bake: drained, dropped
+    assert RT.bake is None and again.closes == [1] and not RT.running and 'stopped' in RT.bake_result
+
+@case
+def bake_step_failure_is_fatal_and_stops(ctx):
+    op, _ = start(ctx)
+    job = FakeJob()
+    def boom(budget): raise RuntimeError('cuda error')
+    job.run_chunk = boom
+    RT.bake = job
+    assert op.modal(ctx, TIMER) == {'CANCELLED'} and not RT.running and RT.bake is None
+    assert 'cuda error' in RT.restart_required and job in sim_session._QUARANTINE and job.closes == [1]
+
+@case
+def bake_needs_a_running_session(ctx):
+    reports = []
+    ok = sim_session.get(ctx.scene).begin_bake(ctx, lambda kind, msg: reports.append(msg), first=1, last=4, resume=False)
+    assert ok is False and reports == ['Start the simulation before baking']
+
 reset()
 ext.unregister()
 

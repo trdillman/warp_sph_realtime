@@ -33,6 +33,8 @@ _BACKEND_NAMES = {"VULKAN": "Vulkan", "OPENGL": "OpenGL"}
 CUSTOM_SCENE = "CUSTOM"
 
 TIMER_INTERVAL_S = 0.001  # P0.5: 1 ms timer chosen by measured latency; do not change
+BAKE_CHUNK_S = 0.004      # P2.2: most time one timer tick spends queueing bake frames (never a blocking loop)
+BAKE_RING_SLOTS = 3       # frames in flight between the solver, the host copy and the disk writer
 
 _QUARANTINE: list = process_state().quarantine  # objects never freed until exit, across reloads
 
@@ -116,6 +118,8 @@ class SimSession:
         self.last_close = ""
         self.last_error = ""
         self.draw_errors: set = set()  # distinct draw failures already logged this run
+        self.bake = None               # cache.bake.BakeJob while a bake runs (P2.2); driven by tick()
+        self.bake_result = ""          # outcome of the last bake, for the panel
 
     # Process-lifetime flags: they outlive add-on disable/enable (module reload).
     @property
@@ -389,6 +393,9 @@ class SimSession:
             self.stop(context)
             return False
 
+        if self.bake is not None:  # a bake owns the solver: settings changes apply to the next bake
+            return self._tick_bake(context, report, screen)
+
         # Dynamic Buffer & Demo Manager: reallocate/reset on-the-fly if slider or demo changed.
         # An authored scene is fixed for the run: role or geometry changes need Stop + Start.
         if self.active_demo != CUSTOM_SCENE and (
@@ -463,6 +470,153 @@ class SimSession:
             _redraw_views(screen)
         return True
 
+    # -- bake (P2.2) ---------------------------------------------------------------------------------
+
+    def begin_bake(self, context, report: Report, *, first: int, last: int, resume: bool) -> bool:
+        """Bake frames ``first`` ... ``last`` of the running scene into its cache folder, driven by ``tick``.
+
+        Fresh bakes start from the scene's initial state; resume continues after the last intact cached frame.
+        Returns False after reporting why nothing started (or that everything is already cached)."""
+        from .cache import bake as cache_bake
+        from .cache import blender_adapter
+        from .cache import disk as cache_disk
+        from .cache.frame_store import FrameStore
+        from .cache.gpu import SolverSource, VramRing
+
+        if not self.running or self.solver is None or runtime.wp is None:
+            report({'ERROR'}, "Start the simulation before baking")
+            return False
+        if self.bake is not None:
+            report({'ERROR'}, "A bake is already running")
+            return False
+        scene = self.scene
+        settings = scene.warp_sph
+        fps = scene.render.fps / scene.render.fps_base
+        try:
+            if not resume and self.step_count > 0:  # a fresh bake starts from the initial state
+                self.paused = False
+                if settings.scene_source == 'CUSTOM':
+                    self.reallocate(scene, 0, CUSTOM_SCENE, context.window,
+                                    depsgraph=context.evaluated_depsgraph_get())
+                else:
+                    self.reallocate(scene, settings.particle_count, settings.demo_scene, context.window)
+            solver = self.solver
+            solver.stiffness, solver.cfl_factor = stiffness_pa(settings), settings.time_step_scale
+            solver.update_time_step()
+            solver.rebuild_cuda_graph()
+            steps = cache_bake.steps_per_frame(settings.bake_steps, solver.dt, fps)
+            signature = {
+                "particles": solver.num_particles, "steps_per_frame": steps, "fps": fps, "dt": solver.dt,
+                "h": solver.h, "stiffness": solver.stiffness, "viscosity": solver.viscosity,
+                "scene": scene_name(scene), "demo": self.active_demo,
+            }
+            disk = cache_disk.DiskCache(blender_adapter.cache_dir(scene))
+            remaining = max(last - first + 1 - (disk.cached_count() if resume else 0), 0)
+            free = cache_disk.free_bytes(disk.directory)
+            need = cache_disk.estimate_bytes(solver.num_particles, remaining)
+            if free is not None and need > free:
+                report({'ERROR'}, f"Not enough disk space in {disk.directory}: the bake needs about "
+                                  f"{need / 2**30:.1f} GB, {free / 2**30:.1f} GB free")
+                return False
+            plan = cache_bake.plan_bake(disk, signature, first, last, resume=resume, particles=solver.num_particles)
+            if plan.complete:
+                report({'INFO'}, f"Frames {first}-{last} are already cached")
+                return False
+            ring = VramRing(runtime.wp, solver.num_particles, BAKE_RING_SLOTS)
+            store = FrameStore(disk, ring)
+            try:
+                self.bake = cache_bake.BakeJob(
+                    store, SolverSource(runtime.wp, solver, steps, settings.use_cuda_graph), plan)
+            except BaseException:
+                store.close()
+                raise
+        except FatalTransportError as exc:
+            self.mark_fatal(str(exc))
+            report({'ERROR'}, f"WarpSPH GPU transport failed; restart Blender: {exc}")
+            return False
+        except Exception as exc:  # CacheError, CacheMismatchError, ValueError (resume mismatch), solver errors
+            report({'ERROR'}, f"WarpSPH cannot bake: {exc}")
+            return False
+        self.bake_result = ""
+        self.paused = False
+        self.step_once = False
+        return True
+
+    def cancel_bake(self):
+        """Stop capturing; frames already queued are still written, so the cache stays a whole prefix."""
+        if self.bake is not None:
+            self.bake.cancel()
+
+    def _publish_solver(self):
+        """Show the solver's latest state in the viewport (the bake bypasses the normal step path)."""
+        wp, solver = runtime.wp, self.solver
+        if self.session is not None:
+            self.session.tick(lambda out: wp.copy(out, solver.pos_sim))
+        elif wp.get_stream("cuda:0").is_complete:  # the legacy VBO route waits for the GPU: only when idle
+            with self.gl_buf.mapped() as pos_vbo_wp:
+                wp.copy(pos_vbo_wp, solver.pos_sim)
+            wp.synchronize_device("cuda:0")
+
+    def _tick_bake(self, context, report: Report, screen) -> bool:
+        bake = self.bake
+        done_before = bake.frames_done
+        try:
+            if bake.run_chunk(BAKE_CHUNK_S):
+                self._publish_solver()
+        except FatalTransportError as exc:
+            self.mark_fatal(str(exc))
+            report({'ERROR'}, f"WarpSPH GPU transport failed; restart Blender: {exc}")
+            self.stop(context)
+            return False
+        except Exception as exc:  # the solver step or a Warp copy failed
+            if self.session is not None:  # as a failed step (session.tick): CUDA state unknown
+                self.mark_fatal(f"bake step failed; CUDA state unknown: {exc}")
+                report({'ERROR'}, f"WarpSPH GPU transport failed; restart Blender: {exc}")
+            else:
+                report({'ERROR'}, f"WarpSPH bake stopped: {exc}")
+            self.stop(context)
+            return False
+        finished = not bake.active
+        if finished:
+            self._finish_bake(report)
+        if finished or bake.frames_done != done_before:
+            _redraw_views(screen)
+        elif self.session is not None and self.session.take_new_frame():
+            _redraw_views(screen)
+        return True
+
+    def _release_bake(self, bake):
+        """Drain the job's writer and free its ring (kept alive, never freed, after a fatal CUDA error)."""
+        bake.store.close()
+        if self.restart_required:
+            _QUARANTINE.append(bake)
+
+    def _finish_bake(self, report: Report):
+        from .cache import bake as cache_bake
+        bake, self.bake = self.bake, None
+        self._release_bake(bake)
+        span = f"frames {bake.plan.first}-{bake.plan.first + bake.frames_done - 1}"
+        if bake.state == cache_bake.DONE:
+            self.bake_result = f"Baked {span} ({bake.frames_done} frames)"
+            report({'INFO'}, "WarpSPH " + self.bake_result)
+        elif bake.state == cache_bake.CANCELLED:
+            self.bake_result = f"Bake cancelled: {bake.frames_done} frames cached ({span}); Resume continues"
+            report({'WARNING'}, "WarpSPH " + self.bake_result)
+        else:
+            self.bake_result = f"Bake failed: {bake.error} ({bake.frames_done} frames cached)"
+            report({'ERROR'}, "WarpSPH " + self.bake_result)
+        if self.solver is not None:
+            self.solver.substeps = self.scene.warp_sph.substeps
+        self.paused = True  # keep the final state on screen; Resume continues the live view
+
+    def _discard_bake(self):
+        """Teardown path (stop, file load, unregister): leave the cache as a whole prefix and free the ring."""
+        bake, self.bake = self.bake, None
+        if bake is not None:
+            bake.cancel()
+            self._release_bake(bake)
+            self.bake_result = f"Bake stopped: {bake.frames_done} frames cached"
+
     def stop(self, context=None):
         """Idempotent teardown for stop, cancel, unregister, file load and viewport loss."""
         context = context or getattr(bpy, "context", None)
@@ -470,6 +624,7 @@ class SimSession:
         self.paused = False
         self.step_once = False
         self.token += 1
+        self._discard_bake()
         if self.timer is not None:
             wm = getattr(context, "window_manager", None)
             if wm is not None:
