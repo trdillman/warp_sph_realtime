@@ -135,6 +135,7 @@ in Cycles/EEVEE without leaving Blender.
 | P2.6 | **Validation**: dam-break front position vs published reference data; mass/energy checks in CI | M |
 | P2.7 | **Free demo edition**: unlimited preview, bake/export capped (e.g. 120 frames, 25k particles) | S–M |
 | P2.8 | **Docs and education**: full manual, 3–5 video tutorials, example scene library, FAQ for hardware issues | M |
+| P2.9 | **Live collider drag**: non-animated colliders follow their live transform while running (speed-capped, no tunnelling); later, record live drags as keyframes so a bake replays them. Spec: [`LIVE_COLLIDER_SPEC.md`](LIVE_COLLIDER_SPEC.md) | M |
 
 Exit criteria: P2.1–P2.8 shipped; certified on 5.2 LTS and current stable on both backends;
 refund rate and support load tracked from early access are acceptable to the owner.
@@ -167,8 +168,24 @@ removal in 6.0, switching `VulkanInterop` to the public Python API once the upst
 | Name/licence advice changes the plan | D1/D2 lawyer review | Rename is cheap before launch; delay listing, not engineering |
 | Weak early-access sales | < ~20 sales in the first 60 days | Re-check positioning and demo video before investing in Phase 2 scope |
 
+## Status (2026-10-22, main `3e20429`)
+
+Local checks on main: pytest 585 passed / 2 skipped, ruff clean.
+
+| Phase | Done on main | Open |
+|---|---|---|
+| 0 | P0.1–P0.8, P0.10–P0.13 (lifecycle, transport seam, GL/Vulkan interop with the latency fix, gpu-module points and SSFR, Warp self-test, experimental excluded) | P0.9 rename/licence (D1/D2); exit soak on Blender **5.3** Vulkan, which needs a new exact-build Vulkan profile, or else it runs Readback |
+| 1 | P1.1, P1.3–P1.7, P1.11 | P1.2 Readback tuning + count advisor; P1.8 GPU runner; P1.9 benchmark table; P1.10 launch kit; first tagged release (`release.yml` unproven) |
+| 2 | P2.1, P2.2, P2.3, P2.5, P2.6, P2.8 | P2.7 free edition; P2.9 live collider drag; showcase reruns under the strengthened checks; certification on 5.2 LTS + current stable |
+
+Owner decisions D1, D2, D6 and the Vulkan 4M latency target are **not blocking engineering**. Work proceeds with
+reversible placeholders: brand and licence strings are kept in one place for P0.9, and the P2.7 cap values are
+set in one setting. The 4M target stays recorded as open; nothing is relabelled as passed.
+
 ## Immediate next actions
 
-1. Owner: decide D1 (name), D2 (licence) and D6 (price); book a short lawyer review for D1/D2/D6.
-2. Engineering: branch `fix/lifecycle-hardening` from `main` and implement P0.1–P0.5 with P0.10 tests.
-3. Engineering: bounded exact-build M0 prerequisite checklist passes. Separately authorized M1 profiles/resolver now pass source, rejection, fresh-process and package checks (2026-10-18); see docs/VULKAN_ZERO_COPY_PLAN.md and research_notes/Vulkan zero copy/m1_task.md. Preserve exact-build guards, paired DRW scope, failures and containment limits. M2 has not started; production lifetime/fault safety and performance remain unqualified.
+1. Blender 5.3 readiness: qualify an exact-build Vulkan profile for the 5.3 release candidate; verify Readback fallback and the "Use OpenGL fast mode" path on an unprofiled build.
+2. P2.9 live collider drag: spike S0, then Phase A ([`LIVE_COLLIDER_SPEC.md`](LIVE_COLLIDER_SPEC.md)).
+3. Close live gaps: showcase reruns under the strengthened checks; real Warp download install; undo/redo during a run; particle-radius unit-awareness.
+4. P1.2 Readback tuning plus particle-count advisor; P1.9 benchmark table on this GPU, with other generations added when hardware is available.
+5. Release dry run: bump to `0.2.0`, tag on a fork or draft to prove `release.yml` (tagging the real repo needs owner approval).
