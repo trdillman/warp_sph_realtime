@@ -19,12 +19,16 @@ running: **Bake** starts it. Baking is an explicit action; the live view never r
 
 * Cancel, Esc or a failure keeps every frame saved so far.
 * **Resume** continues after the last saved frame (or extends **End**). It refuses a cache baked with a different
-  particle count or different solver settings.
+  particle count, solver gravity or different solver settings. After editing Scene Gravity, Stop and Start
+  the simulation to rebuild its physics before baking. Old caches without recorded gravity remain playable
+  but cannot be resumed safely: choose a new cache folder or use **Bake** to start a fresh bake.
 * **Invalidate From Current Frame** deletes the current frame onward so **Resume** re-simulates it.
 * **Delete** (**Delete Cache**) removes every cached frame of this scene.
 
-The solver state is positions and velocities, so a resumed bake continues bit for bit like an uninterrupted one on
-the same GPU and driver. Changing the scene's objects after a bake is not detected: invalidate from frame 1.
+With unchanged physics on the same GPU and driver, unit-scale-1 resumes can match uninterrupted results bit for bit.
+Other unit scales round positions through float32 scene units and can introduce small numerical differences.
+Changing domain geometry, fluid placement, colliders, collider animation or emitter settings after a bake is not
+detected by the signature: start a fresh bake after those edits.
 
 ## Playback
 

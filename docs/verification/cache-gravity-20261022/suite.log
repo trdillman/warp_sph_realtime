@@ -1,0 +1,47 @@
+.ss................................................................... [ 11%]
+........................................................................ [ 23%]
+.............................................................. [ 34%]
+.................................................................. [ 45%]
+.......F........................................................ [ 55%]
+.................................................................. [ 66%]
+...................................................................... [ 78%]
+........................................................................ [ 90%]
+........................................................          [100%]
+================================== FAILURES ===================================
+_________ test_preset_is_stable_on_cuda_with_the_graph[0.01-STYLISED] _________
+
+key = 'STYLISED', spacing = 0.01
+
+    @needs_cuda
+    @pytest.mark.parametrize("key", list(PRESETS))
+    @pytest.mark.parametrize("spacing", [0.02, 0.01])
+    def test_preset_is_stable_on_cuda_with_the_graph(key, spacing):
+        solver = build(preset_settings(key), spacing, "cuda:0")
+        assert solver.cuda_graph is not None
+>       check_stable(solver, run(solver, 1.0, use_graph=True))
+                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\test_physics_presets.py:118: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+solver = <warp_sph_realtime.sim.sim_core.RealtimeWCSPHSolver object at 0x000001EE941C9D30>
+seconds = 1.0, use_graph = True
+
+    def run(solver, seconds, use_graph):
+        """Step for `seconds` of simulated time.
+    
+        Returns (peak speed, max energy growth, finite, contained, final KE, peak 99.9th-percentile speed)."""
+        out = wp.zeros(solver.num_particles, dtype=wp.vec3, device=solver.device)
+        steps = int(seconds / (solver.substeps * solver.dt))
+        peak, bulk_peak, growth, e0 = 0.0, 0.0, 0.0, None
+        for k in range(steps):
+            solver.step(out, use_graph=use_graph)
+            if k % 10 == 0 or k == steps - 1:
+>               pos, vel = solver.pos_sim.numpy().astype(np.float64), solver.vel.numpy().astype(np.float64)
+                                                                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E               numpy._core._exceptions._ArrayMemoryError: Unable to allocate 5.64 MiB for an array with shape (246476, 3) and data type float64
+
+tests\test_physics_presets.py:48: MemoryError
+=========================== short test summary info ===========================
+FAILED tests/test_physics_presets.py::test_preset_is_stable_on_cuda_with_the_graph[0.01-STYLISED]
+1 failed, 595 passed, 2 skipped, 41 subtests passed in 191.62s (0:03:11)

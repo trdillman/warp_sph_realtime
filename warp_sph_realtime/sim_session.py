@@ -523,14 +523,7 @@ class SimSession:
             apply_physics(solver, settings)
             solver.rebuild_cuda_graph()
             steps = cache_bake.steps_per_frame(settings.bake_steps, solver.dt, fps)
-            signature = {
-                "particles": solver.num_particles, "steps_per_frame": steps, "fps": fps, "dt": solver.dt,
-                "h": solver.h, "stiffness": solver.stiffness, "viscosity": solver.viscosity,
-                "scene": scene_name(scene), "demo": self.active_demo,
-            }
-            unit = float(getattr(solver, "unit_scale", 1.0))
-            if unit != 1.0:  # h is in metres; meshing needs scene units. Absent at 1 so older caches still resume
-                signature["unit_scale"] = unit
+            signature = cache_bake.solver_signature(solver, steps, fps, scene_name(scene), self.active_demo)
             disk = cache_disk.DiskCache(blender_adapter.cache_dir(scene))
             remaining = max(last - first + 1 - (disk.cached_count() if resume else 0), 0)
             free = cache_disk.free_bytes(disk.directory)
