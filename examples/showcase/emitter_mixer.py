@@ -20,6 +20,7 @@ import numpy as np
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import _showcase as sc  # noqa: E402
+from _metrics import paddle_influence, same_initial_state  # noqa: E402
 
 UNIT_SCALE = 0.01           # metres per scene unit: lengths below are centimetres
 SPACING = 2.0               # cm
@@ -33,6 +34,7 @@ FPS = 30
 MAX_PARTICLES = 60_000
 GRAVITY = 9.81              # m/s^2, whatever the unit scale
 VIDEO_FPS = 15              # every other frame of 30 fps
+CONTROL_FRAMES = (11, 21, 31)  # early pool response, before the emitter fills the tank
 
 
 def build():
@@ -99,6 +101,44 @@ def main():
     out = sc.out_dir()
     sc.frame_view(target=(0.0, 0.0, 20.0), eye=(95.0, -120.0, 105.0))
     sim = sc.session()
+    # Paired negative control through the same public bake workflow, with only
+    # paddle animation disabled. Separate caches preserve the demonstration.
+    settings = scene.warp_sph
+    paddle = scene.objects[sc.PREFIX + "Paddle"]
+    action, slot = paddle.animation_data.action, paddle.animation_data.action_slot
+    animated_cache, bake_end = settings.cache_dir, settings.bake_end
+    disk_type = sc.module(".cache.disk").DiskCache
+    control_dir = sc.work_dir("emitter_mixer") / "stationary_paddle_cache"
+    try:
+        paddle.animation_data.action = None
+        paddle.rotation_euler = (0.0, 0.0, 0.0)
+        scene.frame_set(1)
+        settings.cache_dir, settings.bake_end = str(control_dir), max(CONTROL_FRAMES)
+        with sc.override():
+            bpy.ops.wm.warp_sph_cache_clear()
+            bpy.ops.wm.warp_sph_bake(resume=False)
+        if not sc.check("stationary_control_started", sim.bake is not None, sim.last_error or None):
+            return
+        with sc.timed("stationary_control_bake"):
+            yield from sc.wait_until(lambda: sim.bake is None, 900, "stationary paddle control")
+        control = disk_type(control_dir)
+        if not sc.check("stationary_control_complete", control.cached_range() == (1, max(CONTROL_FRAMES)),
+                        {"range": control.cached_range(), "result": sim.bake_result}):
+            return
+    finally:
+        with sc.override():
+            bpy.ops.wm.warp_sph_stop()
+        paddle.animation_data.action = action
+        paddle.animation_data.action_slot = slot
+        settings.cache_dir, settings.bake_end = animated_cache, bake_end
+        scene.frame_set(1)
+    yield from sc.wait_until(lambda: not sim.running and sim.solver is None, 30, "stationary paddle teardown")
+    initial_matrix = np.array(paddle.matrix_world).copy()
+    scene.frame_set(CONTROL_FRAMES[1])
+    changed_matrix = np.array(paddle.matrix_world).copy()
+    scene.frame_set(1)
+    sc.check("paddle_animation_evaluated", not np.allclose(initial_matrix, changed_matrix, atol=1e-6),
+             {"frame_1": initial_matrix.tolist(), "frame_21": changed_matrix.tolist()})
     with sc.override():
         bpy.ops.wm.warp_sph_cache_clear()
     with sc.timed("bake"):
@@ -121,10 +161,20 @@ def main():
     with sc.override():
         bpy.ops.wm.warp_sph_stop()
 
-    # The paddle must stir: particles near it should move faster than in a still pool.
-    speed = np.linalg.norm(disk.read_frame(BAKE_END).velocity, axis=1)
-    sc.SUMMARY["mean_speed_last_frame_m_s"] = round(float(speed.mean()), 3)
-    sc.check("paddle_stirs", float(speed.mean()) > 0.05, round(float(speed.mean()), 3))
+    yield from sc.wait_until(lambda: not sim.running and sim.solver is None, 30, "animated paddle teardown")
+
+    initial_match = same_initial_state(control.read_frame(1), disk.read_frame(1))
+    sc.check("paired_initial_state", initial_match)
+    samples = {str(frame): paddle_influence(control.read_frame(frame), disk.read_frame(frame))
+               for frame in CONTROL_FRAMES}
+    # The stationary cache against itself must reject stirring even though
+    # gravity/emission produce large speeds. This exercises the actual measured data.
+    negatives = {str(frame): paddle_influence(control.read_frame(frame), control.read_frame(frame))
+                 for frame in CONTROL_FRAMES}
+    sc.check("stationary_negative_control", all(not m["ok"] for m in negatives.values()), negatives)
+    sc.check("paddle_stirs", initial_match and sum(m["ok"] for m in samples.values()) >= 2, samples)
+    sc.SUMMARY["paddle_influence"] = {"samples": samples, "negative_controls": negatives,
+                                     "stationary_cache": str(control_dir), "animated_cache": animated_cache}
 
     with sc.override():
         bpy.ops.wm.warp_sph_cache_mesh(show=True)
@@ -155,5 +205,4 @@ def main():
     sc.check("rendered", all(p.is_file() for p in paths), len(paths))
 
 
-build()
-sc.run("emitter_mixer", main)
+sc.run("emitter_mixer", main, build=build)

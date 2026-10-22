@@ -42,7 +42,8 @@ exit. The display demo runs once per backend (Vulkan, then OpenGL); the other de
 Each Blender gets an isolated user profile with this checkout's add-on copied into it. Warp comes from
 `--warp-folder` (a folder that contains the `warp` package, used as the add-on's **Local Folder** Warp source),
 else from the `WARPSPH_SHOWCASE_WARP_FOLDER` environment variable, else from the Python running the runner.
-`--timeout` limits each Blender run (default 20 minutes). Each demo takes a few minutes on an RTX-class GPU.
+`--timeout` overrides each Blender run's deadline. Defaults are 20 minutes, or 45 minutes for the mixer's two
+bakes plus rendering and setup/teardown. Each demo normally takes a few minutes on an RTX-class GPU.
 
 Outputs go to `evidence/showcase/<timestamp>/`, which is gitignored:
 
@@ -51,7 +52,33 @@ Outputs go to `evidence/showcase/<timestamp>/`, which is gitignored:
 * `contact_sheet.png` with one key frame per demo
 * an mp4 per frame sequence when `ffmpeg` is on `PATH`; otherwise the PNG sequences stay as they are
 
-The exit code is 0 only when every demo passes and the contact sheet was made.
+The exit code is 0 only when every demo passes, the contact sheet was made and attempted video encodes succeeded.
+Missing ffmpeg remains optional; PNG sequences are retained. Encoding has a five-minute timeout per sequence;
+failures appear in `media_errors` and do not stop other sequences or erase the report.
+
+The runner holds an OS execution lease across the batch, including profile installation, so another runner
+(even in another checkout) fails before modifying files. Active Blender is checked before installation. Each
+batch uses its own `<output>/_profile`; a supplied output directory must be new. Earlier media and receipts
+are never overwritten. The aggregate summary is checkpointed after each job and survives malformed demo JSON,
+setup/launch failures, process timeouts and contact-sheet failures. Scene setup runs inside the protected timer
+driver for all five demos; automated failures write diagnostics and quit Blender.
+
+Display acceptance requires the exact accelerated backend/mode route above and a no-readback capability.
+`modes` retains the expected/actual route and classification. A correctly labelled `Readback (CPU copy)` is
+classified `readback_fallback` and remains useful compatibility evidence, but fails accelerated acceptance.
+The actual backend must also match the backend requested by the runner.
+
+The paddle probe first bakes a separate stationary-paddle control through the same public bake operator
+(frames 1-31), then restores the animation and bakes the original scene. Gravity and emission are unchanged.
+It verifies identical initial particles, matches stable IDs rather than sorted slots, and measures signed
+tangential velocity change near the paddle at frames 11, 21 and 31. At least two samples must exceed 0.02 m/s
+with at least 20 matched particles each. A stationary-cache negative control must reject stirring. Caches,
+sample counts, measured deltas and thresholds are retained in the demo summary. This establishes measurable
+collider influence; it is not a full physical-accuracy test. The probe is a correctness readback of the cache,
+outside the no-readback transport performance lane.
+
+The original six PR #17 showcase jobs used the original checks. They have **not** passed these strengthened
+route and collider checks; new real Blender runs are required for that claim.
 
 `tests/test_examples.py` checks every setting, operator and enum value the demos use. `tests/test_showcase_runner.py`
 tests the runner's argument parsing, plan, summary and contact-sheet layout without Blender.

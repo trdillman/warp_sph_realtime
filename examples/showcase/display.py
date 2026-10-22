@@ -40,11 +40,11 @@ def build():
     bpy.ops.wm.warp_sph_physics_preset(preset="WATER")
 
 
-def expected_label(backend: str, mode: str) -> str:
+def expected_label(backend: str, mode: str) -> str | None:
     labels = sc.module(".render.session")
     if backend == "OPENGL":
         return labels.GL_LABEL if mode == "POINTS" else sc.GL_VBO_LABEL
-    return labels.VULKAN_LABEL
+    return labels.VULKAN_LABEL if backend == "VULKAN" else None
 
 
 def main():
@@ -63,6 +63,9 @@ def main():
         yield from sc.wait_until(lambda s=sim: s.step_count >= WARMUP_STEPS, 180, f"{mode} warm-up")
         step_ms, particles = sim.frame_time_ms, sim.solver.num_particles
         info = sc.transport(sim)
+        requested_backend = os.environ.get("SHOWCASE_EXPECTED_BACKEND", info["backend"])
+        sc.check(f"{mode.lower()}_backend", info["backend"] == requested_backend,
+                 {"actual": info["backend"], "requested": requested_backend})
         with sc.override():
             bpy.ops.wm.warp_sph_pause()
         lines = [f"WarpSPH Render Mode: {MODE_NAMES[mode]}",
@@ -78,9 +81,10 @@ def main():
             shots.append((sc.screenshot_area(out / f"display_{mode.lower()}.png"),
                           f"{MODE_NAMES[mode]}: {info['label']}"))
         expected = expected_label(info["backend"], mode)
-        results[mode] = {**info, "particles": particles, "step_ms": round(step_ms, 2), "expected": expected}
-        sc.check(f"{mode.lower()}_transport_labelled", info["label"] != "none",
-                 {"label": info["label"], "readback": info["readback"], "matches_route": info["label"] == expected})
+        verdict = sc.transport_verdict(info, expected)
+        results[mode] = {**info, **verdict, "particles": particles, "step_ms": round(step_ms, 2), "expected": expected}
+        sc.check(f"{mode.lower()}_accelerated_route", verdict["accelerated"], results[mode])
+        sc.check(f"{mode.lower()}_transport_labelled", verdict["classification"] != "invalid_route", results[mode])
         with sc.override():
             bpy.ops.wm.warp_sph_stop()
         yield from sc.wait_until(lambda s=sim: not s.running and s.solver is None, 30, f"{mode} stop")
@@ -101,5 +105,4 @@ def main():
                  [str(p) for p, _ in shots])
 
 
-build()
-sc.run("display", main)
+sc.run("display", main, build=build)

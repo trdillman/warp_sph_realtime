@@ -1,0 +1,781 @@
+============================= test session starts =============================
+platform win32 -- Python 3.14.3, pytest-9.0.1, pluggy-1.6.0
+rootdir: C:\workspace\warpsph-showcase-repair
+configfile: pyproject.toml
+testpaths: tests
+plugins: anyio-4.11.0, asyncio-1.3.0, cov-7.0.0, html-4.1.1, json-report-1.5.0
+asyncio: mode=Mode.STRICT, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collected 578 items
+
+tests\test_authoring_ui.py .                                             [  0%]
+tests\test_blender52_cuda_gl.py s                                        [  0%]
+tests\test_blender52_isolated_install.py s                               [  0%]
+tests\test_blender_mock.py ........                                      [  1%]
+tests\test_blender_scene.py .....................                        [  5%]
+tests\test_blender_symbols.py EEEEEEEEEEEEEEEEEEE..EEEEEEEEEEEEEEEEEEE.E [ 12%]
+E                                                                        [ 12%]
+tests\test_build_extension.py ....                                       [ 13%]
+tests\test_cache_bake.py ...................                             [ 16%]
+tests\test_cache_cuda.py .......                                         [ 18%]
+tests\test_cache_disk.py ....................................            [ 24%]
+tests\test_cache_output.py .................                             [ 27%]
+tests\test_cache_playback.py .                                           [ 27%]
+tests\test_compliant_contact.py .....                                    [ 28%]
+tests\test_diagnostics.py .........                                      [ 29%]
+tests\test_differentiable_pour.py ...........                            [ 31%]
+tests\test_emitter_ids.py .....                                          [ 32%]
+tests\test_examples.py ........                                          [ 34%]
+tests\test_fill_clearance.py .......                                     [ 35%]
+tests\test_gl_runtime_guards.py .                                        [ 35%]
+tests\test_gpu_points.py .......                                         [ 36%]
+tests\test_gpu_ssfr.py ............                                      [ 38%]
+tests\test_install_job.py ..............                                 [ 41%]
+tests\test_install_ui.py .                                               [ 41%]
+tests\test_keyframe_pour.py .........                                    [ 42%]
+tests\test_keyframe_receipts.py .......                                  [ 44%]
+tests\test_missing_warp_registration.py .                                [ 44%]
+tests\test_physics_presets.py ..............                             [ 46%]
+tests\test_scene_description.py ................                         [ 49%]
+tests\test_scene_seam.py ..........                                      [ 51%]
+tests\test_scene_seam_cpu.py ............                                [ 53%]
+tests\test_scene_solver.py .....                                         [ 54%]
+tests\test_settings_migration.py ..                                      [ 54%]
+tests\test_showcase_failures.py ...........                              [ 56%]
+tests\test_showcase_runner.py ....................                       [ 59%]
+tests\test_sim_core.py ....                                              [ 60%]
+tests\test_ssfr_gl_contract.py ..............                            [ 62%]
+tests\test_ssfr_renderer.py ........                                     [ 64%]
+tests\test_submodules.py .....                                           [ 65%]
+tests\test_transport_gl.py .....................................         [ 71%]
+tests\test_transport_session.py .............                            [ 73%]
+tests\test_transport_vulkan.py ......................................... [ 80%]
+.................................                                        [ 86%]
+tests\test_validation.py ..........                                      [ 88%]
+tests\test_version_consistency.py ......                                 [ 89%]
+tests\test_warp_installation.py ..................                       [ 92%]
+tests\test_warp_selftest.py ........                                     [ 93%]
+tests\test_warp_source.py ...................................            [100%]
+
+=================================== ERRORS ====================================
+_____________ ERROR at setup of test_rebase_and_immutable_result ______________
+
+fixturedef = <FixtureDef argname='tmp_path' scope='function' baseid=''>
+request = <SubRequest 'tmp_path' for <Function test_rebase_and_immutable_result>>
+
+    @pytest.hookimpl(wrapper=True)
+    def pytest_fixture_setup(fixturedef: FixtureDef, request) -> object | None:
+        asyncio_mode = _get_asyncio_mode(request.config)
+        if not _is_asyncio_fixture_function(fixturedef.func):
+            if asyncio_mode == Mode.STRICT:
+                # Ignore async fixtures without explicit asyncio mark in strict mode
+                # This applies to pytest_trio fixtures, for example
+>               return (yield)
+                        ^^^^^
+E               PermissionError: [WinError 5] Access is denied: 'C:\\Windows\\Temp\\pytest-of-Tyler'
+
+C:\Python314\Lib\site-packages\pytest_asyncio\plugin.py:728: PermissionError
+_ ERROR at setup of test_profile_mutation_rejected_before_helper[layouts-value0] _
+
+fixturedef = <FixtureDef argname='tmp_path' scope='function' baseid=''>
+request = <SubRequest 'tmp_path' for <Function test_profile_mutation_rejected_before_helper[layouts-value0]>>
+
+    @pytest.hookimpl(wrapper=True)
+    def pytest_fixture_setup(fixturedef: FixtureDef, request) -> object | None:
+        asyncio_mode = _get_asyncio_mode(request.config)
+        if not _is_asyncio_fixture_function(fixturedef.func):
+            if asyncio_mode == Mode.STRICT:
+                # Ignore async fixtures without explicit asyncio mark in strict mode
+                # This applies to pytest_trio fixtures, for example
+>               return (yield)
+                        ^^^^^
+E               PermissionError: [WinError 5] Access is denied: 'C:\\Windows\\Temp\\pytest-of-Tyler'
+
+C:\Python314\Lib\site-packages\pytest_asyncio\plugin.py:728: PermissionError
+_ ERROR at setup of test_profile_mutation_rejected_before_helper[enums-value1] _
+
+fixturedef = <FixtureDef argname='tmp_path' scope='function' baseid=''>
+request = <SubRequest 'tmp_path' for <Function test_profile_mutation_rejected_before_helper[enums-value1]>>
+
+    @pytest.hookimpl(wrapper=True)
+    def pytest_fixture_setup(fixturedef: FixtureDef, request) -> object | None:
+        asyncio_mode = _get_asyncio_mode(request.config)
+        if not _is_asyncio_fixture_function(fixturedef.func):
+            if asyncio_mode == Mode.STRICT:
+                # Ignore async fixtures without explicit asyncio mark in strict mode
+                # This applies to pytest_trio fixtures, for example
+>               return (yield)
+                        ^^^^^
+E               PermissionError: [WinError 5] Access is denied: 'C:\\Windows\\Temp\\pytest-of-Tyler'
+
+C:\Python314\Lib\site-packages\pytest_asyncio\plugin.py:728: PermissionError
+_ ERROR at setup of test_profile_mutation_rejected_before_helper[signatures-value2] _
+
+fixturedef = <FixtureDef argname='tmp_path' scope='function' baseid=''>
+request = <SubRequest 'tmp_path' for <Function test_profile_mutation_rejected_before_helper[signatures-value2]>>
+
+    @pytest.hookimpl(wrapper=True)
+    def pytest_fixture_setup(fixturedef: FixtureDef, request) -> object | None:
+        asyncio_mode = _get_asyncio_mode(request.config)
+        if not _is_asyncio_fixture_function(fixturedef.func):
+            if asyncio_mode == Mode.STRICT:
+                # Ignore async fixtures without explicit asyncio mark in strict mode
+                # This applies to pytest_trio fixtures, for example
+>               return (yield)
+                        ^^^^^
+E               PermissionError: [WinError 5] Access is denied: 'C:\\Windows\\Temp\\pytest-of-Tyler'
+
+C:\Python314\Lib\site-packages\pytest_asyncio\plugin.py:728: PermissionError
+_ ERROR at setup of test_profile_mutation_rejected_before_helper[schema_version-2] _
+
+fixturedef = <FixtureDef argname='tmp_path' scope='function' baseid=''>
+request = <SubRequest 'tmp_path' for <Function test_profile_mutation_rejected_before_helper[schema_version-2]>>
+
+    @pytest.hookimpl(wrapper=True)
+    def pytest_fixture_setup(fixturedef: FixtureDef, request) -> object | None:
+        asyncio_mode = _get_asyncio_mode(request.config)
+        if not _is_asyncio_fixture_function(fixturedef.func):
+            if asyncio_mode == Mode.STRICT:
+                # Ignore async fixtures without explicit asyncio mark in strict mode
+                # This applies to pytest_trio fixtures, for example
+>               return (yield)
+                        ^^^^^
+E               PermissionError: [WinError 5] Access is denied: 'C:\\Windows\\Temp\\pytest-of-Tyler'
+
+C:\Python314\Lib\site-packages\pytest_asyncio\plugin.py:728: PermissionError
+__________ ERROR at setup of test_unknown_binary_and_build_rejected ___________
+
+fixturedef = <FixtureDef argname='tmp_path' scope='function' baseid=''>
+request = <SubRequest 'tmp_path' for <Function test_unknown_binary_and_build_rejected>>
+
+    @pytest.hookimpl(wrapper=True)
+    def pytest_fixture_setup(fixturedef: FixtureDef, request) -> object | None:
+        asyncio_mode = _get_asyncio_mode(request.config)
+        if not _is_asyncio_fixture_function(fixturedef.func):
+            if asyncio_mode == Mode.STRICT:
+                # Ignore async fixtures without explicit asyncio mark in strict mode
+                # This applies to pytest_trio fixtures, for example
+>               return (yield)
+                        ^^^^^
+E               PermissionError: [WinError 5] Access is denied: 'C:\\Windows\\Temp\\pytest-of-Tyler'
+
+C:\Python314\Lib\site-packages\pytest_asyncio\plugin.py:728: PermissionError
+________ ERROR at setup of test_pdb_rejection_precedes_helper[missing] ________
+
+fixturedef = <FixtureDef argname='tmp_path' scope='function' baseid=''>
+request = <SubRequest 'tmp_path' for <Function test_pdb_rejection_precedes_helper[missing]>>
+
+    @pytest.hookimpl(wrapper=True)
+    def pytest_fixture_setup(fixturedef: FixtureDef, request) -> object | None:
+        asyncio_mode = _get_asyncio_mode(request.config)
+        if not _is_asyncio_fixture_function(fixturedef.func):
+            if asyncio_mode == Mode.STRICT:
+                # Ignore async fixtures without explicit asyncio mark in strict mode
+                # This applies to pytest_trio fixtures, for example
+>               return (yield)
+                        ^^^^^
+E               PermissionError: [WinError 5] Access is denied: 'C:\\Windows\\Temp\\pytest-of-Tyler'
+
+C:\Python314\Lib\site-packages\pytest_asyncio\plugin.py:728: PermissionError
+_________ ERROR at setup of test_pdb_rejection_precedes_helper[guid] __________
+
+fixturedef = <FixtureDef argname='tmp_path' scope='function' baseid=''>
+request = <SubRequest 'tmp_path' for <Function test_pdb_rejection_precedes_helper[guid]>>
+
+    @pytest.hookimpl(wrapper=True)
+    def pytest_fixture_setup(fixturedef: FixtureDef, request) -> object | None:
+        asyncio_mode = _get_asyncio_mode(request.config)
+        if not _is_asyncio_fixture_function(fixturedef.func):
+            if asyncio_mode == Mode.STRICT:
+                # Ignore async fixtures without explicit asyncio mark in strict mode
+                # This applies to pytest_trio fixtures, for example
+>               return (yield)
+                        ^^^^^
+E               PermissionError: [WinError 5] Access is denied: 'C:\\Windows\\Temp\\pytest-of-Tyler'
+
+C:\Python314\Lib\site-packages\pytest_asyncio\plugin.py:728: PermissionError
+__________ ERROR at setup of test_pdb_rejection_precedes_helper[age] __________
+
+fixturedef = <FixtureDef argname='tmp_path' scope='function' baseid=''>
+request = <SubRequest 'tmp_path' for <Function test_pdb_rejection_precedes_helper[age]>>
+
+    @pytest.hookimpl(wrapper=True)
+    def pytest_fixture_setup(fixturedef: FixtureDef, request) -> object | None:
+        asyncio_mode = _get_asyncio_mode(request.config)
+        if not _is_asyncio_fixture_function(fixturedef.func):
+            if asyncio_mode == Mode.STRICT:
+                # Ignore async fixtures without explicit asyncio mark in strict mode
+                # This applies to pytest_trio fixtures, for example
+>               return (yield)
+                        ^^^^^
+E               PermissionError: [WinError 5] Access is denied: 'C:\\Windows\\Temp\\pytest-of-Tyler'
+
+C:\Python314\Lib\site-packages\pytest_asyncio\plugin.py:728: PermissionError
+_______ ERROR at setup of test_pdb_rejection_precedes_helper[malformed] _______
+
+fixturedef = <FixtureDef argname='tmp_path' scope='function' baseid=''>
+request = <SubRequest 'tmp_path' for <Function test_pdb_rejection_precedes_helper[malformed]>>
+
+    @pytest.hookimpl(wrapper=True)
+    def pytest_fixture_setup(fixturedef: FixtureDef, request) -> object | None:
+        asyncio_mode = _get_asyncio_mode(request.config)
+        if not _is_asyncio_fixture_function(fixturedef.func):
+            if asyncio_mode == Mode.STRICT:
+                # Ignore async fixtures without explicit asyncio mark in strict mode
+                # This applies to pytest_trio fixtures, for example
+>               return (yield)
+                        ^^^^^
+E               PermissionError: [WinError 5] Access is denied: 'C:\\Windows\\Temp\\pytest-of-Tyler'
+
+C:\Python314\Lib\site-packages\pytest_asyncio\plugin.py:728: PermissionError
+_ ERROR at setup of test_corrupt_cache_resolves_once_and_never_trusts_wrong_rva[schema] _
+
+fixturedef = <FixtureDef argname='tmp_path' scope='function' baseid=''>
+request = <SubRequest 'tmp_path' for <Function test_corrupt_cache_resolves_once_and_never_trusts_wrong_rva[schema]>>
+
+    @pytest.hookimpl(wrapper=True)
+    def pytest_fixture_setup(fixturedef: FixtureDef, request) -> object | None:
+        asyncio_mode = _get_asyncio_mode(request.config)
+        if not _is_asyncio_fixture_function(fixturedef.func):
+            if asyncio_mode == Mode.STRICT:
+                # Ignore async fixtures without explicit asyncio mark in strict mode
+                # This applies to pytest_trio fixtures, for example
+>               return (yield)
+                        ^^^^^
+E               PermissionError: [WinError 5] Access is denied: 'C:\\Windows\\Temp\\pytest-of-Tyler'
+
+C:\Python314\Lib\site-packages\pytest_asyncio\plugin.py:728: PermissionError
+_ ERROR at setup of test_corrupt_cache_resolves_once_and_never_trusts_wrong_rva[bool] _
+
+fixturedef = <FixtureDef argname='tmp_path' scope='function' baseid=''>
+request = <SubRequest 'tmp_path' for <Function test_corrupt_cache_resolves_once_and_never_trusts_wrong_rva[bool]>>
+
+    @pytest.hookimpl(wrapper=True)
+    def pytest_fixture_setup(fixturedef: FixtureDef, request) -> object | None:
+        asyncio_mode = _get_asyncio_mode(request.config)
+        if not _is_asyncio_fixture_function(fixturedef.func):
+            if asyncio_mode == Mode.STRICT:
+                # Ignore async fixtures without explicit asyncio mark in strict mode
+                # This applies to pytest_trio fixtures, for example
+>               return (yield)
+                        ^^^^^
+E               PermissionError: [WinError 5] Access is denied: 'C:\\Windows\\Temp\\pytest-of-Tyler'
+
+C:\Python314\Lib\site-packages\pytest_asyncio\plugin.py:728: PermissionError
+_ ERROR at setup of test_corrupt_cache_resolves_once_and_never_trusts_wrong_rva[out_of_bounds] _
+
+fixturedef = <FixtureDef argname='tmp_path' scope='function' baseid=''>
+request = <SubRequest 'tmp_path' for <Function test_corrupt_cache_resolves_once_and_never_trusts_wrong_rva[out_of_bounds]>>
+
+    @pytest.hookimpl(wrapper=True)
+    def pytest_fixture_setup(fixturedef: FixtureDef, request) -> object | None:
+        asyncio_mode = _get_asyncio_mode(request.config)
+        if not _is_asyncio_fixture_function(fixturedef.func):
+            if asyncio_mode == Mode.STRICT:
+                # Ignore async fixtures without explicit asyncio mark in strict mode
+                # This applies to pytest_trio fixtures, for example
+>               return (yield)
+                        ^^^^^
+E               PermissionError: [WinError 5] Access is denied: 'C:\\Windows\\Temp\\pytest-of-Tyler'
+
+C:\Python314\Lib\site-packages\pytest_asyncio\plugin.py:728: PermissionError
+_ ERROR at setup of test_corrupt_cache_resolves_once_and_never_trusts_wrong_rva[wrong_in_range] _
+
+fixturedef = <FixtureDef argname='tmp_path' scope='function' baseid=''>
+request = <SubRequest 'tmp_path' for <Function test_corrupt_cache_resolves_once_and_never_trusts_wrong_rva[wrong_in_range]>>
+
+    @pytest.hookimpl(wrapper=True)
+    def pytest_fixture_setup(fixturedef: FixtureDef, request) -> object | None:
+        asyncio_mode = _get_asyncio_mode(request.config)
+        if not _is_asyncio_fixture_function(fixturedef.func):
+            if asyncio_mode == Mode.STRICT:
+                # Ignore async fixtures without explicit asyncio mark in strict mode
+                # This applies to pytest_trio fixtures, for example
+>               return (yield)
+                        ^^^^^
+E               PermissionError: [WinError 5] Access is denied: 'C:\\Windows\\Temp\\pytest-of-Tyler'
+
+C:\Python314\Lib\site-packages\pytest_asyncio\plugin.py:728: PermissionError
+_ ERROR at setup of test_corrupt_cache_resolves_once_and_never_trusts_wrong_rva[stale] _
+
+fixturedef = <FixtureDef argname='tmp_path' scope='function' baseid=''>
+request = <SubRequest 'tmp_path' for <Function test_corrupt_cache_resolves_once_and_never_trusts_wrong_rva[stale]>>
+
+    @pytest.hookimpl(wrapper=True)
+    def pytest_fixture_setup(fixturedef: FixtureDef, request) -> object | None:
+        asyncio_mode = _get_asyncio_mode(request.config)
+        if not _is_asyncio_fixture_function(fixturedef.func):
+            if asyncio_mode == Mode.STRICT:
+                # Ignore async fixtures without explicit asyncio mark in strict mode
+                # This applies to pytest_trio fixtures, for example
+>               return (yield)
+                        ^^^^^
+E               PermissionError: [WinError 5] Access is denied: 'C:\\Windows\\Temp\\pytest-of-Tyler'
+
+C:\Python314\Lib\site-packages\pytest_asyncio\plugin.py:728: PermissionError
+_ ERROR at setup of test_corrupt_cache_resolves_once_and_never_trusts_wrong_rva[absolute] _
+
+fixturedef = <FixtureDef argname='tmp_path' scope='function' baseid=''>
+request = <SubRequest 'tmp_path' for <Function test_corrupt_cache_resolves_once_and_never_trusts_wrong_rva[absolute]>>
+
+    @pytest.hookimpl(wrapper=True)
+    def pytest_fixture_setup(fixturedef: FixtureDef, request) -> object | None:
+        asyncio_mode = _get_asyncio_mode(request.config)
+        if not _is_asyncio_fixture_function(fixturedef.func):
+            if asyncio_mode == Mode.STRICT:
+                # Ignore async fixtures without explicit asyncio mark in strict mode
+                # This applies to pytest_trio fixtures, for example
+>               return (yield)
+                        ^^^^^
+E               PermissionError: [WinError 5] Access is denied: 'C:\\Windows\\Temp\\pytest-of-Tyler'
+
+C:\Python314\Lib\site-packages\pytest_asyncio\plugin.py:728: PermissionError
+_ ERROR at setup of test_corrupt_cache_resolves_once_and_never_trusts_wrong_rva[extra] _
+
+fixturedef = <FixtureDef argname='tmp_path' scope='function' baseid=''>
+request = <SubRequest 'tmp_path' for <Function test_corrupt_cache_resolves_once_and_never_trusts_wrong_rva[extra]>>
+
+    @pytest.hookimpl(wrapper=True)
+    def pytest_fixture_setup(fixturedef: FixtureDef, request) -> object | None:
+        asyncio_mode = _get_asyncio_mode(request.config)
+        if not _is_asyncio_fixture_function(fixturedef.func):
+            if asyncio_mode == Mode.STRICT:
+                # Ignore async fixtures without explicit asyncio mark in strict mode
+                # This applies to pytest_trio fixtures, for example
+>               return (yield)
+                        ^^^^^
+E               PermissionError: [WinError 5] Access is denied: 'C:\\Windows\\Temp\\pytest-of-Tyler'
+
+C:\Python314\Lib\site-packages\pytest_asyncio\plugin.py:728: PermissionError
+____ ERROR at setup of test_cache_rebases_without_helper_but_requires_pdb _____
+
+fixturedef = <FixtureDef argname='tmp_path' scope='function' baseid=''>
+request = <SubRequest 'tmp_path' for <Function test_cache_rebases_without_helper_but_requires_pdb>>
+
+    @pytest.hookimpl(wrapper=True)
+    def pytest_fixture_setup(fixturedef: FixtureDef, request) -> object | None:
+        asyncio_mode = _get_asyncio_mode(request.config)
+        if not _is_asyncio_fixture_function(fixturedef.func):
+            if asyncio_mode == Mode.STRICT:
+                # Ignore async fixtures without explicit asyncio mark in strict mode
+                # This applies to pytest_trio fixtures, for example
+>               return (yield)
+                        ^^^^^
+E               PermissionError: [WinError 5] Access is denied: 'C:\\Windows\\Temp\\pytest-of-Tyler'
+
+C:\Python314\Lib\site-packages\pytest_asyncio\plugin.py:728: PermissionError
+_____ ERROR at setup of test_helper_timeout_and_wrong_symbol_fail_closed ______
+
+fixturedef = <FixtureDef argname='tmp_path' scope='function' baseid=''>
+request = <SubRequest 'tmp_path' for <Function test_helper_timeout_and_wrong_symbol_fail_closed>>
+
+    @pytest.hookimpl(wrapper=True)
+    def pytest_fixture_setup(fixturedef: FixtureDef, request) -> object | None:
+        asyncio_mode = _get_asyncio_mode(request.config)
+        if not _is_asyncio_fixture_function(fixturedef.func):
+            if asyncio_mode == Mode.STRICT:
+                # Ignore async fixtures without explicit asyncio mark in strict mode
+                # This applies to pytest_trio fixtures, for example
+>               return (yield)
+                        ^^^^^
+E               PermissionError: [WinError 5] Access is denied: 'C:\\Windows\\Temp\\pytest-of-Tyler'
+
+C:\Python314\Lib\site-packages\pytest_asyncio\plugin.py:728: PermissionError
+________ ERROR at setup of test_cache_identity_bool_is_not_an_integer _________
+
+fixturedef = <FixtureDef argname='tmp_path' scope='function' baseid=''>
+request = <SubRequest 'tmp_path' for <Function test_cache_identity_bool_is_not_an_integer>>
+
+    @pytest.hookimpl(wrapper=True)
+    def pytest_fixture_setup(fixturedef: FixtureDef, request) -> object | None:
+        asyncio_mode = _get_asyncio_mode(request.config)
+        if not _is_asyncio_fixture_function(fixturedef.func):
+            if asyncio_mode == Mode.STRICT:
+                # Ignore async fixtures without explicit asyncio mark in strict mode
+                # This applies to pytest_trio fixtures, for example
+>               return (yield)
+                        ^^^^^
+E               PermissionError: [WinError 5] Access is denied: 'C:\\Windows\\Temp\\pytest-of-Tyler'
+
+C:\Python314\Lib\site-packages\pytest_asyncio\plugin.py:728: PermissionError
+__ ERROR at setup of test_pe_validation_before_helper[nonexec_callable-True] __
+
+fixturedef = <FixtureDef argname='tmp_path' scope='function' baseid=''>
+request = <SubRequest 'tmp_path' for <Function test_pe_validation_before_helper[nonexec_callable-True]>>
+
+    @pytest.hookimpl(wrapper=True)
+    def pytest_fixture_setup(fixturedef: FixtureDef, request) -> object | None:
+        asyncio_mode = _get_asyncio_mode(request.config)
+        if not _is_asyncio_fixture_function(fixturedef.func):
+            if asyncio_mode == Mode.STRICT:
+                # Ignore async fixtures without explicit asyncio mark in strict mode
+                # This applies to pytest_trio fixtures, for example
+>               return (yield)
+                        ^^^^^
+E               PermissionError: [WinError 5] Access is denied: 'C:\\Windows\\Temp\\pytest-of-Tyler'
+
+C:\Python314\Lib\site-packages\pytest_asyncio\plugin.py:728: PermissionError
+_ ERROR at setup of test_pe_validation_before_helper[nonexec_callable-False] __
+
+fixturedef = <FixtureDef argname='tmp_path' scope='function' baseid=''>
+request = <SubRequest 'tmp_path' for <Function test_pe_validation_before_helper[nonexec_callable-False]>>
+
+    @pytest.hookimpl(wrapper=True)
+    def pytest_fixture_setup(fixturedef: FixtureDef, request) -> object | None:
+        asyncio_mode = _get_asyncio_mode(request.config)
+        if not _is_asyncio_fixture_function(fixturedef.func):
+            if asyncio_mode == Mode.STRICT:
+                # Ignore async fixtures without explicit asyncio mark in strict mode
+                # This applies to pytest_trio fixtures, for example
+>               return (yield)
+                        ^^^^^
+E               PermissionError: [WinError 5] Access is denied: 'C:\\Windows\\Temp\\pytest-of-Tyler'
+
+C:\Python314\Lib\site-packages\pytest_asyncio\plugin.py:728: PermissionError
+__ ERROR at setup of test_pe_validation_before_helper[executable_data-True] ___
+
+fixturedef = <FixtureDef argname='tmp_path' scope='function' baseid=''>
+request = <SubRequest 'tmp_path' for <Function test_pe_validation_before_helper[executable_data-True]>>
+
+    @pytest.hookimpl(wrapper=True)
+    def pytest_fixture_setup(fixturedef: FixtureDef, request) -> object | None:
+        asyncio_mode = _get_asyncio_mode(request.config)
+        if not _is_asyncio_fixture_function(fixturedef.func):
+            if asyncio_mode == Mode.STRICT:
+                # Ignore async fixtures without explicit asyncio mark in strict mode
+                # This applies to pytest_trio fixtures, for example
+>               return (yield)
+                        ^^^^^
+E               PermissionError: [WinError 5] Access is denied: 'C:\\Windows\\Temp\\pytest-of-Tyler'
+
+C:\Python314\Lib\site-packages\pytest_asyncio\plugin.py:728: PermissionError
+__ ERROR at setup of test_pe_validation_before_helper[executable_data-False] __
+
+fixturedef = <FixtureDef argname='tmp_path' scope='function' baseid=''>
+request = <SubRequest 'tmp_path' for <Function test_pe_validation_before_helper[executable_data-False]>>
+
+    @pytest.hookimpl(wrapper=True)
+    def pytest_fixture_setup(fixturedef: FixtureDef, request) -> object | None:
+        asyncio_mode = _get_asyncio_mode(request.config)
+        if not _is_asyncio_fixture_function(fixturedef.func):
+            if asyncio_mode == Mode.STRICT:
+                # Ignore async fixtures without explicit asyncio mark in strict mode
+                # This applies to pytest_trio fixtures, for example
+>               return (yield)
+                        ^^^^^
+E               PermissionError: [WinError 5] Access is denied: 'C:\\Windows\\Temp\\pytest-of-Tyler'
+
+C:\Python314\Lib\site-packages\pytest_asyncio\plugin.py:728: PermissionError
+___ ERROR at setup of test_pe_validation_before_helper[duplicate_rsds-True] ___
+
+fixturedef = <FixtureDef argname='tmp_path' scope='function' baseid=''>
+request = <SubRequest 'tmp_path' for <Function test_pe_validation_before_helper[duplicate_rsds-True]>>
+
+    @pytest.hookimpl(wrapper=True)
+    def pytest_fixture_setup(fixturedef: FixtureDef, request) -> object | None:
+        asyncio_mode = _get_asyncio_mode(request.config)
+        if not _is_asyncio_fixture_function(fixturedef.func):
+            if asyncio_mode == Mode.STRICT:
+                # Ignore async fixtures without explicit asyncio mark in strict mode
+                # This applies to pytest_trio fixtures, for example
+>               return (yield)
+                        ^^^^^
+E               PermissionError: [WinError 5] Access is denied: 'C:\\Windows\\Temp\\pytest-of-Tyler'
+
+C:\Python314\Lib\site-packages\pytest_asyncio\plugin.py:728: PermissionError
+__ ERROR at setup of test_pe_validation_before_helper[duplicate_rsds-False] ___
+
+fixturedef = <FixtureDef argname='tmp_path' scope='function' baseid=''>
+request = <SubRequest 'tmp_path' for <Function test_pe_validation_before_helper[duplicate_rsds-False]>>
+
+    @pytest.hookimpl(wrapper=True)
+    def pytest_fixture_setup(fixturedef: FixtureDef, request) -> object | None:
+        asyncio_mode = _get_asyncio_mode(request.config)
+        if not _is_asyncio_fixture_function(fixturedef.func):
+            if asyncio_mode == Mode.STRICT:
+                # Ignore async fixtures without explicit asyncio mark in strict mode
+                # This applies to pytest_trio fixtures, for example
+>               return (yield)
+                        ^^^^^
+E               PermissionError: [WinError 5] Access is denied: 'C:\\Windows\\Temp\\pytest-of-Tyler'
+
+C:\Python314\Lib\site-packages\pytest_asyncio\plugin.py:728: PermissionError
+_____ ERROR at setup of test_pe_validation_before_helper[truncated-True] ______
+
+fixturedef = <FixtureDef argname='tmp_path' scope='function' baseid=''>
+request = <SubRequest 'tmp_path' for <Function test_pe_validation_before_helper[truncated-True]>>
+
+    @pytest.hookimpl(wrapper=True)
+    def pytest_fixture_setup(fixturedef: FixtureDef, request) -> object | None:
+        asyncio_mode = _get_asyncio_mode(request.config)
+        if not _is_asyncio_fixture_function(fixturedef.func):
+            if asyncio_mode == Mode.STRICT:
+                # Ignore async fixtures without explicit asyncio mark in strict mode
+                # This applies to pytest_trio fixtures, for example
+>               return (yield)
+                        ^^^^^
+E               PermissionError: [WinError 5] Access is denied: 'C:\\Windows\\Temp\\pytest-of-Tyler'
+
+C:\Python314\Lib\site-packages\pytest_asyncio\plugin.py:728: PermissionError
+_____ ERROR at setup of test_pe_validation_before_helper[truncated-False] _____
+
+fixturedef = <FixtureDef argname='tmp_path' scope='function' baseid=''>
+request = <SubRequest 'tmp_path' for <Function test_pe_validation_before_helper[truncated-False]>>
+
+    @pytest.hookimpl(wrapper=True)
+    def pytest_fixture_setup(fixturedef: FixtureDef, request) -> object | None:
+        asyncio_mode = _get_asyncio_mode(request.config)
+        if not _is_asyncio_fixture_function(fixturedef.func):
+            if asyncio_mode == Mode.STRICT:
+                # Ignore async fixtures without explicit asyncio mark in strict mode
+                # This applies to pytest_trio fixtures, for example
+>               return (yield)
+                        ^^^^^
+E               PermissionError: [WinError 5] Access is denied: 'C:\\Windows\\Temp\\pytest-of-Tyler'
+
+C:\Python314\Lib\site-packages\pytest_asyncio\plugin.py:728: PermissionError
+___ ERROR at setup of test_pe_validation_before_helper[wrong_machine-True] ____
+
+fixturedef = <FixtureDef argname='tmp_path' scope='function' baseid=''>
+request = <SubRequest 'tmp_path' for <Function test_pe_validation_before_helper[wrong_machine-True]>>
+
+    @pytest.hookimpl(wrapper=True)
+    def pytest_fixture_setup(fixturedef: FixtureDef, request) -> object | None:
+        asyncio_mode = _get_asyncio_mode(request.config)
+        if not _is_asyncio_fixture_function(fixturedef.func):
+            if asyncio_mode == Mode.STRICT:
+                # Ignore async fixtures without explicit asyncio mark in strict mode
+                # This applies to pytest_trio fixtures, for example
+>               return (yield)
+                        ^^^^^
+E               PermissionError: [WinError 5] Access is denied: 'C:\\Windows\\Temp\\pytest-of-Tyler'
+
+C:\Python314\Lib\site-packages\pytest_asyncio\plugin.py:728: PermissionError
+___ ERROR at setup of test_pe_validation_before_helper[wrong_machine-False] ___
+
+fixturedef = <FixtureDef argname='tmp_path' scope='function' baseid=''>
+request = <SubRequest 'tmp_path' for <Function test_pe_validation_before_helper[wrong_machine-False]>>
+
+    @pytest.hookimpl(wrapper=True)
+    def pytest_fixture_setup(fixturedef: FixtureDef, request) -> object | None:
+        asyncio_mode = _get_asyncio_mode(request.config)
+        if not _is_asyncio_fixture_function(fixturedef.func):
+            if asyncio_mode == Mode.STRICT:
+                # Ignore async fixtures without explicit asyncio mark in strict mode
+                # This applies to pytest_trio fixtures, for example
+>               return (yield)
+                        ^^^^^
+E               PermissionError: [WinError 5] Access is denied: 'C:\\Windows\\Temp\\pytest-of-Tyler'
+
+C:\Python314\Lib\site-packages\pytest_asyncio\plugin.py:728: PermissionError
+____ ERROR at setup of test_profile_authority_needs_no_pdb_helper_or_cache ____
+
+fixturedef = <FixtureDef argname='tmp_path' scope='function' baseid=''>
+request = <SubRequest 'tmp_path' for <Function test_profile_authority_needs_no_pdb_helper_or_cache>>
+
+    @pytest.hookimpl(wrapper=True)
+    def pytest_fixture_setup(fixturedef: FixtureDef, request) -> object | None:
+        asyncio_mode = _get_asyncio_mode(request.config)
+        if not _is_asyncio_fixture_function(fixturedef.func):
+            if asyncio_mode == Mode.STRICT:
+                # Ignore async fixtures without explicit asyncio mark in strict mode
+                # This applies to pytest_trio fixtures, for example
+>               return (yield)
+                        ^^^^^
+E               PermissionError: [WinError 5] Access is denied: 'C:\\Windows\\Temp\\pytest-of-Tyler'
+
+C:\Python314\Lib\site-packages\pytest_asyncio\plugin.py:728: PermissionError
+____ ERROR at setup of test_profile_authority_still_rejects_identity[exe] _____
+
+fixturedef = <FixtureDef argname='tmp_path' scope='function' baseid=''>
+request = <SubRequest 'tmp_path' for <Function test_profile_authority_still_rejects_identity[exe]>>
+
+    @pytest.hookimpl(wrapper=True)
+    def pytest_fixture_setup(fixturedef: FixtureDef, request) -> object | None:
+        asyncio_mode = _get_asyncio_mode(request.config)
+        if not _is_asyncio_fixture_function(fixturedef.func):
+            if asyncio_mode == Mode.STRICT:
+                # Ignore async fixtures without explicit asyncio mark in strict mode
+                # This applies to pytest_trio fixtures, for example
+>               return (yield)
+                        ^^^^^
+E               PermissionError: [WinError 5] Access is denied: 'C:\\Windows\\Temp\\pytest-of-Tyler'
+
+C:\Python314\Lib\site-packages\pytest_asyncio\plugin.py:728: PermissionError
+_ ERROR at setup of test_profile_authority_still_rejects_identity[pe_identity] _
+
+fixturedef = <FixtureDef argname='tmp_path' scope='function' baseid=''>
+request = <SubRequest 'tmp_path' for <Function test_profile_authority_still_rejects_identity[pe_identity]>>
+
+    @pytest.hookimpl(wrapper=True)
+    def pytest_fixture_setup(fixturedef: FixtureDef, request) -> object | None:
+        asyncio_mode = _get_asyncio_mode(request.config)
+        if not _is_asyncio_fixture_function(fixturedef.func):
+            if asyncio_mode == Mode.STRICT:
+                # Ignore async fixtures without explicit asyncio mark in strict mode
+                # This applies to pytest_trio fixtures, for example
+>               return (yield)
+                        ^^^^^
+E               PermissionError: [WinError 5] Access is denied: 'C:\\Windows\\Temp\\pytest-of-Tyler'
+
+C:\Python314\Lib\site-packages\pytest_asyncio\plugin.py:728: PermissionError
+_ ERROR at setup of test_profile_authority_still_rejects_identity[module_base] _
+
+fixturedef = <FixtureDef argname='tmp_path' scope='function' baseid=''>
+request = <SubRequest 'tmp_path' for <Function test_profile_authority_still_rejects_identity[module_base]>>
+
+    @pytest.hookimpl(wrapper=True)
+    def pytest_fixture_setup(fixturedef: FixtureDef, request) -> object | None:
+        asyncio_mode = _get_asyncio_mode(request.config)
+        if not _is_asyncio_fixture_function(fixturedef.func):
+            if asyncio_mode == Mode.STRICT:
+                # Ignore async fixtures without explicit asyncio mark in strict mode
+                # This applies to pytest_trio fixtures, for example
+>               return (yield)
+                        ^^^^^
+E               PermissionError: [WinError 5] Access is denied: 'C:\\Windows\\Temp\\pytest-of-Tyler'
+
+C:\Python314\Lib\site-packages\pytest_asyncio\plugin.py:728: PermissionError
+_______ ERROR at setup of test_verification_without_pdb_path_is_missing _______
+
+fixturedef = <FixtureDef argname='tmp_path' scope='function' baseid=''>
+request = <SubRequest 'tmp_path' for <Function test_verification_without_pdb_path_is_missing>>
+
+    @pytest.hookimpl(wrapper=True)
+    def pytest_fixture_setup(fixturedef: FixtureDef, request) -> object | None:
+        asyncio_mode = _get_asyncio_mode(request.config)
+        if not _is_asyncio_fixture_function(fixturedef.func):
+            if asyncio_mode == Mode.STRICT:
+                # Ignore async fixtures without explicit asyncio mark in strict mode
+                # This applies to pytest_trio fixtures, for example
+>               return (yield)
+                        ^^^^^
+E               PermissionError: [WinError 5] Access is denied: 'C:\\Windows\\Temp\\pytest-of-Tyler'
+
+C:\Python314\Lib\site-packages\pytest_asyncio\plugin.py:728: PermissionError
+________ ERROR at setup of test_helper_has_isolated_local_environment _________
+
+fixturedef = <FixtureDef argname='tmp_path' scope='function' baseid=''>
+request = <SubRequest 'tmp_path' for <Function test_helper_has_isolated_local_environment>>
+
+    @pytest.hookimpl(wrapper=True)
+    def pytest_fixture_setup(fixturedef: FixtureDef, request) -> object | None:
+        asyncio_mode = _get_asyncio_mode(request.config)
+        if not _is_asyncio_fixture_function(fixturedef.func):
+            if asyncio_mode == Mode.STRICT:
+                # Ignore async fixtures without explicit asyncio mark in strict mode
+                # This applies to pytest_trio fixtures, for example
+>               return (yield)
+                        ^^^^^
+E               PermissionError: [WinError 5] Access is denied: 'C:\\Windows\\Temp\\pytest-of-Tyler'
+
+C:\Python314\Lib\site-packages\pytest_asyncio\plugin.py:728: PermissionError
+_________ ERROR at setup of test_cache_and_helper_source_are_reported _________
+
+fixturedef = <FixtureDef argname='tmp_path' scope='function' baseid=''>
+request = <SubRequest 'tmp_path' for <Function test_cache_and_helper_source_are_reported>>
+
+    @pytest.hookimpl(wrapper=True)
+    def pytest_fixture_setup(fixturedef: FixtureDef, request) -> object | None:
+        asyncio_mode = _get_asyncio_mode(request.config)
+        if not _is_asyncio_fixture_function(fixturedef.func):
+            if asyncio_mode == Mode.STRICT:
+                # Ignore async fixtures without explicit asyncio mark in strict mode
+                # This applies to pytest_trio fixtures, for example
+>               return (yield)
+                        ^^^^^
+E               PermissionError: [WinError 5] Access is denied: 'C:\\Windows\\Temp\\pytest-of-Tyler'
+
+C:\Python314\Lib\site-packages\pytest_asyncio\plugin.py:728: PermissionError
+_____________ ERROR at setup of test_oversized_cache_is_discarded _____________
+
+fixturedef = <FixtureDef argname='tmp_path' scope='function' baseid=''>
+request = <SubRequest 'tmp_path' for <Function test_oversized_cache_is_discarded>>
+
+    @pytest.hookimpl(wrapper=True)
+    def pytest_fixture_setup(fixturedef: FixtureDef, request) -> object | None:
+        asyncio_mode = _get_asyncio_mode(request.config)
+        if not _is_asyncio_fixture_function(fixturedef.func):
+            if asyncio_mode == Mode.STRICT:
+                # Ignore async fixtures without explicit asyncio mark in strict mode
+                # This applies to pytest_trio fixtures, for example
+>               return (yield)
+                        ^^^^^
+E               PermissionError: [WinError 5] Access is denied: 'C:\\Windows\\Temp\\pytest-of-Tyler'
+
+C:\Python314\Lib\site-packages\pytest_asyncio\plugin.py:728: PermissionError
+__________ ERROR at setup of test_deeply_nested_cache_resolves_once ___________
+
+fixturedef = <FixtureDef argname='tmp_path' scope='function' baseid=''>
+request = <SubRequest 'tmp_path' for <Function test_deeply_nested_cache_resolves_once>>
+
+    @pytest.hookimpl(wrapper=True)
+    def pytest_fixture_setup(fixturedef: FixtureDef, request) -> object | None:
+        asyncio_mode = _get_asyncio_mode(request.config)
+        if not _is_asyncio_fixture_function(fixturedef.func):
+            if asyncio_mode == Mode.STRICT:
+                # Ignore async fixtures without explicit asyncio mark in strict mode
+                # This applies to pytest_trio fixtures, for example
+>               return (yield)
+                        ^^^^^
+E               PermissionError: [WinError 5] Access is denied: 'C:\\Windows\\Temp\\pytest-of-Tyler'
+
+C:\Python314\Lib\site-packages\pytest_asyncio\plugin.py:728: PermissionError
+______ ERROR at setup of test_deeply_nested_helper_output_is_unavailable ______
+
+fixturedef = <FixtureDef argname='tmp_path' scope='function' baseid=''>
+request = <SubRequest 'tmp_path' for <Function test_deeply_nested_helper_output_is_unavailable>>
+
+    @pytest.hookimpl(wrapper=True)
+    def pytest_fixture_setup(fixturedef: FixtureDef, request) -> object | None:
+        asyncio_mode = _get_asyncio_mode(request.config)
+        if not _is_asyncio_fixture_function(fixturedef.func):
+            if asyncio_mode == Mode.STRICT:
+                # Ignore async fixtures without explicit asyncio mark in strict mode
+                # This applies to pytest_trio fixtures, for example
+>               return (yield)
+                        ^^^^^
+E               PermissionError: [WinError 5] Access is denied: 'C:\\Windows\\Temp\\pytest-of-Tyler'
+
+C:\Python314\Lib\site-packages\pytest_asyncio\plugin.py:728: PermissionError
+=========================== short test summary info ===========================
+ERROR tests/test_blender_symbols.py::test_rebase_and_immutable_result - Permi...
+ERROR tests/test_blender_symbols.py::test_profile_mutation_rejected_before_helper[layouts-value0]
+ERROR tests/test_blender_symbols.py::test_profile_mutation_rejected_before_helper[enums-value1]
+ERROR tests/test_blender_symbols.py::test_profile_mutation_rejected_before_helper[signatures-value2]
+ERROR tests/test_blender_symbols.py::test_profile_mutation_rejected_before_helper[schema_version-2]
+ERROR tests/test_blender_symbols.py::test_unknown_binary_and_build_rejected
+ERROR tests/test_blender_symbols.py::test_pdb_rejection_precedes_helper[missing]
+ERROR tests/test_blender_symbols.py::test_pdb_rejection_precedes_helper[guid]
+ERROR tests/test_blender_symbols.py::test_pdb_rejection_precedes_helper[age]
+ERROR tests/test_blender_symbols.py::test_pdb_rejection_precedes_helper[malformed]
+ERROR tests/test_blender_symbols.py::test_corrupt_cache_resolves_once_and_never_trusts_wrong_rva[schema]
+ERROR tests/test_blender_symbols.py::test_corrupt_cache_resolves_once_and_never_trusts_wrong_rva[bool]
+ERROR tests/test_blender_symbols.py::test_corrupt_cache_resolves_once_and_never_trusts_wrong_rva[out_of_bounds]
+ERROR tests/test_blender_symbols.py::test_corrupt_cache_resolves_once_and_never_trusts_wrong_rva[wrong_in_range]
+ERROR tests/test_blender_symbols.py::test_corrupt_cache_resolves_once_and_never_trusts_wrong_rva[stale]
+ERROR tests/test_blender_symbols.py::test_corrupt_cache_resolves_once_and_never_trusts_wrong_rva[absolute]
+ERROR tests/test_blender_symbols.py::test_corrupt_cache_resolves_once_and_never_trusts_wrong_rva[extra]
+ERROR tests/test_blender_symbols.py::test_cache_rebases_without_helper_but_requires_pdb
+ERROR tests/test_blender_symbols.py::test_helper_timeout_and_wrong_symbol_fail_closed
+ERROR tests/test_blender_symbols.py::test_cache_identity_bool_is_not_an_integer
+ERROR tests/test_blender_symbols.py::test_pe_validation_before_helper[nonexec_callable-True]
+ERROR tests/test_blender_symbols.py::test_pe_validation_before_helper[nonexec_callable-False]
+ERROR tests/test_blender_symbols.py::test_pe_validation_before_helper[executable_data-True]
+ERROR tests/test_blender_symbols.py::test_pe_validation_before_helper[executable_data-False]
+ERROR tests/test_blender_symbols.py::test_pe_validation_before_helper[duplicate_rsds-True]
+ERROR tests/test_blender_symbols.py::test_pe_validation_before_helper[duplicate_rsds-False]
+ERROR tests/test_blender_symbols.py::test_pe_validation_before_helper[truncated-True]
+ERROR tests/test_blender_symbols.py::test_pe_validation_before_helper[truncated-False]
+ERROR tests/test_blender_symbols.py::test_pe_validation_before_helper[wrong_machine-True]
+ERROR tests/test_blender_symbols.py::test_pe_validation_before_helper[wrong_machine-False]
+ERROR tests/test_blender_symbols.py::test_profile_authority_needs_no_pdb_helper_or_cache
+ERROR tests/test_blender_symbols.py::test_profile_authority_still_rejects_identity[exe]
+ERROR tests/test_blender_symbols.py::test_profile_authority_still_rejects_identity[pe_identity]
+ERROR tests/test_blender_symbols.py::test_profile_authority_still_rejects_identity[module_base]
+ERROR tests/test_blender_symbols.py::test_verification_without_pdb_path_is_missing
+ERROR tests/test_blender_symbols.py::test_helper_has_isolated_local_environment
+ERROR tests/test_blender_symbols.py::test_cache_and_helper_source_are_reported
+ERROR tests/test_blender_symbols.py::test_oversized_cache_is_discarded - Perm...
+ERROR tests/test_blender_symbols.py::test_deeply_nested_cache_resolves_once
+ERROR tests/test_blender_symbols.py::test_deeply_nested_helper_output_is_unavailable
+============ 536 passed, 2 skipped, 40 errors in 96.79s (0:01:36) =============

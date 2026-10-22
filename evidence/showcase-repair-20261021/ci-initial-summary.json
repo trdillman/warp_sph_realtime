@@ -1,0 +1,17 @@
+{
+  "head": "30b6debd4a951c57519d06f61448dc6e92ca1987",
+  "run": "https://github.com/trdillman/warp_sph_realtime/actions/runs/39720618537",
+  "windows": {
+    "passed": 522,
+    "skipped": 60,
+    "lint": "passed",
+    "typecheck": "passed"
+  },
+  "linux": {
+    "passed": 521,
+    "skipped": 61,
+    "lint": "passed",
+    "typecheck": "passed"
+  },
+  "scope": "GPU-free host CI; follow-up source candidate CI recorded on PR #18"
+}

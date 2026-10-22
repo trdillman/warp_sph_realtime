@@ -76,6 +76,14 @@ def reference_front(T: float, ref_T, ref_Z) -> float:
     return zs[-1]  # held after the last measurement
 
 
+def transport_verdict(info: dict, expected: str | None) -> dict:
+    """Fallback is evidence of compatibility only, never accelerated-route acceptance."""
+    accelerated = expected is not None and info.get("label") == expected and info.get("readback") is False
+    fallback = info.get("label") == "Readback (CPU copy)" and info.get("readback") is True
+    return {"accelerated": accelerated,
+            "classification": "accelerated" if accelerated else "readback_fallback" if fallback else "invalid_route"}
+
+
 # -- run driver ------------------------------------------------------------------------------------------------
 
 def out_dir() -> Path | None:
@@ -146,14 +154,18 @@ def _finish(error: str | None) -> None:
     print(f"[showcase] {SUMMARY['demo']}: {'PASS' if SUMMARY['ok'] else 'FAIL'}", flush=True)
     if folder is None:
         return  # interactive: leave Blender open on the result
-    folder.mkdir(parents=True, exist_ok=True)
-    if error is not None:
-        (folder / "error.txt").write_text(error, encoding="utf-8")
-    (folder / "summary.json").write_text(json.dumps(SUMMARY, indent=2, default=str), encoding="utf-8")
-    bpy.ops.wm.quit_blender()
+    try:
+        folder.mkdir(parents=True, exist_ok=True)
+        if error is not None:
+            (folder / "error.txt").write_text(error, encoding="utf-8")
+        temporary = folder / "summary.json.tmp"
+        temporary.write_text(json.dumps(SUMMARY, indent=2, default=str), encoding="utf-8")
+        temporary.replace(folder / "summary.json")
+    finally:
+        bpy.ops.wm.quit_blender()
 
 
-def run(demo: str, main) -> None:
+def run(demo: str, main, build=None) -> None:
     """Drive the generator function ``main`` from a Blender timer (it yields seconds to wait), so the 3D viewport
     and the simulation's own modal timer keep running between steps."""
     SUMMARY["demo"] = demo
@@ -164,6 +176,8 @@ def run(demo: str, main) -> None:
         try:
             if "gen" not in state:
                 state["t0"] = time.perf_counter()
+                if build is not None:
+                    build()
                 state["gen"] = main()
             return next(state["gen"])
         except StopIteration:

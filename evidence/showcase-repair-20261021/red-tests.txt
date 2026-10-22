@@ -1,0 +1,219 @@
+FFF.FFF                                                               [100%]
+================================== FAILURES ===================================
+__ ReportingFailures.test_encoder_timeout_and_failure_preserve_next_sequence __
+
+self = <test_showcase_failures.ReportingFailures testMethod=test_encoder_timeout_and_failure_preserve_next_sequence>
+
+    def test_encoder_timeout_and_failure_preserve_next_sequence(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            seq = Path(tmp) / "frames"
+            seq.mkdir()
+            (seq / "frame_0001.png").touch()
+            rows = [runner.run_result(self.RUN, _summary(sequences=[str(seq)]), 0, 1)] * 2
+            calls = []
+            def encoder(cmd, **kwargs):
+                calls.append(kwargs)
+                if len(calls) == 1:
+                    raise subprocess.TimeoutExpired(cmd, 1)
+                Path(cmd[-1]).write_bytes(b"video")
+                return SimpleNamespace(returncode=0, stderr="")
+            errors = []
+            with patch.object(runner.shutil, "which", return_value="ffmpeg"), \
+                    patch.object(runner.subprocess, "run", side_effect=encoder):
+>               videos = runner.encode_videos(rows, timeout=1, errors=errors)
+                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E               TypeError: encode_videos() got an unexpected keyword argument 'timeout'
+
+tests\test_showcase_failures.py:67: TypeError
+_ ReportingFailures.test_malformed_and_unreadable_summary_become_failed_rows __
+
+self = <test_showcase_failures.ReportingFailures testMethod=test_malformed_and_unreadable_summary_become_failed_rows>
+
+    def test_malformed_and_unreadable_summary_become_failed_rows(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            for content in ('{"ok":', '[]', '{"ok":true,"checks":[]}'):
+                def child(*args, **kwargs):
+                    (root / "presets" / "summary.json").write_text(content)
+                    return SimpleNamespace(returncode=0)
+                with patch.object(runner, "wait_for_other_blender", return_value=True), \
+                        patch.object(runner.subprocess, "run", side_effect=child):
+>                   result = runner.run_demo("blender", self.RUN, root, root / "start.blend", {}, 1, 0)
+                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\test_showcase_failures.py:33: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+scripts\render_showcase.py:238: in run_demo
+    demo_summary = json.loads(summary_path.read_text(encoding="utf-8")) if summary_path.is_file() else None
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Python314\Lib\json\__init__.py:352: in loads
+    return _default_decoder.decode(s)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Python314\Lib\json\decoder.py:345: in decode
+    obj, end = self.raw_decode(s, idx=_w(s, 0).end())
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <json.decoder.JSONDecoder object at 0x000001F5CCC0BE00>, s = '{"ok":'
+idx = 0
+
+    def raw_decode(self, s, idx=0):
+        """Decode a JSON document from ``s`` (a ``str`` beginning with
+        a JSON document) and return a 2-tuple of the Python
+        representation and the index in ``s`` where the document ended.
+    
+        This can be used to decode a JSON document from a string that may
+        have extraneous data at the end.
+    
+        """
+        try:
+            obj, end = self.scan_once(s, idx)
+        except StopIteration as err:
+>           raise JSONDecodeError("Expecting value", s, err.value) from None
+E           json.decoder.JSONDecodeError: Expecting value: line 1 column 7 (char 6)
+
+C:\Python314\Lib\json\decoder.py:363: JSONDecodeError
+---------------------------- Captured stdout call -----------------------------
+== presets (opengl) -> C:\WINDOWS\TEMP\tmpg7saqcmx\presets
+__________ ReportingFailures.test_spawn_failure_and_timeout_are_rows __________
+
+self = <test_showcase_failures.ReportingFailures testMethod=test_spawn_failure_and_timeout_are_rows>
+
+    def test_spawn_failure_and_timeout_are_rows(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            for fault in (OSError("launch failed"), subprocess.TimeoutExpired("blender", 1)):
+                with patch.object(runner, "wait_for_other_blender", return_value=True), \
+                        patch.object(runner.subprocess, "run", side_effect=fault):
+>                   self.assertFalse(runner.run_demo("b", self.RUN, root, root / "s", {}, 1, 0)["ok"])
+                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\test_showcase_failures.py:49: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+scripts\render_showcase.py:233: in run_demo
+    code = subprocess.run(command, env=dict(env, **{OUT_ENV: str(folder)}), stdin=subprocess.DEVNULL,
+C:\Python314\Lib\unittest\mock.py:1175: in __call__
+    return self._mock_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Python314\Lib\unittest\mock.py:1179: in _mock_call
+    return self._execute_mock_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <MagicMock name='run' id='2156050965440'>
+args = (['b', '--factory-startup', '--online-mode', '--gpu-backend', 'opengl', '--gpu-vsync', ...],)
+kwargs = {'check': False, 'env': {'SHOWCASE_OUT': 'C:\\WINDOWS\\TEMP\\tmpq6_k_4jx\\presets'}, 'stderr': -2, 'stdin': -3, ...}
+effect = OSError('launch failed')
+
+    def _execute_mock_call(self, /, *args, **kwargs):
+        # separate from _increment_mock_call so that awaited functions are
+        # executed separately from their call, also AsyncMock overrides this method
+    
+        effect = self.side_effect
+        if effect is not None:
+            if _is_exception(effect):
+>               raise effect
+E               OSError: launch failed
+
+C:\Python314\Lib\unittest\mock.py:1234: OSError
+---------------------------- Captured stdout call -----------------------------
+== presets (opengl) -> C:\WINDOWS\TEMP\tmpq6_k_4jx\presets
+_ ReportingFailures.test_summary_cannot_override_failed_or_absent_checks (checks={}) _
+
+self = <test_showcase_failures.ReportingFailures testMethod=test_summary_cannot_override_failed_or_absent_checks>
+
+    def test_summary_cannot_override_failed_or_absent_checks(self):
+        for checks in ({}, {"route": {"ok": False}}, {"route": {"ok": "yes"}}):
+            with self.subTest(checks=checks):
+>               self.assertFalse(runner.run_result(self.RUN, _summary(checks=checks), 0, 1)["ok"])
+E               AssertionError: True is not false
+
+tests\test_showcase_failures.py:22: AssertionError
+_ ReportingFailures.test_summary_cannot_override_failed_or_absent_checks (checks={'route': {'ok': False}}) _
+
+self = <test_showcase_failures.ReportingFailures testMethod=test_summary_cannot_override_failed_or_absent_checks>
+
+    def test_summary_cannot_override_failed_or_absent_checks(self):
+        for checks in ({}, {"route": {"ok": False}}, {"route": {"ok": "yes"}}):
+            with self.subTest(checks=checks):
+>               self.assertFalse(runner.run_result(self.RUN, _summary(checks=checks), 0, 1)["ok"])
+E               AssertionError: True is not false
+
+tests\test_showcase_failures.py:22: AssertionError
+_ ReportingFailures.test_summary_cannot_override_failed_or_absent_checks (checks={'route': {'ok': 'yes'}}) _
+
+self = <test_showcase_failures.ReportingFailures testMethod=test_summary_cannot_override_failed_or_absent_checks>
+
+    def test_summary_cannot_override_failed_or_absent_checks(self):
+        for checks in ({}, {"route": {"ok": False}}, {"route": {"ok": "yes"}}):
+            with self.subTest(checks=checks):
+>               self.assertFalse(runner.run_result(self.RUN, _summary(checks=checks), 0, 1)["ok"])
+E               AssertionError: True is not false
+
+tests\test_showcase_failures.py:22: AssertionError
+_________ RouteControls.test_wrong_route_and_disguised_readback_fail __________
+
+self = <test_showcase_failures.RouteControls testMethod=test_wrong_route_and_disguised_readback_fail>
+
+    def test_wrong_route_and_disguised_readback_fail(self):
+        for label, readback in (("none", False), ("wrong GPU interop", False), ("expected", True),
+                                ("Readback (CPU copy)", True)):
+>           result = helper.transport_verdict({"label": label, "readback": readback}, "expected")
+                     ^^^^^^^^^^^^^^^^^^^^^^^^
+E           AttributeError: module 'showcase_helper' has no attribute 'transport_verdict'
+
+tests\test_showcase_failures.py:77: AttributeError
+__________ SetupFailure.test_setup_failure_writes_summary_and_quits ___________
+
+self = <test_showcase_failures.SetupFailure testMethod=test_setup_failure_writes_summary_and_quits>
+
+    def test_setup_failure_writes_summary_and_quits(self):
+        callbacks, quits = [], []
+        fake = SimpleNamespace(app=SimpleNamespace(version_string="test", background=False,
+                               timers=SimpleNamespace(register=lambda f, **kw: callbacks.append(f))),
+                               ops=SimpleNamespace(wm=SimpleNamespace(quit_blender=lambda: quits.append(True))))
+        def build():
+            raise RuntimeError("injected setup failure")
+        with tempfile.TemporaryDirectory() as tmp, patch.object(helper, "bpy", fake), \
+                patch.object(helper, "SUMMARY", {"checks": {}, "timings": {}}), \
+                patch.dict("os.environ", {helper.OUT_ENV: tmp}):
+>           helper.run("setup_control", lambda: iter(()), build=build)
+E           TypeError: run() got an unexpected keyword argument 'build'
+
+tests\test_showcase_failures.py:95: TypeError
+_ PaddleControls.test_gravity_emission_and_array_reordering_do_not_prove_paddle _
+
+self = <test_showcase_failures.PaddleControls testMethod=test_gravity_emission_and_array_reordering_do_not_prove_paddle>
+
+    def test_gravity_emission_and_array_reordering_do_not_prove_paddle(self):
+>       metrics = _load("showcase_metrics", ROOT / "examples/showcase/_metrics.py")
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\test_showcase_failures.py:105: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\test_showcase_runner.py:19: in _load
+    spec.loader.exec_module(module)
+<frozen importlib._bootstrap_external>:755: in exec_module
+    ???
+<frozen importlib._bootstrap_external>:892: in get_code
+    ???
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <_frozen_importlib_external.SourceFileLoader object at 0x000001F5FFCA1A90>
+path = 'C:\\workspace\\warpsph-showcase-repair\\examples\\showcase\\_metrics.py'
+
+>   ???
+E   FileNotFoundError: [Errno 2] No such file or directory: 'C:\\workspace\\warpsph-showcase-repair\\examples\\showcase\\_metrics.py'
+
+<frozen importlib._bootstrap_external>:950: FileNotFoundError
+=========================== short test summary info ===========================
+FAILED tests/test_showcase_failures.py::ReportingFailures::test_encoder_timeout_and_failure_preserve_next_sequence
+FAILED tests/test_showcase_failures.py::ReportingFailures::test_malformed_and_unreadable_summary_become_failed_rows
+FAILED tests/test_showcase_failures.py::ReportingFailures::test_spawn_failure_and_timeout_are_rows
+SUBFAILED(checks={}) tests/test_showcase_failures.py::ReportingFailures::test_summary_cannot_override_failed_or_absent_checks
+SUBFAILED(checks={'route': {'ok': False}}) tests/test_showcase_failures.py::ReportingFailures::test_summary_cannot_override_failed_or_absent_checks
+SUBFAILED(checks={'route': {'ok': 'yes'}}) tests/test_showcase_failures.py::ReportingFailures::test_summary_cannot_override_failed_or_absent_checks
+FAILED tests/test_showcase_failures.py::RouteControls::test_wrong_route_and_disguised_readback_fail
+FAILED tests/test_showcase_failures.py::SetupFailure::test_setup_failure_writes_summary_and_quits
+FAILED tests/test_showcase_failures.py::PaddleControls::test_gravity_emission_and_array_reordering_do_not_prove_paddle
+9 failed, 1 passed in 0.76s
