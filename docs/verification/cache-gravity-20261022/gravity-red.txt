@@ -1,0 +1,238 @@
+F.F.FFF                                                            [100%]
+================================== FAILURES ===================================
+_ TestGravitySignature.test_changed_gravity_refuses_resume_without_touching_cached_frames _
+
+self = <test_cache_gravity_signature.TestGravitySignature testMethod=test_changed_gravity_refuses_resume_without_touching_cached_frames>
+
+    def test_changed_gravity_refuses_resume_without_touching_cached_frames(self):
+        with tempfile.TemporaryDirectory() as folder:
+            disk = DiskCache(folder)
+>           disk.begin(1, signature())
+                          ^^^^^^^^^^^
+
+tests\test_cache_gravity_signature.py:58: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+value = None
+
+    def signature(value=None):
+>       return bake.solver_signature(value or solver(), 3, 24.0, "Scene", "CUSTOM")
+               ^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: module 'warp_sph_realtime.cache.bake' has no attribute 'solver_signature'
+
+tests\test_cache_gravity_signature.py:20: AttributeError
+_ TestGravitySignature.test_every_gravity_component_matters (gravity=(1.0, 0.0, -9.8100004196167)) _
+
+self = <test_cache_gravity_signature.TestGravitySignature testMethod=test_every_gravity_component_matters>
+
+    def test_every_gravity_component_matters(self):
+        for vector in ((1.0, 0.0, -9.8100004196167),
+                       (0.0, 1.0, -9.8100004196167), (0.0, 0.0, 0.0)):
+            with self.subTest(gravity=vector):
+>               self.assertNotEqual(signature(), signature(solver(vector)))
+                                    ^^^^^^^^^^^
+
+tests\test_cache_gravity_signature.py:32: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+value = None
+
+    def signature(value=None):
+>       return bake.solver_signature(value or solver(), 3, 24.0, "Scene", "CUSTOM")
+               ^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: module 'warp_sph_realtime.cache.bake' has no attribute 'solver_signature'
+
+tests\test_cache_gravity_signature.py:20: AttributeError
+_ TestGravitySignature.test_every_gravity_component_matters (gravity=(0.0, 1.0, -9.8100004196167)) _
+
+self = <test_cache_gravity_signature.TestGravitySignature testMethod=test_every_gravity_component_matters>
+
+    def test_every_gravity_component_matters(self):
+        for vector in ((1.0, 0.0, -9.8100004196167),
+                       (0.0, 1.0, -9.8100004196167), (0.0, 0.0, 0.0)):
+            with self.subTest(gravity=vector):
+>               self.assertNotEqual(signature(), signature(solver(vector)))
+                                    ^^^^^^^^^^^
+
+tests\test_cache_gravity_signature.py:32: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+value = None
+
+    def signature(value=None):
+>       return bake.solver_signature(value or solver(), 3, 24.0, "Scene", "CUSTOM")
+               ^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: module 'warp_sph_realtime.cache.bake' has no attribute 'solver_signature'
+
+tests\test_cache_gravity_signature.py:20: AttributeError
+_ TestGravitySignature.test_every_gravity_component_matters (gravity=(0.0, 0.0, 0.0)) _
+
+self = <test_cache_gravity_signature.TestGravitySignature testMethod=test_every_gravity_component_matters>
+
+    def test_every_gravity_component_matters(self):
+        for vector in ((1.0, 0.0, -9.8100004196167),
+                       (0.0, 1.0, -9.8100004196167), (0.0, 0.0, 0.0)):
+            with self.subTest(gravity=vector):
+>               self.assertNotEqual(signature(), signature(solver(vector)))
+                                    ^^^^^^^^^^^
+
+tests\test_cache_gravity_signature.py:32: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+value = None
+
+    def signature(value=None):
+>       return bake.solver_signature(value or solver(), 3, 24.0, "Scene", "CUSTOM")
+               ^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: module 'warp_sph_realtime.cache.bake' has no attribute 'solver_signature'
+
+tests\test_cache_gravity_signature.py:20: AttributeError
+_ TestGravitySignature.test_legacy_cache_remains_readable_but_resume_requires_rebake _
+
+self = <test_cache_gravity_signature.TestGravitySignature testMethod=test_legacy_cache_remains_readable_but_resume_requires_rebake>
+
+    def test_legacy_cache_remains_readable_but_resume_requires_rebake(self):
+        with tempfile.TemporaryDirectory() as folder:
+            disk = DiskCache(folder)
+>           old = signature()
+                  ^^^^^^^^^^^
+
+tests\test_cache_gravity_signature.py:46: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+value = None
+
+    def signature(value=None):
+>       return bake.solver_signature(value or solver(), 3, 24.0, "Scene", "CUSTOM")
+               ^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: module 'warp_sph_realtime.cache.bake' has no attribute 'solver_signature'
+
+tests\test_cache_gravity_signature.py:20: AttributeError
+_____ TestGravitySignature.test_nonfinite_gravity_is_rejected (value=nan) _____
+
+self = <test_cache_gravity_signature.TestGravitySignature testMethod=test_nonfinite_gravity_is_rejected>
+
+    def test_nonfinite_gravity_is_rejected(self):
+        for value in (float("nan"), float("inf"), -float("inf")):
+            with self.subTest(value=value), self.assertRaisesRegex(ValueError, "gravity"):
+>               signature(solver((0.0, value, 0.0)))
+
+tests\test_cache_gravity_signature.py:37: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+    def signature(value=None):
+>       return bake.solver_signature(value or solver(), 3, 24.0, "Scene", "CUSTOM")
+               ^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: module 'warp_sph_realtime.cache.bake' has no attribute 'solver_signature'
+
+tests\test_cache_gravity_signature.py:20: AttributeError
+_____ TestGravitySignature.test_nonfinite_gravity_is_rejected (value=inf) _____
+
+self = <test_cache_gravity_signature.TestGravitySignature testMethod=test_nonfinite_gravity_is_rejected>
+
+    def test_nonfinite_gravity_is_rejected(self):
+        for value in (float("nan"), float("inf"), -float("inf")):
+            with self.subTest(value=value), self.assertRaisesRegex(ValueError, "gravity"):
+>               signature(solver((0.0, value, 0.0)))
+
+tests\test_cache_gravity_signature.py:37: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+    def signature(value=None):
+>       return bake.solver_signature(value or solver(), 3, 24.0, "Scene", "CUSTOM")
+               ^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: module 'warp_sph_realtime.cache.bake' has no attribute 'solver_signature'
+
+tests\test_cache_gravity_signature.py:20: AttributeError
+____ TestGravitySignature.test_nonfinite_gravity_is_rejected (value=-inf) _____
+
+self = <test_cache_gravity_signature.TestGravitySignature testMethod=test_nonfinite_gravity_is_rejected>
+
+    def test_nonfinite_gravity_is_rejected(self):
+        for value in (float("nan"), float("inf"), -float("inf")):
+            with self.subTest(value=value), self.assertRaisesRegex(ValueError, "gravity"):
+>               signature(solver((0.0, value, 0.0)))
+
+tests\test_cache_gravity_signature.py:37: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+    def signature(value=None):
+>       return bake.solver_signature(value or solver(), 3, 24.0, "Scene", "CUSTOM")
+               ^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: module 'warp_sph_realtime.cache.bake' has no attribute 'solver_signature'
+
+tests\test_cache_gravity_signature.py:20: AttributeError
+_______ TestGravitySignature.test_unchanged_restart_and_json_roundtrip ________
+
+self = <test_cache_gravity_signature.TestGravitySignature testMethod=test_unchanged_restart_and_json_roundtrip>
+
+    def test_unchanged_restart_and_json_roundtrip(self):
+>       self.assertEqual(signature(solver()), json.loads(json.dumps(signature(solver()))))
+                         ^^^^^^^^^^^^^^^^^^^
+
+tests\test_cache_gravity_signature.py:25: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+value = namespace(num_particles=32, dt=0.001, h=0.04, stiffness=90000.0, viscosity=0.15, gravity=(0.0, 0.0, -9.8100004196167), unit_scale=1.0)
+
+    def signature(value=None):
+>       return bake.solver_signature(value or solver(), 3, 24.0, "Scene", "CUSTOM")
+               ^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: module 'warp_sph_realtime.cache.bake' has no attribute 'solver_signature'
+
+tests\test_cache_gravity_signature.py:20: AttributeError
+_________ TestGravitySignature.test_unit_scale_contract_is_preserved __________
+
+self = <test_cache_gravity_signature.TestGravitySignature testMethod=test_unit_scale_contract_is_preserved>
+
+    def test_unit_scale_contract_is_preserved(self):
+>       self.assertNotIn("unit_scale", signature())
+                                       ^^^^^^^^^^^
+
+tests\test_cache_gravity_signature.py:40: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+value = None
+
+    def signature(value=None):
+>       return bake.solver_signature(value or solver(), 3, 24.0, "Scene", "CUSTOM")
+               ^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: module 'warp_sph_realtime.cache.bake' has no attribute 'solver_signature'
+
+tests\test_cache_gravity_signature.py:20: AttributeError
+__ TestGravityRestartResume.test_cancel_restart_resume_matches_uninterrupted __
+
+self = <test_cache_gravity_signature.TestGravityRestartResume testMethod=test_cancel_restart_resume_matches_uninterrupted>
+
+    def test_cancel_restart_resume_matches_uninterrupted(self):
+>       whole = self.new_job(1, 16)
+                ^^^^^^^^^^^^^^^^^^^
+
+tests\test_cache_gravity_signature.py:75: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tests\test_cache_gravity_signature.py:67: in new_job
+    plan = bake.plan_bake(self.disk, signature(solver()), first, last,
+                                     ^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+value = namespace(num_particles=32, dt=0.001, h=0.04, stiffness=90000.0, viscosity=0.15, gravity=(0.0, 0.0, -9.8100004196167), unit_scale=1.0)
+
+    def signature(value=None):
+>       return bake.solver_signature(value or solver(), 3, 24.0, "Scene", "CUSTOM")
+               ^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: module 'warp_sph_realtime.cache.bake' has no attribute 'solver_signature'
+
+tests\test_cache_gravity_signature.py:20: AttributeError
+=========================== short test summary info ===========================
+FAILED tests/test_cache_gravity_signature.py::TestGravitySignature::test_changed_gravity_refuses_resume_without_touching_cached_frames
+SUBFAILED(gravity=(1.0, 0.0, -9.8100004196167)) tests/test_cache_gravity_signature.py::TestGravitySignature::test_every_gravity_component_matters
+SUBFAILED(gravity=(0.0, 1.0, -9.8100004196167)) tests/test_cache_gravity_signature.py::TestGravitySignature::test_every_gravity_component_matters
+SUBFAILED(gravity=(0.0, 0.0, 0.0)) tests/test_cache_gravity_signature.py::TestGravitySignature::test_every_gravity_component_matters
+FAILED tests/test_cache_gravity_signature.py::TestGravitySignature::test_legacy_cache_remains_readable_but_resume_requires_rebake
+SUBFAILED(value=nan) tests/test_cache_gravity_signature.py::TestGravitySignature::test_nonfinite_gravity_is_rejected
+SUBFAILED(value=inf) tests/test_cache_gravity_signature.py::TestGravitySignature::test_nonfinite_gravity_is_rejected
+SUBFAILED(value=-inf) tests/test_cache_gravity_signature.py::TestGravitySignature::test_nonfinite_gravity_is_rejected
+FAILED tests/test_cache_gravity_signature.py::TestGravitySignature::test_unchanged_restart_and_json_roundtrip
+FAILED tests/test_cache_gravity_signature.py::TestGravitySignature::test_unit_scale_contract_is_preserved
+FAILED tests/test_cache_gravity_signature.py::TestGravityRestartResume::test_cancel_restart_resume_matches_uninterrupted
+11 failed, 2 passed in 0.47s

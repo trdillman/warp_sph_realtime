@@ -19,6 +19,26 @@ DONE, CANCELLED, FAILED = "DONE", "CANCELLED", "FAILED"
 ACTIVE_STATES = (RUNNING, CANCELLING, FINISHING)
 
 
+def solver_signature(solver, steps: int, fps: float, scene: str, demo: str) -> dict:
+    """JSON-stable effective bake physics, taken from the initialized solver.
+
+    Gravity is already in solver units (m/s^2); never round it or multiply by
+    scene unit_scale. Missing gravity in older manifests cannot prove compatibility.
+    """
+    gravity = [float(solver.gravity[i]) for i in range(3)]
+    if not all(math.isfinite(value) for value in gravity):
+        raise ValueError("solver gravity must contain three finite components")
+    signature = {
+        "particles": solver.num_particles, "steps_per_frame": steps, "fps": fps, "dt": solver.dt,
+        "h": solver.h, "stiffness": solver.stiffness, "viscosity": solver.viscosity,
+        "scene": scene, "demo": demo, "gravity": gravity,
+    }
+    unit = float(getattr(solver, "unit_scale", 1.0))
+    if unit != 1.0:  # preserve PR #17's position/meshing unit contract
+        signature["unit_scale"] = unit
+    return signature
+
+
 def steps_per_frame(setting: int, dt: float, fps: float) -> int:
     """Solver steps per cached frame: ``setting`` when positive, else real time (``1 / fps`` s of simulated time)."""
     if setting > 0:

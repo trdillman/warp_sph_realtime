@@ -1,0 +1,20 @@
+Traceback (most recent call last):
+  File "C:\WINDOWS\TEMP\warpsph-gravity-baseline-20261022\scripts\verify_cache_gravity.py", line 37, in <module>
+    raise SystemExit(main())
+                     ~~~~^^
+  File "C:\WINDOWS\TEMP\warpsph-gravity-baseline-20261022\scripts\verify_cache_gravity.py", line 17, in main
+    if harness.other_blender_running():
+       ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "C:\WINDOWS\TEMP\warpsph-gravity-baseline-20261022\scripts\render_showcase.py", line 105, in other_blender_running
+    result = subprocess.run(["tasklist", "/FI", "IMAGENAME eq blender.exe", "/FO", "CSV", "/NH"],
+                            stdin=subprocess.DEVNULL, capture_output=True, text=True, errors="replace",
+                            check=False, timeout=10)
+  File "C:\Users\Tyler\AppData\Local\Python\pythoncore-3.14-64\Lib\subprocess.py", line 556, in run
+    stdout, stderr = process.communicate(input, timeout=timeout)
+                     ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Tyler\AppData\Local\Python\pythoncore-3.14-64\Lib\subprocess.py", line 1220, in communicate
+    stdout, stderr = self._communicate(input, endtime, timeout)
+                     ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Tyler\AppData\Local\Python\pythoncore-3.14-64\Lib\subprocess.py", line 1663, in _communicate
+    raise TimeoutExpired(self.args, orig_timeout)
+subprocess.TimeoutExpired: Command '['tasklist', '/FI', 'IMAGENAME eq blender.exe', '/FO', 'CSV', '/NH']' timed out after 10 seconds

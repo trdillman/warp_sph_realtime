@@ -1,0 +1,22 @@
+{
+  "ok": true,
+  "blender": "5.2.0 LTS",
+  "warp": "1.17.0",
+  "device": "cuda:0",
+  "messages": [
+    "WarpSPH Baked frames 1-8 (8 frames)",
+    "WarpSPH Bake cancelled: 3 frames cached (frames 1-3); Resume continues",
+    "WarpSPH cannot bake: solver gravity changed; use Bake Cache to start a fresh bake or choose a new cache folder",
+    "WarpSPH Baked frames 1-8 (8 frames)",
+    "WarpSPH cannot bake: cached gravity is unknown (older cache); use Bake Cache to start a fresh bake or choose a new cache folder"
+  ],
+  "checks": [
+    "actual begin_bake",
+    "changed gravity rejection",
+    "unchanged restart bitwise",
+    "legacy rejection",
+    "cancel prefix",
+    "cache unchanged on rejection"
+  ],
+  "scope": "Background Blender/CUDA session and real authored cubes; no UI or viewport acceptance"
+}

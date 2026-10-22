@@ -1,0 +1,8 @@
+WARNING: there is a new pyright version available (v1.1.408 -> v1.1.414).
+Please install the new version or set PYRIGHT_PYTHON_FORCE_VERSION to `latest`
+
+c:\Windows\Temp\warpsph-gravity-resume-20261022\tests\runtime_cache_gravity.py
+  c:\Windows\Temp\warpsph-gravity-resume-20261022\tests\runtime_cache_gravity.py:95:5 - error: Object of type "None" is not subscriptable (reportOptionalSubscript)
+c:\Windows\Temp\warpsph-gravity-resume-20261022\tests\test_cache_gravity_signature.py
+  c:\Windows\Temp\warpsph-gravity-resume-20261022\tests\test_cache_gravity_signature.py:53:30 - error: Object of type "None" is not subscriptable (reportOptionalSubscript)
+2 errors, 0 warnings, 0 informations

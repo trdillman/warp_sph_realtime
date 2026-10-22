@@ -1,0 +1,43 @@
+Warp 1.17.0 initialized:
+   CUDA Toolkit 12.9, Driver 13.3
+   Devices:
+     "cpu"      : "AMD64 Family 23 Model 113 Stepping 0, AuthenticAMD"
+     "cuda:0"   : "NVIDIA GeForce RTX 4080 SUPER" (16 GiB, sm_89, mempool enabled)
+   Kernel cache:
+     \\?\C:\Users\Tyler\AppData\Local\NVIDIA\warp\Cache\1.17.0
+Module warp_sph_realtime.scene.fill 3d301a8 load on device 'cuda:0' took 27.85 ms  (cached)
+Module warp_sph_realtime.sim.sim_core 9ab7517 load on device 'cuda:0' took 52.04 ms  (cached)
+..ROUNDTRIP False 0.01 1 position 0.0 0.00010299683
+ROUNDTRIP False 0.01 1 velocity 0.0 1.9073486e-06
+ROUNDTRIP False 0.01 2 position 0.0 0.000102991246
+ROUNDTRIP False 0.01 2 velocity 0.0 1.9073486e-06
+ROUNDTRIP False 0.01 3 position 0.0 0.0001029773
+ROUNDTRIP False 0.01 3 velocity 0.0 1.9073486e-06
+ROUNDTRIP False 0.01 4 position 3.814697265625e-06 0.00010295498
+ROUNDTRIP False 0.01 4 velocity 0.0 1.9073486e-06
+ROUNDTRIP False 0.01 5 position 3.814697265625e-06 0.000102924285
+ROUNDTRIP False 0.01 5 velocity 0.0 1.9073486e-06
+ROUNDTRIP False 0.01 6 position 3.814697265625e-06 0.000102885235
+ROUNDTRIP False 0.01 6 velocity 0.0 1.9073486e-06
+ROUNDTRIP False 0.01 7 position 3.814697265625e-06 0.000102837796
+ROUNDTRIP False 0.01 7 velocity 0.0 1.9073486e-06
+ROUNDTRIP False 0.01 8 position 3.814697265625e-06 0.000102781996
+ROUNDTRIP False 0.01 8 velocity 0.0 1.9073486e-06
+.ROUNDTRIP True 0.01 1 position 0.0 0.00010299683
+ROUNDTRIP True 0.01 1 velocity 0.0 1.9073486e-06
+ROUNDTRIP True 0.01 2 position 0.0 0.000102991246
+ROUNDTRIP True 0.01 2 velocity 0.0 1.9073486e-06
+ROUNDTRIP True 0.01 3 position 0.0 0.0001029773
+ROUNDTRIP True 0.01 3 velocity 0.0 1.9073486e-06
+ROUNDTRIP True 0.01 4 position 3.814697265625e-06 0.00010295498
+ROUNDTRIP True 0.01 4 velocity 0.0 1.9073486e-06
+ROUNDTRIP True 0.01 5 position 3.814697265625e-06 0.000102924285
+ROUNDTRIP True 0.01 5 velocity 0.0 1.9073486e-06
+ROUNDTRIP True 0.01 6 position 3.814697265625e-06 0.000102885235
+ROUNDTRIP True 0.01 6 velocity 0.0 1.9073486e-06
+ROUNDTRIP True 0.01 7 position 3.814697265625e-06 0.000102837796
+ROUNDTRIP True 0.01 7 velocity 0.0 1.9073486e-06
+ROUNDTRIP True 0.01 8 position 3.814697265625e-06 0.000102781996
+ROUNDTRIP True 0.01 8 velocity 0.0 1.9073486e-06
+.
+4 passed in 6.23s

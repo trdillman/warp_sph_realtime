@@ -1,0 +1,68 @@
+..FF                                                                     [100%]
+================================== FAILURES ===================================
+_____________ test_gravity_cancel_restart_resume_cuda[0.01-False] _____________
+
+tmp_path = WindowsPath('C:/Windows/Temp/.ctx-mode-JlLcyp/pytest-of-unknown/pytest-0/test_gravity_cancel_restart_re2')
+graph = False, unit = 0.01
+
+    @pytest.mark.parametrize("graph", [False, True])
+    @pytest.mark.parametrize("unit", [1.0, 0.01])
+    def test_gravity_cancel_restart_resume_cuda(tmp_path, graph, unit):
+        gravity = (1.0, 0.5, -3.0)
+        whole, part = DiskCache(tmp_path / "whole"), DiskCache(tmp_path / "part")
+        drive(job(whole, make_solver(gravity, unit), graph))
+        partial = job(part, make_solver(gravity, unit), graph)
+        drive(partial, cancel_after=3)
+        assert partial.state == bake.CANCELLED
+        assert part.cached_count() == 3
+        before = {p.name: p.read_bytes() for p in part.directory.iterdir()}
+        with pytest.raises(CacheMismatchError, match="gravity.*Bake Cache"):
+            job(part, make_solver((1.0, 0.5, -1.0), unit), graph, resume=True)
+        assert before == {p.name: p.read_bytes() for p in part.directory.iterdir()}
+        drive(job(part, make_solver(gravity, unit), graph, resume=True))
+        for frame in range(1, 9):
+            a, b = whole.read_frame(frame), part.read_frame(frame)
+            for name in ("position", "velocity", "id"):
+>               assert getattr(a, name).tobytes() == getattr(b, name).tobytes(), (frame, name)
+E               AssertionError: (4, 'position')
+E               assert b"\xec;\x80@\...xc0\x89\xe9WB" == b"\xeb;\x80@\...xc0\x89\xe9WB"
+E                 
+E                 At index 0 diff: b'\xec' != b'\xeb'
+E                 Use -v to get more diff
+
+tests\test_cache_gravity_cuda.py:65: AssertionError
+_____________ test_gravity_cancel_restart_resume_cuda[0.01-True] ______________
+
+tmp_path = WindowsPath('C:/Windows/Temp/.ctx-mode-JlLcyp/pytest-of-unknown/pytest-0/test_gravity_cancel_restart_re3')
+graph = True, unit = 0.01
+
+    @pytest.mark.parametrize("graph", [False, True])
+    @pytest.mark.parametrize("unit", [1.0, 0.01])
+    def test_gravity_cancel_restart_resume_cuda(tmp_path, graph, unit):
+        gravity = (1.0, 0.5, -3.0)
+        whole, part = DiskCache(tmp_path / "whole"), DiskCache(tmp_path / "part")
+        drive(job(whole, make_solver(gravity, unit), graph))
+        partial = job(part, make_solver(gravity, unit), graph)
+        drive(partial, cancel_after=3)
+        assert partial.state == bake.CANCELLED
+        assert part.cached_count() == 3
+        before = {p.name: p.read_bytes() for p in part.directory.iterdir()}
+        with pytest.raises(CacheMismatchError, match="gravity.*Bake Cache"):
+            job(part, make_solver((1.0, 0.5, -1.0), unit), graph, resume=True)
+        assert before == {p.name: p.read_bytes() for p in part.directory.iterdir()}
+        drive(job(part, make_solver(gravity, unit), graph, resume=True))
+        for frame in range(1, 9):
+            a, b = whole.read_frame(frame), part.read_frame(frame)
+            for name in ("position", "velocity", "id"):
+>               assert getattr(a, name).tobytes() == getattr(b, name).tobytes(), (frame, name)
+E               AssertionError: (4, 'position')
+E               assert b"\xec;\x80@\...xc0\x89\xe9WB" == b"\xeb;\x80@\...xc0\x89\xe9WB"
+E                 
+E                 At index 0 diff: b'\xec' != b'\xeb'
+E                 Use -v to get more diff
+
+tests\test_cache_gravity_cuda.py:65: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/test_cache_gravity_cuda.py::test_gravity_cancel_restart_resume_cuda[0.01-False]
+FAILED tests/test_cache_gravity_cuda.py::test_gravity_cancel_restart_resume_cuda[0.01-True]
+2 failed, 2 passed in 11.26s

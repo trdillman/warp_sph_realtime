@@ -1,0 +1,13 @@
+Warp 1.17.0 initialized:
+   CUDA Toolkit 12.9, Driver 13.3
+   Devices:
+     "cpu"      : "AMD64 Family 23 Model 113 Stepping 0, AuthenticAMD"
+     "cuda:0"   : "NVIDIA GeForce RTX 4080 SUPER" (16 GiB, sm_89, mempool enabled)
+   Kernel cache:
+     \\?\C:\Users\Tyler\AppData\Local\NVIDIA\warp\Cache\1.17.0
+Module warp_sph_realtime.scene.fill 3d301a8 load on device 'cuda:0' took 55.19 ms  (cached)
+Module warp_sph_realtime.sim.sim_core 9ab7517 load on device 'cuda:0' took 143.72 ms  (cached)
+GRAVITY_PROBE {"ok": true, "blender": "5.2.0 LTS", "warp": "1.17.0", "device": "cuda:0", "messages": ["WarpSPH Baked frames 1-8 (8 frames)", "WarpSPH Bake cancelled: 3 frames cached (frames 1-3); Resume continues", "WarpSPH cannot bake: solver gravity changed; use Bake Cache to start a fresh bake or choose a new cache folder", "WarpSPH Baked frames 1-8 (8 frames)", "WarpSPH cannot bake: cached gravity is unknown (older cache); use Bake Cache to start a fresh bake or choose a new cache folder"], "checks": ["actual begin_bake", "changed gravity rejection", "unchanged restart bitwise", "legacy rejection", "cancel prefix", "cache unchanged on rejection"], "scope": "Background Blender/CUDA session and real authored cubes; no UI or viewport acceptance"}
+Blender 5.2.0 LTS (hash fbe6228777e7 built 2026-07-14 01:35:40)
+
+Blender quit
