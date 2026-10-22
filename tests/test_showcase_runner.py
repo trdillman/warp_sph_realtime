@@ -29,7 +29,7 @@ class ArgumentsTest(unittest.TestCase):
         args = runner.parse_args([])
         self.assertEqual(args.demos, list(runner.DEMOS))
         self.assertEqual(args.backends, ["vulkan", "opengl"])
-        self.assertEqual(args.timeout, runner.DEFAULT_TIMEOUT)
+        self.assertIsNone(args.timeout)  # defaults are selected per demo; explicit values override them
         self.assertIsNone(args.out)
 
     def test_subsets_are_normalised_and_deduplicated(self):

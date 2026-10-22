@@ -42,7 +42,8 @@ exit. The display demo runs once per backend (Vulkan, then OpenGL); the other de
 Each Blender gets an isolated user profile with this checkout's add-on copied into it. Warp comes from
 `--warp-folder` (a folder that contains the `warp` package, used as the add-on's **Local Folder** Warp source),
 else from the `WARPSPH_SHOWCASE_WARP_FOLDER` environment variable, else from the Python running the runner.
-`--timeout` limits each Blender run (default 20 minutes). Each demo takes a few minutes on an RTX-class GPU.
+`--timeout` overrides each Blender run's deadline. Defaults are 20 minutes, or 45 minutes for the mixer's two
+bakes plus rendering and setup/teardown. Each demo normally takes a few minutes on an RTX-class GPU.
 
 Outputs go to `evidence/showcase/<timestamp>/`, which is gitignored:
 

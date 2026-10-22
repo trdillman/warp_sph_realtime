@@ -132,6 +132,7 @@ def main():
         paddle.animation_data.action_slot = slot
         settings.cache_dir, settings.bake_end = animated_cache, bake_end
         scene.frame_set(1)
+    yield from sc.wait_until(lambda: not sim.running and sim.solver is None, 30, "stationary paddle teardown")
     initial_matrix = np.array(paddle.matrix_world).copy()
     scene.frame_set(CONTROL_FRAMES[1])
     changed_matrix = np.array(paddle.matrix_world).copy()
@@ -159,6 +160,8 @@ def main():
     sc.SUMMARY["transport"] = sc.transport(sim)["label"]
     with sc.override():
         bpy.ops.wm.warp_sph_stop()
+
+    yield from sc.wait_until(lambda: not sim.running and sim.solver is None, 30, "animated paddle teardown")
 
     initial_match = same_initial_state(control.read_frame(1), disk.read_frame(1))
     sc.check("paired_initial_state", initial_match)

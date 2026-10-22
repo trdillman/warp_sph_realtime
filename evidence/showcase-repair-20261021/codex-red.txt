@@ -1,0 +1,136 @@
+FFF                                                                      [100%]
+================================== FAILURES ===================================
+_____ BatchControls.test_failed_setup_does_not_wait_twice_or_launch_media _____
+
+self = <test_showcase_failures.BatchControls testMethod=test_failed_setup_does_not_wait_twice_or_launch_media>
+
+    def test_failed_setup_does_not_wait_twice_or_launch_media(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            out = Path(tmp) / "run"
+            args = runner.parse_args(["--demos", "presets", "--out", str(out)])
+            with patch.object(runner, "find_warp_folder", return_value=None), \
+                    patch.object(runner, "wait_for_other_blender", return_value=False) as wait, \
+                    patch.object(runner, "encode_videos") as encode, \
+                    patch.object(runner.subprocess, "run") as launch:
+>               self.assertEqual(runner.run_batch(args, "b"), 1)
+                                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\test_showcase_failures.py:180: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+scripts\render_showcase.py:430: in run_batch
+    write_report(out, summary)
+scripts\render_showcase.py:368: in write_report
+    temporary.write_text(json.dumps(summary, indent=2), encoding="utf-8")
+                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Python314\Lib\json\__init__.py:242: in dumps
+    **kw).encode(obj)
+          ^^^^^^^^^^^
+C:\Python314\Lib\json\encoder.py:202: in encode
+    chunks = self.iterencode(o, _one_shot=True)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Python314\Lib\json\encoder.py:263: in iterencode
+    return _iterencode(o, 0)
+           ^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <json.encoder.JSONEncoder object at 0x000002DCFF6D9810>
+o = <MagicMock name='encode_videos()' id='3148201324096'>
+
+    def default(self, o):
+        """Implement this method in a subclass such that it returns
+        a serializable object for ``o``, or calls the base implementation
+        (to raise a ``TypeError``).
+    
+        For example, to support arbitrary iterators, you could
+        implement default like this::
+    
+            def default(self, o):
+                try:
+                    iterable = iter(o)
+                except TypeError:
+                    pass
+                else:
+                    return list(iterable)
+                # Let the base class default method raise the TypeError
+                return super().default(o)
+    
+        """
+>       raise TypeError(f'Object of type {o.__class__.__name__} '
+                        f'is not JSON serializable')
+E       TypeError: Object of type MagicMock is not JSON serializable
+E       when serializing dict item 'videos'
+
+C:\Python314\Lib\json\encoder.py:182: TypeError
+---------------------------- Captured stdout call -----------------------------
+No Warp folder found: the add-on will use the Warp installed in the showcase profile
+_ BatchControls.test_mixer_budget_accounts_for_two_bakes_and_explicit_override _
+
+self = <test_showcase_failures.BatchControls testMethod=test_mixer_budget_accounts_for_two_bakes_and_explicit_override>
+
+    def test_mixer_budget_accounts_for_two_bakes_and_explicit_override(self):
+>       self.assertEqual(runner.job_timeout("emitter_mixer", None), 2700)
+                         ^^^^^^^^^^^^^^^^^^
+E       AttributeError: module 'render_showcase' has no attribute 'job_timeout'
+
+tests\test_showcase_failures.py:168: AttributeError
+_ BatchControls.test_paddle_control_waits_for_modal_teardown_before_second_bake _
+
+self = <test_showcase_failures.BatchControls testMethod=test_paddle_control_waits_for_modal_teardown_before_second_bake>
+
+    def test_paddle_control_waits_for_modal_teardown_before_second_bake(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            settings = SimpleNamespace(cache_dir=str(Path(tmp) / "animated"), bake_end=150)
+            paddle = SimpleNamespace(animation_data=SimpleNamespace(action=object(), action_slot=object()),
+                                     matrix_world=np.eye(4), rotation_euler=(0, 0, 0))
+            scene = SimpleNamespace(warp_sph=settings, objects={helper.PREFIX + "Paddle": paddle},
+                                    frame_set=lambda f: None)
+            sim = SimpleNamespace(bake=None, running=True, solver=object(), last_error="", bake_result="")
+            calls = []
+            def bake(**kwargs):
+                calls.append(True)
+                if len(calls) > 1 and sim.solver is not None:
+                    raise RuntimeError("animated bake started before teardown")
+                sim.bake = object()
+            fake = SimpleNamespace(context=SimpleNamespace(scene=scene), ops=SimpleNamespace(wm=SimpleNamespace(
+                warp_sph_cache_clear=lambda: None, warp_sph_bake=bake,
+                warp_sph_stop=lambda: setattr(sim, "running", False))))
+            disk = SimpleNamespace(cached_range=lambda: (1, 31))
+            with patch.dict(sys.modules, {"bpy": fake, "_showcase": helper}), \
+                    patch.object(helper, "run"), patch.object(helper, "frame_view"), \
+                    patch.object(helper, "out_dir", return_value=None), \
+                    patch.object(helper, "work_dir", return_value=Path(tmp)), \
+                    patch.object(helper, "session", return_value=sim), \
+                    patch.object(helper, "override", side_effect=nullcontext), \
+                    patch.object(helper, "module", return_value=SimpleNamespace(DiskCache=lambda d: disk)), \
+                    patch.object(helper, "SUMMARY", {"checks": {}, "timings": {}}):
+                demo = _load("showcase_mixer", ROOT / "examples/showcase/emitter_mixer.py")
+                gen = demo.main()
+                next(gen)  # stationary bake pending
+                sim.bake = None
+>               next(gen)  # must yield while the previous solver still exists
+                ^^^^^^^^^
+
+tests\test_showcase_failures.py:216: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+examples\showcase\emitter_mixer.py:145: in main
+    bpy.ops.wm.warp_sph_bake(resume=False)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+kwargs = {'resume': False}
+
+    def bake(**kwargs):
+        calls.append(True)
+        if len(calls) > 1 and sim.solver is not None:
+>           raise RuntimeError("animated bake started before teardown")
+E           RuntimeError: animated bake started before teardown
+
+tests\test_showcase_failures.py:198: RuntimeError
+---------------------------- Captured stdout call -----------------------------
+[showcase] PASS stationary_control_started: None
+[showcase] PASS stationary_control_complete: {'range': (1, 31), 'result': ''}
+[showcase] FAIL paddle_animation_evaluated: {'frame_1': [[1.0, 0.0, 0.0, 0.0], [0.0, 1.0, 0.0, 0.0], [0.0, 0.0, 1.0, 0.0], [0.0, 0.0, 0.0, 1.0]], 'frame_21': [[1.0, 0.0, 0.0, 0.0], [0.0, 1.0, 0.0, 0.0], [0.0, 0.0, 1.0, 0.0], [0.0, 0.0, 0.0, 1.0]]}
+=========================== short test summary info ===========================
+FAILED tests/test_showcase_failures.py::BatchControls::test_failed_setup_does_not_wait_twice_or_launch_media
+FAILED tests/test_showcase_failures.py::BatchControls::test_mixer_budget_accounts_for_two_bakes_and_explicit_override
+FAILED tests/test_showcase_failures.py::BatchControls::test_paddle_control_waits_for_modal_teardown_before_second_bake
+3 failed, 17 deselected in 1.08s

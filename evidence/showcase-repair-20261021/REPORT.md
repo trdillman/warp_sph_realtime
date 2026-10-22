@@ -60,7 +60,7 @@ python -m ruff check .
 python -m pyright
 ```
 
-Focused final result: **86 passed, 17 subtests passed**, 2.71 seconds; Ruff clean; Pyright zero diagnostics
+Focused final result: **91 passed, 22 subtests passed**, 2.39 seconds; Ruff clean; Pyright zero diagnostics
 (run through the gateway's Python, where Pyright is installed). Logs are retained here.
 
 The first full suite attempt produced **536 passed, 2 skipped, 40 setup errors** in 96.79 seconds; all errors
@@ -80,3 +80,21 @@ python scripts/render_showcase.py --blender <supported-Blender-5.2-exe> --demos 
 Require actual expected accelerated routes, labelled fallback rejection, paired initial-state equality,
 successful influence samples and stationary negative control. Preserve failed attempts; do not relax
 thresholds to pass. No claim about unchanged renderer correctness extends beyond the tests and original assets.
+
+## GitHub review follow-ups
+
+PR #18 first source candidate 30b6deb passed full GPU-free CI: Windows 522 passed/60 skipped, Linux
+521 passed/61 skipped, Ruff and Pyright clean (run 39720618537). This does not qualify Blender/CUDA paths.
+The PR records CI for the final candidate separately.
+
+CodeRabbit identified an extreme integer frame rate that passed numeric comparison but overflowed ffmpeg
+argument formatting. Two controls reproduced rejection/containment gaps (`fps-red.txt`); receipt validation
+now normalizes a finite positive float and rejects booleans, and encoder formatting errors are per-sequence.
+
+Codex GitHub review identified three further issues. The mixer's default outer budget now accommodates
+two 900-second bakes plus 600 seconds media and 300 seconds setup/teardown (2700 seconds); other demos retain
+1200 seconds and explicit user deadlines always win. Failed setup skips all media and a second active-Blender
+wait, after retaining every job row. The mixer waits for modal solver teardown before the second bake and
+after the animated bake. Three negative controls failed before these fixes (`codex-red.txt`), including an
+event-state fake driving the actual mixer generator. The independent reviewer accepted the follow-ups and
+independently reran 20 failure tests plus 20 existing runner tests. GPU acceptance remains BLOCKED.

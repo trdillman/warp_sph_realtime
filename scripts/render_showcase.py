@@ -38,6 +38,7 @@ DEMOS = ("display", "validation", "emitter_mixer", "bake_mesh_export", "presets"
 BACKENDS = ("vulkan", "opengl")
 PER_BACKEND = {"display"}           # demos run once per GPU backend
 DEFAULT_TIMEOUT = 1200              # seconds per Blender process
+MIXER_TIMEOUT = 2700                # 2 x 900 s bakes, 600 s media, 300 s setup/teardown
 ENCODE_TIMEOUT = 300
 WARP_FOLDER_ENV = "WARPSPH_SHOWCASE_WARP_FOLDER"
 OUT_ENV = "SHOWCASE_OUT"
@@ -52,18 +53,24 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
                         help="GPU backends for the display demo; the other demos use the first one")
     parser.add_argument("--blender", help="Path to the Blender 5.2 executable")
     parser.add_argument("--warp-folder", help="Folder that contains the 'warp' package (Warp 1.17)")
-    parser.add_argument("--timeout", type=float, default=DEFAULT_TIMEOUT, help="Seconds allowed per Blender run")
+    parser.add_argument("--timeout", type=float,
+                        help="Seconds per Blender run (default 1200; emitter_mixer 2700 for its paired bakes)")
     parser.add_argument("--wait", type=float, default=3600.0,
                         help="Seconds to wait for another running Blender to exit before giving up")
     parser.add_argument("--out", help="Output folder (default evidence/showcase/<timestamp>)")
     args = parser.parse_args(argv)
     args.demos = _choices(args.demos, DEMOS, "demo", parser)
     args.backends = _choices(args.backends, BACKENDS, "backend", parser)
-    if not math.isfinite(args.timeout) or args.timeout <= 0:
+    if args.timeout is not None and (not math.isfinite(args.timeout) or args.timeout <= 0):
         parser.error("--timeout must be finite and positive")
     if not math.isfinite(args.wait) or args.wait < 0:
         parser.error("--wait must be finite and nonnegative")
     return args
+
+
+def job_timeout(demo: str, requested: float | None) -> float:
+    """Explicit user deadlines win; the paired-bake demo gets its full default stage budget."""
+    return requested if requested is not None else MIXER_TIMEOUT if demo == "emitter_mixer" else DEFAULT_TIMEOUT
 
 
 def _choices(value: str, allowed: tuple[str, ...], kind: str, parser: argparse.ArgumentParser) -> list[str]:
@@ -252,8 +259,15 @@ def read_summary(path: Path) -> dict:
     if not isinstance(sequences, list) or any(not isinstance(s, str) for s in sequences):
         raise ValueError("summary sequences must be a list of paths")
     fps = summary.get("video_fps", 24)
-    if not isinstance(fps, (int, float)) or not 0 < fps < float("inf"):
+    if type(fps) not in (int, float):
         raise ValueError("summary video_fps must be finite and positive")
+    try:
+        fps = float(fps)
+    except OverflowError as exc:
+        raise ValueError("summary video_fps must be finite and positive") from exc
+    if not math.isfinite(fps) or fps <= 0:
+        raise ValueError("summary video_fps must be finite and positive")
+    summary["video_fps"] = fps
     return summary
 
 
@@ -337,7 +351,7 @@ def encode_videos(results: list[dict], timeout: float = ENCODE_TIMEOUT, errors: 
                 if done.returncode != 0 or not target.is_file() or target.stat().st_size == 0:
                     raise RuntimeError(f"ffmpeg exit {done.returncode}: {done.stderr.strip()[-400:]}")
                 videos.append(str(target))
-            except (OSError, subprocess.TimeoutExpired, RuntimeError) as exc:
+            except (OSError, subprocess.TimeoutExpired, RuntimeError, ValueError, OverflowError, TypeError) as exc:
                 detail = {"stage": "video", "sequence": str(folder), "error": str(exc)}
                 if errors is not None:
                     errors.append(detail)
@@ -381,6 +395,7 @@ def run_batch(args, blender: str) -> int:
     summary["warp_folder"] = warp_folder
     summary.update(videos=[], media_errors=[], contact_sheet=None, complete=False)
     write_report(out, summary)
+    setup_failed = False
     try:
         try:
             if not wait_for_other_blender(args.wait):
@@ -388,11 +403,12 @@ def run_batch(args, blender: str) -> int:
             install_addon(profile)
             blend = empty_blend(blender, profile, env)
         except (OSError, RuntimeError, UnicodeError, subprocess.SubprocessError) as exc:
+            setup_failed = True
             results.extend(run_result(run, None, None, 0, f"batch setup failed: {exc}") for run in runs)
         else:
             for run in runs:
                 try:
-                    result = run_demo(blender, run, out, blend, env, args.timeout, args.wait)
+                    result = run_demo(blender, run, out, blend, env, job_timeout(run["demo"], args.timeout), args.wait)
                 except Exception as exc:
                     result = run_result(run, None, None, 0, f"job failed: {type(exc).__name__}: {exc}")
                 results.append(result)
@@ -400,6 +416,10 @@ def run_batch(args, blender: str) -> int:
                 summary["ok"] = False  # incomplete checkpoints cannot qualify the full plan
                 write_report(out, summary)
         summary.update(run_summary(results, stamp, blender, out))
+        if setup_failed:
+            summary.update(complete=True, media_skipped="batch setup failed")
+            print(f"Batch setup failed; all {len(results)} result rows retained -> {out}", flush=True)
+            return 1  # finally still publishes; do not wait again or launch media without a profile
         summary["videos"] = encode_videos(results, errors=summary["media_errors"])
         try:
             spec = contact_sheet_spec(results, out / "contact_sheet.png", f"WarpSPH showcase {stamp}")

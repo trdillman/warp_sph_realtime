@@ -4,6 +4,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from contextlib import nullcontext
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
@@ -14,6 +15,32 @@ from test_showcase_runner import ROOT, _load, _summary, helper, runner
 
 class ReportingFailures(unittest.TestCase):
     RUN = {"demo": "presets", "backend": "opengl", "folder": "presets"}
+
+    def test_receipt_rejects_unformattable_frame_rate(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "summary.json"
+            for fps in (10**1000, True, float("nan"), float("inf"), -1):
+                path.write_text(json.dumps(_summary(video_fps=fps)))
+                with self.subTest(fps_type=type(fps).__name__), self.assertRaises(ValueError):
+                    runner.read_summary(path)
+            path.write_text(json.dumps(_summary(video_fps=15)))
+            self.assertIs(type(runner.read_summary(path)["video_fps"]), float)
+
+    def test_encoder_format_error_does_not_discard_next_sequence(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            seq = Path(tmp) / "frames"
+            seq.mkdir()
+            (seq / "frame_0001.png").touch()
+            rows = [runner.run_result(self.RUN, _summary(sequences=[str(seq)], video_fps=fps), 0, 1)
+                    for fps in (10**1000, 15)]
+            def encoder(cmd, **kwargs):
+                Path(cmd[-1]).write_bytes(b"video")
+                return SimpleNamespace(returncode=0, stderr="")
+            errors = []
+            with patch.object(runner.shutil, "which", return_value="ffmpeg"), \
+                    patch.object(runner.subprocess, "run", side_effect=encoder):
+                self.assertEqual(len(runner.encode_videos(rows, errors=errors)), 1)
+            self.assertEqual(len(errors), 1)
 
     def test_summary_cannot_override_failed_or_absent_checks(self):
         for checks in ({}, {"route": {"ok": False}}, {"route": {"ok": "yes"}}):
@@ -137,6 +164,62 @@ class PaddleControls(unittest.TestCase):
 
 
 class BatchControls(unittest.TestCase):
+    def test_mixer_budget_accounts_for_two_bakes_and_explicit_override(self):
+        self.assertEqual(runner.job_timeout("emitter_mixer", None), 2700)
+        self.assertEqual(runner.job_timeout("display", None), 1200)
+        self.assertEqual(runner.job_timeout("emitter_mixer", 1200), 1200)
+
+    def test_failed_setup_does_not_wait_twice_or_launch_media(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            out = Path(tmp) / "run"
+            args = runner.parse_args(["--demos", "presets", "--out", str(out)])
+            with patch.object(runner, "find_warp_folder", return_value=None), \
+                    patch.object(runner, "wait_for_other_blender", return_value=False) as wait, \
+                    patch.object(runner, "encode_videos") as encode, \
+                    patch.object(runner.subprocess, "run") as launch:
+                self.assertEqual(runner.run_batch(args, "b"), 1)
+                self.assertEqual(wait.call_count, 1)
+                encode.assert_not_called()
+                launch.assert_not_called()
+            self.assertEqual(len(json.loads((out / "summary.json").read_text())["runs"]), 1)
+
+    def test_paddle_control_waits_for_modal_teardown_before_second_bake(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            settings = SimpleNamespace(cache_dir=str(Path(tmp) / "animated"), bake_end=150)
+            paddle = SimpleNamespace(animation_data=SimpleNamespace(action=object(), action_slot=object()),
+                                     matrix_world=np.eye(4), rotation_euler=(0, 0, 0))
+            scene = SimpleNamespace(warp_sph=settings, objects={helper.PREFIX + "Paddle": paddle},
+                                    frame_set=lambda f: None)
+            sim = SimpleNamespace(bake=None, running=True, solver=object(), last_error="", bake_result="")
+            calls = []
+            def bake(**kwargs):
+                calls.append(True)
+                if len(calls) > 1 and sim.solver is not None:
+                    raise RuntimeError("animated bake started before teardown")
+                sim.bake = object()
+            fake = SimpleNamespace(context=SimpleNamespace(scene=scene), ops=SimpleNamespace(wm=SimpleNamespace(
+                warp_sph_cache_clear=lambda: None, warp_sph_bake=bake,
+                warp_sph_stop=lambda: setattr(sim, "running", False))))
+            disk = SimpleNamespace(cached_range=lambda: (1, 31))
+            with patch.dict(sys.modules, {"bpy": fake, "_showcase": helper}), \
+                    patch.object(helper, "run"), patch.object(helper, "frame_view"), \
+                    patch.object(helper, "out_dir", return_value=None), \
+                    patch.object(helper, "work_dir", return_value=Path(tmp)), \
+                    patch.object(helper, "session", return_value=sim), \
+                    patch.object(helper, "override", side_effect=nullcontext), \
+                    patch.object(helper, "module", return_value=SimpleNamespace(DiskCache=lambda d: disk)), \
+                    patch.object(helper, "SUMMARY", {"checks": {}, "timings": {}}):
+                demo = _load("showcase_mixer", ROOT / "examples/showcase/emitter_mixer.py")
+                gen = demo.main()
+                next(gen)  # stationary bake pending
+                sim.bake = None
+                next(gen)  # must yield while the previous solver still exists
+                self.assertEqual(len(calls), 1)
+                sim.solver = None
+                next(gen)
+                self.assertEqual(len(calls), 2)
+                gen.close()
+
     def test_setup_decode_error_records_every_planned_job(self):
         with tempfile.TemporaryDirectory() as tmp:
             out = Path(tmp) / "run"

@@ -14,3 +14,9 @@ Vulkan and unknown-backend table against the actual display function.
 Final recheck: 15 failure tests plus 20 existing runner tests passed independently. No remaining blocking source
 findings within the reviewed scope. Recommendation: integrate as a source/host-test repair. GPU routes, actual
 paired stationary/animated bakes, metric thresholds and complete media production remain runtime-unverified.
+
+GitHub follow-up review identified four additional edge cases: unformattable extreme frame rates, insufficient
+default outer budget for two bakes, a repeated active-Blender wait after failed setup, and restarting before
+modal teardown. Each was reproduced and fixed with focused controls. The independent reviewer rechecked the
+fixes and independently reran 20 failure tests plus 20 runner tests: all passed. No blocking findings remained
+within source/host-test scope. No GPU or Blender launched; actual routes/bakes/media remain unverified.

@@ -16,9 +16,11 @@
 - [x] Compare stationary and animated paddle caches by stable IDs in the near-paddle pool, after verifying identical initial conditions. Require signed tangential velocity influence at two of three early frames. Reject gravity-only, reordered arrays and reverse-direction synthetic controls.
 - [x] Bound job/encoder/media processes, retain individual errors and incrementally publish aggregate JSON, including failed setup and media stages.
 - [x] Acquire a cross-checkout lease before mutations; check active Blender before profile installation; use fresh profiles and preserve prior output. Test a real competing process and lease release.
-- [ ] Run full host suite, Ruff and Pyright; retain exact commands and failures.
-- [ ] Run affected isolated Blender 5.2 showcases only when no unrelated Blender is active and GPU utilization is below 10%; otherwise record BLOCKED.
-- [ ] Obtain independent review, address findings, open PR and integrate when verified checks/review permit.
+- [x] Run host tests, Ruff and Pyright; retain commands and failures. Full GPU-free Windows/Linux CI passed on initial candidate 30b6deb; PR #18 records final-candidate CI. Final focused controls: 91 passed, 22 subtests.
+- [x] Attempt affected isolated Blender 5.2 showcases under the execution guard. BLOCKED by unrelated Blender sessions; all three planned rows retained and no profile installed. Real routes/paired bakes/media remain unverified.
+- [x] Obtain independent review, address findings and open PR #18. GitHub review follow-ups reproduced/fixed: frame-rate overflow, paired-bake budget, repeated setup wait and modal teardown. Independent reviewer reran all 40 runner/failure tests successfully.
+
+Integration status is maintained on [PR #18](https://github.com/trdillman/warp_sph_realtime/pull/18) and the linked project tracker. Source/host-test integration does not close blocked GPU acceptance.
 
 ## Review focus
 
