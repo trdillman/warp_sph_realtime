@@ -128,5 +128,4 @@ def main():
     sc.check("rendered", grid.is_file() and all(p.is_file() for p, _ in cells), len(cells))
 
 
-build()
-sc.run("presets", main)
+sc.run("presets", main, build=build)

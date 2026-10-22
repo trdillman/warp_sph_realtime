@@ -141,5 +141,4 @@ def main():
     sc.check("rendered", all(p.is_file() for p in paths), len(paths))
 
 
-build()
-sc.run("validation", main)
+sc.run("validation", main, build=build)

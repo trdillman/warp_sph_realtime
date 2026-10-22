@@ -151,5 +151,4 @@ def main():
     sc.check("rendered", all(p.is_file() for p in [*paths, age]), len(paths) + 1)
 
 
-build()
-sc.run("bake_mesh_export", main)
+sc.run("bake_mesh_export", main, build=build)

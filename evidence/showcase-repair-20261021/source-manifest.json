@@ -1,0 +1,16 @@
+{
+  "base": "e55dc1dec3de6d4ab92e011fa6f105a281c12536",
+  "hash_scope": "Git index bytes, normalized LF",
+  "files": {
+    "examples/showcase/README.md": "f4199c9e8d2856c3ecc37aa349aea602f9e994a6ec357e07e5cff1968c79d683",
+    "examples/showcase/_metrics.py": "4bc713502986cac64743ee757dd97458fe8bfe393889e2595ec2a07c68eaf868",
+    "examples/showcase/_showcase.py": "6e5ff589a06bfd0e09790872cec46b89a9d1aa18a252f1e6d15ed3cbd14d0094",
+    "examples/showcase/bake_mesh_export.py": "5cdb970516f18f875dae6e4c75916d2685c3bd79ccf1cea559306d1d116939c7",
+    "examples/showcase/display.py": "68cf65ca4e75021cbce869d574f4e1880b7adc1fba8392c427181e104d5c0e0c",
+    "examples/showcase/emitter_mixer.py": "929355878d8dcfec60d95fff6fcc7146e9a2cfb1f1b57b5cd55f5a35f8add7f5",
+    "examples/showcase/presets.py": "2f4614ed06a940eada684875a81ac3d3b85e153080e6abde445c8c640373eec7",
+    "examples/showcase/validation.py": "557106c7d93987490f52882f8b856438a477e872b44683079fde616f28146cd3",
+    "scripts/render_showcase.py": "10d5d109af15f0fc101eef1a62f743ff8d0ac35e4729ea982276d9b32dabfe82",
+    "tests/test_showcase_failures.py": "67f950ac5224c406b4bffa8087cca1c24229f3063016bbaae3d8bd335164c624"
+  }
+}
