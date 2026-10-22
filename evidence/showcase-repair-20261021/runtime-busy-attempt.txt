@@ -1,3 +1,0 @@
-command: ['C:\\Users\\Tyler\\AppData\\Local\\Python\\pythoncore-3.14-64\\python.exe', 'scripts/render_showcase.py', '--blender', 'F:/blender-gpu-interop-official-build/bin/blender.exe', '--demos', 'display,emitter_mixer', '--wait', '0', '--out', 'C:\\workspace\\warpsph-showcase-repair\\evidence\\showcase-repair-20261021\\runtime-busy-attempt']
-exit: 1
-0/3 runs passed -> C:\workspace\warpsph-showcase-repair\evidence\showcase-repair-20261021\runtime-busy-attempt
