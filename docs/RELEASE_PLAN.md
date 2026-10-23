@@ -136,7 +136,7 @@ in Cycles/EEVEE without leaving Blender.
 | P2.6 | **Validation**: dam-break front position vs published reference data; mass/energy checks in CI | M |
 | P2.7 | **Free demo edition**: unlimited preview, bake/export capped (e.g. 120 frames, 25k particles) | S–M |
 | P2.8 | **Docs and education**: full manual, 3–5 video tutorials, example scene library, FAQ for hardware issues | M |
-| P2.9 | **Live colliders**: any collider edit during a run reaches the fluid on the next step, as Stop + Start would build it, with no explosions. Phase 1 move/rotate (still and animated, animation edits); 2 add/remove; 3 scale and shape (Edit Mode, modifiers, Geometry Nodes, shape keys, armatures, also in bakes); 4 record live edits as keys for bakes. Spec: [`LIVE_COLLIDER_SPEC.md`](LIVE_COLLIDER_SPEC.md) | L |
+| P2.9 | **Interactive simulation workflow**: edit anything while the sim runs and every edit is Live, Reset to apply (one click) or Not while baking, never silently ignored; then record or capture the take and bake exactly that. Phases: 1 foundation (change detection, Reset, live gravity, undo safety); 2 live collider transforms; 3 live emitters, domain, Add Fluid Now; 4 live collider add/remove and shape; 5 takes and rewind. Spec: [`INTERACTIVE_SIM_SPEC.md`](INTERACTIVE_SIM_SPEC.md), colliders in [`LIVE_COLLIDER_SPEC.md`](LIVE_COLLIDER_SPEC.md) | L |
 
 Exit criteria: P2.1–P2.8 shipped; certified on 5.2 LTS and current stable on both backends;
 refund rate and support load tracked from early access are acceptable to the owner.
@@ -186,7 +186,7 @@ Merged since the previous refresh:
 |---|---|---|
 | 0 | P0.1–P0.8, P0.10–P0.13; P0.11b merged with its 4M ≤2 ms gate still FAIL and Linux M6 unrun (lifecycle, transport seam, GL/Vulkan interop with the latency fix, gpu-module points and SSFR, Warp self-test, experimental excluded) | P0.9 rename/licence (D1/D2); exit soak on Blender **5.3** Vulkan, which needs a new exact-build Vulkan profile, or else it runs Readback |
 | 1 | P1.1, P1.3–P1.7, P1.11 | P1.2 Readback tuning + count advisor; P1.8 GPU runner; P1.9 benchmark table; P1.10 launch kit; first tagged release (`release.yml` unproven) |
-| 2 | P2.1, P2.2, P2.3, P2.5, P2.6, P2.8 | P2.7 free edition; P2.9 live colliders; showcase reruns under the strengthened checks; certification on 5.2 LTS + current stable |
+| 2 | P2.1, P2.2, P2.3, P2.5, P2.6, P2.8 | P2.7 free edition; P2.9 interactive simulation workflow; showcase reruns under the strengthened checks; certification on 5.2 LTS + current stable |
 
 Owner decisions D1, D2, D6 and the Vulkan 4M latency target are **not blocking engineering**. Work proceeds with
 reversible placeholders: brand and licence strings are kept in one place for P0.9, and the P2.7 cap values are
@@ -195,7 +195,7 @@ set in one setting. The 4M target stays recorded as open; nothing is relabelled 
 ## Immediate next actions
 
 1. Blender 5.3 readiness: qualify an exact-build Vulkan profile for the 5.3 release candidate; verify Readback fallback and the "Use OpenGL fast mode" path on an unprofiled build.
-2. P2.9 live colliders, Phase 1 (live transforms, with the S0 risk checks first), then Phases 2–4 ([`LIVE_COLLIDER_SPEC.md`](LIVE_COLLIDER_SPEC.md)).
+2. P2.9 interactive simulation workflow: Phase 1 foundation (risks R1–R4 first), then Phases 2–5 ([`INTERACTIVE_SIM_SPEC.md`](INTERACTIVE_SIM_SPEC.md)).
 3. Close live gaps: showcase reruns under the strengthened checks; real Warp download install; undo/redo during a run; particle-radius unit-awareness.
 4. P1.2 Readback tuning plus particle-count advisor; P1.9 benchmark table on this GPU, with other generations added when hardware is available.
 5. Release dry run: bump to `0.2.0`, tag on a fork or draft to prove `release.yml` (tagging the real repo needs owner approval).
