@@ -18,6 +18,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   counts.
 
 ### Changed
+- **Licence is now GPL-3.0-or-later** (was MIT in the manifest, with no licence file). `LICENSE` and
+  `THIRD_PARTY_NOTICES.md` ship inside the add-on zip (release plan D2).
 - **Particle Spacing** is now a length in scene units (`subtype='DISTANCE'`, `unit='LENGTH'`, range 0.0001 to 1000),
   shown and typed with the scene's units and Unit Scale like the objects, instead of a number of metres. It is
   multiplied by the Unit Scale for the solver. With the default Unit Scale of 1 nothing changes, and old files keep
