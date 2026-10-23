@@ -15,7 +15,7 @@ GPUs (Windows/Linux). It does not compete with FLIP Fluids on ocean-scale water.
 | # | Decision | Status (2026-10-17) | Blocks | Lawyer? |
 |---|---|---|---|---|
 | D1 | New product name (drop "Warp"/"NVIDIA" from the brand) | **Open.** Choose before any public post; run a trademark + Superhive name search | Phase 0 exit | Yes |
-| D2 | Licence | **Open.** Recommended: `GPL-3.0-or-later` + `THIRD_PARTY_NOTICES` (Warp Apache-2.0, NVIDIA libmathdx/CUDA) | Phase 0 exit | Yes |
+| D2 | Licence | **Decided 2026-10-23: `GPL-3.0-or-later`** + `THIRD_PARTY_NOTICES` (Warp Apache-2.0, NVIDIA libmathdx/CUDA). `LICENSE`, notices and manifest switched; legal review of purchase terms still advised | — | Purchase terms only |
 | D3 | Warp delivery | **Decided.** Keep the user-confirmed, hash-verified PyPI download (no bundled wheel) **and** add a local-installation option the user can point the add-on at (P1.11) | — | Only if bundling is ever considered |
 | D4 | GPU scope | **Decided.** NVIDIA CUDA GPUs only for now (no AMD, Intel or Apple GPUs). This implies Windows + Linux only, since current Macs have no NVIDIA GPUs. CUDA 12 / Warp 1.17 for v1.0 | — | No |
 | D5 | Certified Blender versions | **Decided.** Blender 5.2 and newer. Every new Blender release is certified on both OpenGL and Vulkan before the product page claims it | — | No |
@@ -184,7 +184,7 @@ Merged since the previous refresh:
 
 | Phase | Done on main | Open |
 |---|---|---|
-| 0 | P0.1–P0.8, P0.10–P0.13; P0.11b merged with its 4M ≤2 ms gate still FAIL and Linux M6 unrun (lifecycle, transport seam, GL/Vulkan interop with the latency fix, gpu-module points and SSFR, Warp self-test, experimental excluded) | P0.9 rename/licence (D1/D2); exit soak on Blender **5.3** Vulkan, which needs a new exact-build Vulkan profile, or else it runs Readback |
+| 0 | P0.1–P0.8, P0.10–P0.13; P0.11b merged with its 4M ≤2 ms gate still FAIL and Linux M6 unrun (lifecycle, transport seam, GL/Vulkan interop with the latency fix, gpu-module points and SSFR, Warp self-test, experimental excluded) | P0.9 rename (D1; licence part done); exit soak on Blender **5.3** Vulkan, which needs a new exact-build Vulkan profile, or else it runs Readback |
 | 1 | P1.1, P1.3–P1.7, P1.11 | P1.2 Readback tuning + count advisor; P1.8 GPU runner; P1.9 benchmark table; P1.10 launch kit; first tagged release (`release.yml` unproven) |
 | 2 | P2.1, P2.2, P2.3, P2.5, P2.6, P2.8 | P2.7 free edition; P2.9 interactive simulation workflow; showcase reruns under the strengthened checks; certification on 5.2 LTS + current stable |
 
