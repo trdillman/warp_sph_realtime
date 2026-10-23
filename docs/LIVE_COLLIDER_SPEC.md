@@ -1,7 +1,10 @@
-# Live colliders: feature spec (P2.9)
+# Live colliders: component spec (P2.9)
 
-Status: **proposed, not started** (2026-10-23). Backlog item P2.9 in [`RELEASE_PLAN.md`](RELEASE_PLAN.md).
-This replaces the 2026-10-22 draft, which covered only dragging a still collider.
+Status: **proposed, not started** (2026-10-23). This is the collider part of the interactive simulation workflow,
+[`INTERACTIVE_SIM_SPEC.md`](INTERACTIVE_SIM_SPEC.md), backlog item P2.9 in [`RELEASE_PLAN.md`](RELEASE_PLAN.md).
+That spec owns the shared foundation (change detection, identity, classification, Reset) and the overall phases:
+collider phase 1 below is workflow phase 2, collider phases 2–3 are workflow phase 4, and collider phase 4 is part
+of workflow phase 5 (takes).
 
 ## The feature
 
@@ -26,8 +29,8 @@ reaches a running simulation: playback of its animation. Everything else needs *
 | Change its shape: Edit Mode, modifiers, Geometry Nodes, shape keys, armatures, by hand or animated | Frozen at the Start shape | Followed, and the fluid feels the surface's own motion | 3 |
 | Bake | Rigid animation only | Every animated change above bakes; live hand input can be recorded as keys first | 3, 4 |
 
-Out of scope here: live edits to the domain, fluid volumes and emitters (a separate "live scene" spec), two-way
-coupling (the fluid pushing the collider back), and the built-in demos' analytic obstacles.
+Live edits to the domain, fluid volumes and emitters are in [`INTERACTIVE_SIM_SPEC.md`](INTERACTIVE_SIM_SPEC.md).
+Out of scope: two-way coupling (the fluid pushing the collider back) and the built-in demos' analytic obstacles.
 
 ## Rules the feature keeps
 
@@ -157,7 +160,7 @@ animated modifier or Geometry Nodes input) moves to the **shape path**:
   - **Record Live Colliders** (Phase 4).
 - Status lines appear only when something is abnormal: "Paddle: lagging (speed cap)", "Rock: frozen, mesh is not
   closed", "Blob: shape updates throttled". The "Stop and Start to apply scene changes" hint is no longer shown
-  for collider edits; it stays for domain, fluid and emitter edits.
+  for collider edits; the workflow spec's classification decides what every other edit shows.
 - **During a bake** the panel says "Live collider edits are ignored while baking".
 
 ### 6. Bake and record (Phase 4)
