@@ -68,8 +68,9 @@ Subsequent authorized contained M0 continuation: native core, containment and no
 cleanup pass the exact-build bounded prerequisites. Final reconciliation and supplemental
 limit/cadence/generation/completion probes close the bounded M0 checklist.
 The shared DRW context is entered through its
-paired locked scope, then the incoming window context is restored. M1 has not started or
-been authorized; production timeout safety/performance remain unqualified. The M0 qualification
+paired locked scope, then the incoming window context is restored. M1–M5 were later implemented
+and merged in #5 (P0.11b); M5 v4 passes parity, images, lifecycle and faults but still FAILS the
+4M latency gate (completed p95 5.20 ms vs ≤2 ms), and Linux M6 is unrun. The M0 qualification
 results are kept in local, untracked research notes (removed from the public repo in #20).
 
 | ID | Work | Files | Size | Acceptance evidence |
@@ -183,7 +184,7 @@ Merged since the previous refresh:
 
 | Phase | Done on main | Open |
 |---|---|---|
-| 0 | P0.1–P0.8, P0.10–P0.13 (lifecycle, transport seam, GL/Vulkan interop with the latency fix, gpu-module points and SSFR, Warp self-test, experimental excluded) | P0.9 rename/licence (D1/D2); exit soak on Blender **5.3** Vulkan, which needs a new exact-build Vulkan profile, or else it runs Readback |
+| 0 | P0.1–P0.8, P0.10–P0.13; P0.11b merged with its 4M ≤2 ms gate still FAIL and Linux M6 unrun (lifecycle, transport seam, GL/Vulkan interop with the latency fix, gpu-module points and SSFR, Warp self-test, experimental excluded) | P0.9 rename/licence (D1/D2); exit soak on Blender **5.3** Vulkan, which needs a new exact-build Vulkan profile, or else it runs Readback |
 | 1 | P1.1, P1.3–P1.7, P1.11 | P1.2 Readback tuning + count advisor; P1.8 GPU runner; P1.9 benchmark table; P1.10 launch kit; first tagged release (`release.yml` unproven) |
 | 2 | P2.1, P2.2, P2.3, P2.5, P2.6, P2.8 | P2.7 free edition; P2.9 live collider drag; showcase reruns under the strengthened checks; certification on 5.2 LTS + current stable |
 
