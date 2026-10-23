@@ -1,7 +1,7 @@
 # Release Plan: v0.1 prototype → paid early access → v1.0
 
-Source analysis: [`reports/Warp SPH addon commercial readiness.md`](../reports/Warp%20SPH%20addon%20commercial%20readiness.md)
-and the notes in `research_notes/Warp SPH addon commercial readiness/`. Effort figures are
+Source analysis: the owner's private commercial-readiness report and notes (kept local, not
+in this public repo). Effort figures are
 estimates for one focused developer (S < 1 week, M = 1–3 weeks, L = 1–3 months).
 
 ## Outcome
@@ -69,8 +69,8 @@ cleanup pass the exact-build bounded prerequisites. Final reconciliation and sup
 limit/cadence/generation/completion probes close the bounded M0 checklist.
 The shared DRW context is entered through its
 paired locked scope, then the incoming window context is restored. M1 has not started or
-been authorized; production timeout safety/performance remain unqualified. Current evidence:
-`../research_notes/Vulkan zero copy/m0_qualification_results.md`.
+been authorized; production timeout safety/performance remain unqualified. The M0 qualification
+results are kept in local, untracked research notes (removed from the public repo in #20).
 
 | ID | Work | Files | Size | Acceptance evidence |
 |---|---|---|---|---|
@@ -168,9 +168,18 @@ removal in 6.0, switching `VulkanInterop` to the public Python API once the upst
 | Name/licence advice changes the plan | D1/D2 lawyer review | Rename is cheap before launch; delay listing, not engineering |
 | Weak early-access sales | < ~20 sales in the first 60 days | Re-check positioning and demo video before investing in Phase 2 scope |
 
-## Status (2026-10-22, main `3e20429`)
+## Status (2026-10-23, main `5965726`)
 
-Local checks on main: pytest 585 passed / 2 skipped, ruff clean.
+Last recorded local checks (main `3e20429`): pytest 585 passed / 2 skipped, ruff clean. Not re-run for this refresh.
+
+Merged since the previous refresh:
+
+- #19: P2.9 live collider drag spec ([`LIVE_COLLIDER_SPEC.md`](LIVE_COLLIDER_SPEC.md)) and this status table.
+- #20: `evidence/showcase-repair-20261021/` and `research_notes/` are no longer tracked; the files stay local and nothing in code, tests or CI reads them.
+- #21: resumed bakes are rejected when solver gravity changed or is unknown (older caches). Evidence:
+  [`verification/cache-gravity-20261022/REPORT.md`](verification/cache-gravity-20261022/REPORT.md), a background
+  Blender/CUDA session only, with no UI or viewport acceptance. Domain, collider and emitter edits are still not
+  fingerprinted; start a fresh bake after them.
 
 | Phase | Done on main | Open |
 |---|---|---|
