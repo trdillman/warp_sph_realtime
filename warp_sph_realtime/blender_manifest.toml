@@ -7,7 +7,7 @@ maintainer = "Tyler Dillman"
 type = "add-on"
 tags = ["Physics"]
 blender_version_min = "5.2.0"
-license = ["SPDX:MIT"]
+license = ["SPDX:GPL-3.0-or-later"]
 platforms = ["windows-x64", "linux-x64"]
 
 [permissions]
