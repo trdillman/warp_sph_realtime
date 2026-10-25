@@ -213,21 +213,44 @@ def description_from_blender(scene, depsgraph) -> SceneDescription:
     )
 
 
-def sync_collider_keyframes(scene, solver) -> None:
+def _matrix_or_none(obj):
+    if obj is None:
+        return None
+    try:
+        return np.array(obj.matrix_world)
+    except ReferenceError:  # deleted while the simulation runs
+        return None
+
+
+def sync_collider_keyframes(scene, solver, objects=None, held=None) -> None:
     """Feeds the solver the animated colliders' world matrices for the frames its next step needs.
 
     Main thread only. Each Blender frame is evaluated once (scene.frame_set) and its matrices handed to
     the solver; afterwards the scene is left at the simulation's current frame, so the viewport shows
     the colliders where the fluid sees them. Does nothing when no collider is animated or the needed
     frames are already known.
+
+    ``objects`` are the animated colliders in solver order, resolved by the caller (by default looked up by
+    name). A collider that is None or was deleted holds its last pose, kept in ``held`` (index -> matrix).
     """
     frames = solver.collider_frames_needed()
     if not frames:
         return
-    names = solver.animated_collider_names
+    if objects is None:
+        objects = [scene.objects.get(n) for n in solver.animated_collider_names]
+    held = {} if held is None else held
     for frame in frames:
         scene.frame_set(frame)
-        solver.set_collider_keyframe(frame, [np.array(scene.objects[n].matrix_world) for n in names])
+        matrices = []
+        for index, obj in enumerate(objects):
+            matrix = _matrix_or_none(obj)
+            if matrix is None:
+                matrix = held.get(index)
+                if matrix is None:
+                    raise SceneValidationError(f"animated collider {index} is missing and has no pose yet")
+            held[index] = matrix
+            matrices.append(matrix)
+        solver.set_collider_keyframe(frame, matrices)
     current = solver.current_frame
     if scene.frame_current != current:
         scene.frame_set(current)

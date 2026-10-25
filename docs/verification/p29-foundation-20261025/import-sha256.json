@@ -1,0 +1,15 @@
+{
+  "CHANGELOG.md": "16cd14a1f50abe25182b40743f7707d8e60e76d099538ef72ac709f6d44a61e6",
+  "docs/manual/authoring.md": "69d8c5f073ddf22d84975b8fb6655191e98888fa20f9eed057b516a895706117",
+  "docs/manual/cache-output.md": "7ee2be7d72ff5283bab6220ab03757e04bcae074611cfbb882a37ab90284af05",
+  "docs/manual/limits.md": "cf6df77062debbae476b0b438980619a44069a199a1d3c2257a72178adbcdf2c",
+  "tests/test_authoring_ui.py": "a2cabf1370859d8da8b10e072a7d8609f1c608d88c1cc479d82dcf00d24d20e5",
+  "tests/test_blender_scene.py": "81115c30a8cbcc19d642c598ccff86f36edf7506bb06e9dd68c847e39b032595",
+  "tests/test_transport_session.py": "3bc3ed01fb61341a2e06df3e2c1075943dc26b8ea81b264df1202cf10081cc82",
+  "warp_sph_realtime/addon.py": "7865280be04fc5e8c1902db189f08159aba7af5055dfe59936c8b5431e46ac3e",
+  "warp_sph_realtime/render/session.py": "83f870690b5163ee013ecc279eb522deed8a19f9095fad4da9182659c8a564c9",
+  "warp_sph_realtime/scene/blender_scene.py": "60ee207239a844a8385b626fff286d532d88d49c10032b538fcd3b4e1abf43c2",
+  "warp_sph_realtime/sim_session.py": "a91522704fa2112b68eee6c4b4cc0a8ba34d510e8e8100c3604a6846f576a942",
+  "tests/test_live_edits.py": "17a715b07ab39de5b5cfb57e903b3271f24ab10ae5683d6024c7978c55ce6d60",
+  "warp_sph_realtime/live_edits.py": "a6f0dc2dcd2e464fe849ecfd6df87a318d6cc0b0bd8b981390dd2488a0bb48b6"
+}

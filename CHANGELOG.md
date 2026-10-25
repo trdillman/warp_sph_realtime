@@ -6,6 +6,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Added
+- Interactive simulation, foundation (P2.9 phase 1): the run keeps going while the scene is edited. Scene Gravity
+  applies live (one CUDA graph recapture); every other scene change is classified by one table
+  (`warp_sph_realtime/live_edits.py`) and listed in the panel as "Reset to apply: ...". New **Reset** button rebuilds
+  the run at its start frame without restarting the GPU runtime; a scene that cannot be built keeps the current run.
 - User manual in `docs/manual/` (install, first run, authoring a scene, physics settings and presets, viewport
   display and transports, record / bake / export, known limits) and an FAQ for GPU, driver, Warp install, backend,
   Readback, VRAM and performance problems, quoting the add-on's own messages (P2.8).
@@ -18,6 +22,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   counts.
 
 ### Changed
+- Undo and redo no longer stop a running simulation: the run finds its scene and animated colliders again by
+  `session_uid`. Undo during a bake cancels the bake (saved frames are kept). A fresh bake with animated colliders
+  now starts at the run's start frame. An animated collider deleted while running holds its last pose.
 - **Particle Spacing** is now a length in scene units (`subtype='DISTANCE'`, `unit='LENGTH'`, range 0.0001 to 1000),
   shown and typed with the scene's units and Unit Scale like the objects, instead of a number of metres. It is
   multiplied by the Unit Scale for the solver. With the default Unit Scale of 1 nothing changes, and old files keep

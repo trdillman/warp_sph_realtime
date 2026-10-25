@@ -13,7 +13,8 @@
 
 **Scenes**
 
-* Edits to objects take effect only on the next **Stop** + **Start**.
+* Edits to objects (moving, reshaping, adding, removing, changing a role) take effect on **Reset**, not live;
+  only gravity and the physics and display settings apply while running. Animated colliders follow their animation.
 * A collider keeps the shape it has at the Start frame. Deforming colliders are not followed, an animated scale or
   shear stops the run with an error, and spins of more than half a turn per frame are not supported.
 * The domain is the object's world axis-aligned bounding box.

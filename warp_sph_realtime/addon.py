@@ -13,10 +13,20 @@ import importlib
 import bpy
 from bpy.props import EnumProperty, FloatProperty, FloatVectorProperty, IntProperty, PointerProperty
 
-from . import cache_ui, diagnostics, install_ui, physics_presets, props, sim_session, warp_installer, warp_runtime
+from . import (
+    cache_ui,
+    diagnostics,
+    install_ui,
+    live_edits,
+    physics_presets,
+    props,
+    sim_session,
+    warp_installer,
+    warp_runtime,
+)
 from .render.gpu_points import settings_from_scene
 from .render.transport import COMPLETED
-from .sim_session import CUSTOM_SCENE
+from .sim_session import CUSTOM_SCENE, physics_changed
 
 _startup_error = ""
 
@@ -183,6 +193,21 @@ class WM_OT_warp_sph_stop(bpy.types.Operator):
         return {'FINISHED'}
 
 
+class WM_OT_warp_sph_reset(bpy.types.Operator):
+    bl_idname = "wm.warp_sph_reset"
+    bl_label = "Reset Simulation"
+    bl_description = ("Restart the running simulation at its start frame with every scene change applied; "
+                      "keeps the GPU runtime and reuses compatible viewport output")
+
+    @classmethod
+    def poll(cls, context):
+        session = _session(context)
+        return session.running and session.bake is None
+
+    def execute(self, context):
+        return {'FINISHED'} if _session(context).reset(context, self.report) else {'CANCELLED'}
+
+
 class WM_OT_warp_sph_pause(bpy.types.Operator):
     bl_idname = "wm.warp_sph_pause"
     bl_label = "Pause / Resume Simulation"
@@ -324,7 +349,7 @@ class OBJECT_OT_warp_sph_set_role(bpy.types.Operator):
             message += f" ({len(selected) - len(meshes)} non-mesh object(s) skipped)"
         session = _session(context)
         if session.running and session.active_demo == CUSTOM_SCENE:
-            message += "; Stop and Start to apply"
+            message += "; Reset to apply"
         self.report({'INFO'}, message)
         return {'FINISHED'}
 
@@ -422,7 +447,10 @@ class OBJECT_PT_warp_sph(bpy.types.Panel):
             layout.label(text="Roles are used when the WarpSPH scene source is Custom")
         session = _session(context)
         if session.running and session.active_demo == CUSTOM_SCENE:
-            layout.label(text="Running: Stop and Start to apply role or geometry changes", icon='INFO')
+            if role == "COLLIDER" and _scene_api()._is_animated(obj):
+                layout.label(text=live_edits.ANIMATED_NOTE, icon='INFO')
+            else:
+                layout.label(text="Running: role, shape and placement changes apply on Reset", icon='INFO')
 
 
 def _draw_vram_warning(layout, particles: int):
@@ -473,8 +501,19 @@ def _draw_custom_scene(box, scene, session):
         col.label(text=f"{title} ({len(objs)}): {names or '-'}")
     for warning in warnings:
         box.label(text=warning, icon='ERROR')
-    if custom_running:
-        box.label(text="Running: Stop and Start to apply scene changes", icon='INFO')
+
+
+def _draw_pending(box, session):
+    """Scene changes the running simulation has not applied yet (live_edits.EDITS)."""
+    if not session.running:
+        return
+    reasons = session.reset_reasons()
+    if session.bake is not None:
+        if reasons or session.pending_gravity() is not None or physics_changed(session.solver, session.scene.warp_sph):
+            box.label(text=live_edits.BAKING_NOTE, icon='INFO')
+        return
+    for reason in reasons:
+        box.label(text=f"Reset to apply: {reason}", icon='FILE_REFRESH')
 
 
 def _draw_demo_scene(box, settings):
@@ -558,8 +597,7 @@ class VIEW3D_PT_warp_sph(bpy.types.Panel):
             _draw_custom_scene(box_demo, scene, session)
         else:
             _draw_demo_scene(box_demo, settings)
-        if session.running and (session.active_demo == CUSTOM_SCENE) != (settings.scene_source == 'CUSTOM'):
-            box_demo.label(text="Scene source changes apply on the next Start", icon='INFO')
+        _draw_pending(box_demo, session)
 
         box_fluid = layout.box()
         box_fluid.label(text="Fluid", icon='MOD_FLUIDSIM')
@@ -604,6 +642,7 @@ class VIEW3D_PT_warp_sph(bpy.types.Panel):
             else:
                 row.operator("wm.warp_sph_pause", icon='PAUSE', text="Pause")
             row.operator("wm.warp_sph_step_frame", icon='FRAME_NEXT', text="Step")
+            row.operator("wm.warp_sph_reset", icon='FILE_REFRESH', text="Reset")
             row.operator("wm.warp_sph_stop", icon='SNAP_FACE', text="Stop (ESC)")
 
         # Live GPU Telemetry Readout
@@ -650,17 +689,22 @@ class VIEW3D_PT_warp_sph_advanced(bpy.types.Panel):
             col.prop(settings, "absorption")
 
 
-_STOP_HANDLERS = ("load_pre", "exit_pre", "undo_pre", "redo_pre")
+_STOP_HANDLERS = ("load_pre", "exit_pre")
 
 
 def _on_load_pre(*_args):
-    """Stop the run before the session's Blender state is replaced (plan M4).
-
-    A file load frees the old window/screen. Undo/redo also stop it: they swap in an earlier
-    scene state (properties, helper objects) under a running solver and its window-bound
-    session, and no ordering guarantee makes keeping the run alive provably safe.
-    """
+    """Stop the run before the session's Blender state is replaced (plan M4): a file load frees the old
+    window/screen. Undo and redo keep the run (P2.9): they swap in an earlier copy of the file's data but
+    keep the window, so _on_undo_post finds the run's scene and objects again by session_uid."""
     sim_session.stop_all(getattr(bpy, "context", None))
+
+
+def _on_undo_pre(*_args):
+    sim_session.before_undo()
+
+
+def _on_undo_post(*_args):
+    sim_session.after_undo()
 
 
 def _migrate_open_file():
@@ -698,7 +742,8 @@ def _app_handlers():
 
 def _hooks():
     """(handler, app.handlers list names) pairs this add-on installs."""
-    return ((_on_load_pre, _STOP_HANDLERS), (_on_load_post, ("load_post",)))
+    return ((_on_load_pre, _STOP_HANDLERS), (_on_load_post, ("load_post",)),
+            (_on_undo_pre, ("undo_pre", "redo_pre")), (_on_undo_post, ("undo_post", "redo_post")))
 
 
 def _install_handlers():
@@ -741,6 +786,7 @@ def register():
     bpy.utils.register_class(WM_OT_warp_sph_load_demo)
     bpy.utils.register_class(WM_OT_warp_sph_physics_preset)
     bpy.utils.register_class(WM_OT_warp_sph_stop)
+    bpy.utils.register_class(WM_OT_warp_sph_reset)
     bpy.utils.register_class(WM_OT_warp_sph_pause)
     bpy.utils.register_class(WM_OT_warp_sph_step_frame)
     bpy.utils.register_class(WM_OT_warp_sph_use_opengl)
@@ -778,6 +824,7 @@ def unregister():
     bpy.utils.unregister_class(OBJECT_OT_warp_sph_set_role)
     bpy.utils.unregister_class(WM_OT_warp_sph_copy_diagnostics)
     bpy.utils.unregister_class(WM_OT_warp_sph_use_opengl)
+    bpy.utils.unregister_class(WM_OT_warp_sph_reset)
     bpy.utils.unregister_class(WM_OT_warp_sph_stop)
     bpy.utils.unregister_class(WM_OT_warp_sph_physics_preset)
     bpy.utils.unregister_class(WM_OT_warp_sph_load_demo)

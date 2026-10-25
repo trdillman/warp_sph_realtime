@@ -312,3 +312,21 @@ def test_sync_collider_keyframes_reads_each_frame_once_and_returns_to_the_sim_fr
     scene.calls.clear()
     sync_collider_keyframes(scene, KeyedSolver([], current=5))  # nothing needed: the timeline is untouched
     assert scene.calls == []
+
+
+class Deleted:
+    @property
+    def matrix_world(self):
+        raise ReferenceError("StructRNA of type Object has been removed")
+
+
+def test_sync_holds_the_last_pose_of_a_deleted_or_missing_collider():
+    """P2.9: deleting an animated collider mid-run never stops the run; it holds its last pose."""
+    scene, held = FrameScene(1), {}
+    sync_collider_keyframes(scene, KeyedSolver([2], current=2), objects=[scene.paddle], held=held)
+    for gone in (Deleted(), None):
+        solver = KeyedSolver([3, 4], current=3)
+        sync_collider_keyframes(scene, solver, objects=[gone], held=held)
+        assert [m[0][0, 3] for _, m in solver.keys] == [2.0, 2.0]
+    with pytest.raises(SceneValidationError, match="missing"):
+        sync_collider_keyframes(scene, KeyedSolver([5], current=5), objects=[None], held={})

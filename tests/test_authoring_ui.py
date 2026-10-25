@@ -200,12 +200,16 @@ def view3d_panel_scene_box():
     assert 'Domain (1): WarpSPH Domain' in labels and 'Colliders (1): WarpSPH Collider' in labels
     assert not [e for e in draw_panel(ctx) if e[0] == 'label' and e[2] == 'ERROR' and not e[1].startswith('Runtime')]
     session = sim_session.get(ctx.scene)
-    session.running, session.active_demo = True, addon.CUSTOM_SCENE             # running: changes need restart
+    session.running, session.active_demo = True, addon.CUSTOM_SCENE             # running: changes apply on Reset
     session.solver = NS(num_particles=90000, dt=0.001, substeps=2)
+    session.tracker = NS(pending={'COLLIDER': "collider 'WarpSPH Collider' moved"},
+                         reset_reasons=lambda: ["collider 'WarpSPH Collider' moved"])
     try:
-        labels = [e[1] for e in draw_panel(ctx) if e[0] == 'label']
+        log = draw_panel(ctx)
+        labels = [e[1] for e in log if e[0] == 'label']
         assert 'Particles: 90,000 (from the fill)' in labels
-        assert 'Running: Stop and Start to apply scene changes' in labels
+        assert "Reset to apply: collider 'WarpSPH Collider' moved" in labels
+        assert ('op', 'wm.warp_sph_reset', 'Reset') in log
         ctx.scene.name = 'Main'
         other = make_context()                                                  # another scene: one run per process
         labels = [e[1] for e in draw_panel(other) if e[0] == 'label']
@@ -213,6 +217,7 @@ def view3d_panel_scene_box():
         assert 'Particles: 90,000 (from the fill)' not in labels                # the other scene's own session
     finally:
         session.running, session.solver, session.active_demo = False, None, 'DOUBLE_DAM_PILLARS'
+        session.tracker = None
 
 @case
 def view3d_panel_emitter_budget():

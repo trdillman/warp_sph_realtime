@@ -69,7 +69,25 @@ Gravity is the scene's **Gravity** (Scene Properties > Gravity).
 
 ## Applying changes
 
-Edits take effect on the next **Stop** + **Start**; there is no live re-meshing. While a Custom scene runs, the box
-says "Running: Stop and Start to apply scene changes".
+The simulation keeps running while you edit the scene. Each change either applies live or waits for **Reset**:
+
+| Change | While running |
+| --- | --- |
+| Scene **Gravity** (or turning it off) | Live, on the next step |
+| Viscosity, presets, stiffness, time step, sub-steps, display settings | Live, as before |
+| Animated colliders | Follow their animation (the object panel says "Follows its animation while running") |
+| Moving, reshaping or changing the settings of a domain, fluid, still collider or emitter | On **Reset** |
+| Adding or removing objects, or changing a role | On **Reset** |
+| Particle spacing, Max Particles, Unit Scale, frame rate, scene source | On **Reset** |
+
+Changes that wait are listed in the Scene box as "Reset to apply: ...". **Reset** (next to Pause and Step)
+rebuilds the simulation from the scene at the frame it started on, keeping the GPU runtime and the viewport
+connection when the particle count is unchanged. Reset performance still needs runtime qualification.
+If the edited scene cannot be built (for example no domain),
+Reset reports why and the current run continues.
+
+Undo and redo no longer stop the simulation. During a bake, edits are ignored until the bake ends ("Live edits are
+ignored while baking; they apply when the bake ends"), and an undo cancels the bake, keeping the frames already
+saved. An animated collider that is deleted while running stays at its last position until Reset.
 
 Scripts that build a scene are in [`examples/`](../../examples/README.md).
