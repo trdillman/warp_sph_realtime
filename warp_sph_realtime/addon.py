@@ -288,23 +288,27 @@ class WARPSPH_ObjectSettings(bpy.types.PropertyGroup):
         description="How this object takes part in a Custom WarpSPH scene (read when the simulation starts)",
         items=ROLE_ITEMS,
         default="NONE",
+        update=props.note_edit,
     )
     emit_velocity_mode: EnumProperty(
         name="Direction",
         items=[("NORMAL", "Normal", "Particles leave along the face normals at Speed"),
                ("VECTOR", "Vector", "Particles leave with the Velocity vector")],
         default="NORMAL",
+        update=props.note_edit,
     )
     emit_speed: FloatProperty(name="Speed", description="Emission speed along the face normals",
-                              default=2.0, min=0.0, soft_max=10.0, unit='VELOCITY')
-    emit_vector: FloatVectorProperty(name="Velocity", default=(0.0, 0.0, -2.0), size=3, subtype='VELOCITY')
+                              default=2.0, min=0.0, soft_max=10.0, unit='VELOCITY',
+                              update=props.note_edit)
+    emit_vector: FloatVectorProperty(name="Velocity", default=(0.0, 0.0, -2.0), size=3, subtype='VELOCITY',
+                                     update=props.note_edit)
     emit_rate: FloatProperty(
         name="Rate (particles/s)",
         description="Particles released per second; 0 = a full stream (one particle per spacing of travel). "
                     "Higher values are capped at the full stream",
-        default=0.0, min=0.0, soft_max=1_000_000.0)
-    emit_frame_start: IntProperty(name="Start Frame", default=1)
-    emit_frame_end: IntProperty(name="End Frame", default=250)
+        default=0.0, min=0.0, soft_max=1_000_000.0, update=props.note_edit)
+    emit_frame_start: IntProperty(name="Start Frame", default=1, update=props.note_edit)
+    emit_frame_end: IntProperty(name="End Frame", default=250, update=props.note_edit)
 
 
 def _assign_role(obj, role: str):

@@ -89,8 +89,8 @@ Reset reports why and the current run continues.
 Undo and redo no longer stop the simulation. During a bake, edits are ignored until the bake ends ("Live edits are
 ignored while baking; they apply when the bake ends"), and an undo cancels the bake, keeping the frames already
 saved. An animated collider that is deleted while running stays at its last position until Reset.
-Undo or redo may conservatively show a geometry Reset hint, even when the shape looks unchanged: Blender's
-geometry update flags cannot prove that interior vertices match the running state. Reset clears that uncertainty.
+After undo or redo, a mesh counts as reshaped only if its vertices or edges differ from the running state. A mesh
+with modifiers or shape keys cannot be compared that way, so it may show a conservative "reshaped" hint until Reset.
 A paused Reset stays paused; if the viewport connection is busy, its initial particle frame is retried on later
 ticks without advancing the simulation. A rejected Reset restores the previous timeline frame.
 

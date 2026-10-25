@@ -2,6 +2,8 @@
 import unittest
 from types import SimpleNamespace as NS
 
+import numpy as np
+
 from warp_sph_realtime import live_edits
 from warp_sph_realtime.live_edits import EDITS, LIVE, RESET, ChangeTracker, diff, outcome, snapshot
 
@@ -34,6 +36,31 @@ def starter():
     return make_scene(make_object("Domain", "DOMAIN"), make_object("Fluid", "FLUID"),
                       make_object("Block", "COLLIDER"), make_object("Paddle", "COLLIDER", animated=True),
                       make_object("Tap", "EMITTER"))
+
+
+class FakeElements:
+    """A mesh element collection with Blender's ``foreach_get``."""
+
+    def __init__(self, attr, values):
+        self.attr = attr
+        setattr(self, attr, [tuple(v) for v in values])
+
+    def __len__(self):
+        return len(getattr(self, self.attr))
+
+    def foreach_get(self, attr, out):
+        out[:] = np.asarray(getattr(self, attr), dtype=out.dtype).ravel()
+
+
+def with_real_meshes(scene):
+    """Give every object a cube mesh whose vertex positions and edges can be read, as in Blender."""
+    corners = [((i & 1) * 2.0 - 1.0, (i >> 1 & 1) * 2.0 - 1.0, (i >> 2 & 1) * 2.0 - 1.0) for i in range(8)]
+    edges = [(a, b) for a in range(8) for b in range(a + 1, 8) if bin(a ^ b).count("1") == 1]
+    for o in scene.objects:
+        o.modifiers = []
+        o.data = NS(session_uid=next(_uids), vertices=FakeElements("co", corners),
+                    edges=FakeElements("vertices", edges), polygons=[0] * 6, shape_keys=None)
+    return scene
 
 
 def find(scene, name):
@@ -247,6 +274,79 @@ class ChangeTrackerTest(unittest.TestCase):
         self.assertIn("FLUID", self.tracker.refresh(self.scene))
         self.tracker.rebase(self.scene)
         self.assertEqual(self.tracker.refresh(self.scene), {})
+
+    def test_undo_flags_on_unchanged_geometry_are_not_reshapes(self):
+        # Live run: after an undo Blender flags every object's geometry. Meshes whose content still matches the
+        # run's start are not reshaped; the panel must not say "Domain/Fluid/Block reshaped".
+        scene = with_real_meshes(starter())
+        tracker = ChangeTracker(scene, custom=True)
+        tracker.after_undo()
+        tracker.note_updates([NS(is_updated_geometry=True, id=o) for o in scene.objects])
+        self.assertEqual(tracker.refresh(scene), {})
+        self.assertEqual(tracker.reshaped, set())
+
+    def test_an_interior_vertex_edit_is_a_reshape_even_after_undo(self):
+        scene = with_real_meshes(starter())
+        tracker = ChangeTracker(scene, custom=True)
+        fluid = find(scene, "Fluid")
+        start = fluid.data.vertices.co[3]
+        fluid.data.vertices.co[3] = (0.1, 0.1, 0.1)                      # same counts, same bounds
+        tracker.note_updates([NS(is_updated_geometry=True, id=fluid)])
+        self.assertEqual(tracker.refresh(scene), {"FLUID": "fluid 'Fluid' reshaped"})
+        tracker.after_undo()                                              # undo of a later, unrelated edit
+        tracker.note_updates([NS(is_updated_geometry=True, id=o) for o in scene.objects])
+        self.assertEqual(tracker.refresh(scene), {"FLUID": "fluid 'Fluid' reshaped"})
+        fluid.data.vertices.co[3] = start                                 # undone: back to the start shape
+        tracker.after_undo()
+        tracker.note_updates([NS(is_updated_geometry=True, id=fluid)])
+        self.assertEqual(tracker.refresh(scene), {})
+
+    def test_a_property_set_without_a_depsgraph_update_is_seen(self):
+        # Blender sends no depsgraph update when an add-on property (role, emitter settings, spacing) is set;
+        # the properties' update callbacks call note_edited instead.
+        pebble = make_object("Pebble", "COLLIDER")
+        self.scene.objects.append(pebble)
+        self.tracker.rebase(self.scene)
+        pebble.warp_sph.role = "NONE"
+        self.tracker.note_edited(pebble)
+        self.assertEqual(self.tracker.refresh(self.scene), {"objects": "'Pebble' left the simulation"})
+        find(self.scene, "Tap").warp_sph.emit_rate = 500.0
+        self.tracker.note_edited(find(self.scene, "Tap"))
+        self.assertIn("EMITTER", self.tracker.refresh(self.scene))
+        self.scene.warp_sph.particle_spacing = 0.03
+        self.tracker.note_edited(self.scene)
+        self.assertIn("spacing", self.tracker.refresh(self.scene))
+        with self.tracker.muted():
+            self.tracker.note_edited(self.scene)
+        self.assertFalse(self.tracker.dirty)
+
+    def test_a_drag_tick_compares_only_the_dragged_object(self):
+        calls = []
+        real = live_edits._object_change
+        def counted(*args):
+            calls.append(args[1].name)
+            return real(*args)
+        live_edits._object_change = counted
+        self.addCleanup(setattr, live_edits, "_object_change", real)
+        block = find(self.scene, "Block")
+        for x in (0.1, 0.2):
+            block.matrix_world = translated(x)
+            self.tracker.note_updates([NS(id=block)])
+            self.assertEqual(self.tracker.refresh(self.scene), {"COLLIDER": "collider 'Block' moved"})
+        self.assertEqual(calls, ["Block", "Block"])
+        block.matrix_world = IDENTITY
+        self.tracker.note_updates([NS(id=block)])
+        self.assertEqual(self.tracker.refresh(self.scene), {})
+
+    def test_pending_order_does_not_depend_on_which_object_changed_last(self):
+        block, paddle_free = find(self.scene, "Block"), find(self.scene, "Domain")
+        paddle_free.matrix_world = translated(0.3)
+        self.tracker.note_updates([NS(id=paddle_free)])
+        self.tracker.refresh(self.scene)
+        block.matrix_world = translated(0.5)
+        self.tracker.note_updates([NS(id=block)])
+        incremental = self.tracker.refresh(self.scene)
+        self.assertEqual(list(incremental.items()), list(diff(self.tracker.base, snapshot(self.scene, True)).items()))
 
     def test_uid_falls_back_to_the_name(self):
         self.assertEqual(live_edits.uid(NS(name="Cube")), ("name", "Cube"))
