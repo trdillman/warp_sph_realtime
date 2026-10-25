@@ -197,7 +197,6 @@ class ChangeTracker:
         self.dirty = False
         self.pending: dict[str, str] = {}
         self._scene_uid = uid(scene)
-        self._settling: str | bool = False
         try:
             self.base = self.current = snapshot(scene, self.custom)
             self._remember(scene)
@@ -222,19 +221,18 @@ class ChangeTracker:
             self._muted = previous
 
     def after_undo(self):
-        """Undo / redo swapped in another copy of the file's data: re-read everything. Undo reports every object
-        as reshaped, so geometry flags from before it and from its own update are dropped; Reset re-reads the
-        whole scene regardless."""
+        """Undo / redo swapped in another copy of the file's data: re-read everything.
+
+        Keep geometry uncertainty until Reset: counts and bounds cannot distinguish interior vertex edits.
+        Blender can flag unchanged geometry during undo, so a Reset hint may be conservative, but discarding
+        those flags would silently hide actual geometry edits and pending edits an unrelated undo preserves.
+        """
         self.dirty = self._full = True
-        self._settling = "undo"  # until a refresh after the undo's own depsgraph update
-        self.reshaped = set()
 
     def note_updates(self, updates=()):
         if self._muted:
             return
         self.dirty = True
-        if self._settling:
-            self._settling = "seen"
         if not updates:
             self._full = True  # nothing says what changed
         for update in updates:
@@ -243,7 +241,7 @@ class ChangeTracker:
             if hasattr(ident, "matrix_world"):  # an object
                 key = uid(ident)
                 self._touched.add(key)
-                if getattr(update, "is_updated_geometry", False) and not self._settling:
+                if getattr(update, "is_updated_geometry", False):
                     self.reshaped.add(key)
             elif hasattr(ident, "vertices") or uid(ident) == self._scene_uid:
                 pass  # a mesh flags its objects too; scene settings are re-read on every refresh
@@ -281,8 +279,6 @@ class ChangeTracker:
                 self.pending = {"unreadable": f"the scene could not be read: {exc}"}
                 self._full = True
             self._touched = set()
-            if self._settling == "seen":
-                self._settling = False
         return self.pending
 
     def accept(self, kind: str):

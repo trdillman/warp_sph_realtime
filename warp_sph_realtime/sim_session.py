@@ -140,6 +140,7 @@ class SimSession:
         self.tracker: live_edits.ChangeTracker | None = None
         self.start_frame: int | None = None
         self.last_reset_ms = 0.0
+        self._output_pending = False  # a rebuilt solver still needs its initial frame published
         self._collider_uids: list = []   # animated colliders in solver order, by session_uid
         self._colliders: list = []       # the same, resolved to objects (None once removed)
         self._held: dict = {}            # index -> last pose of each animated collider
@@ -291,6 +292,7 @@ class SimSession:
             self.solver, self.active_demo = solver, demo_type
             if old_buf:
                 old_buf.destroy()
+            self._output_pending = False
         else:
             if solver is None:
                 solver = self._new_solver(scene, num_p, demo_type, depsgraph)
@@ -302,7 +304,7 @@ class SimSession:
                 _QUARANTINE.append(solver)
                 raise
             try:
-                session.tick(solver.copy_positions)  # publish before first draw
+                output_pending = not session.tick(solver.copy_positions)  # retry if the output is busy
             except FatalTransportError:
                 _QUARANTINE.extend((solver, session))  # no CUDA cleanup after a fatal error
                 raise
@@ -326,6 +328,7 @@ class SimSession:
             # Commit point: output and solver switch together, before the old session is retired.
             self.session = session
             self.solver, self.active_demo = solver, demo_type
+            self._output_pending = output_pending
             if old_session is not None:
                 self._retire(old_session)
                 if self.restart_required:  # old cleanup failed: stop; stop() quarantines the new pair
@@ -352,12 +355,13 @@ class SimSession:
                 return False
             with self.gl_buf.mapped() as pos_vbo_wp:
                 solver.copy_positions(pos_vbo_wp)
+            self._output_pending = False
             return True
         session = self.session
         if session is None or session.count != count:
             return False
         try:
-            session.tick(solver.copy_positions)  # publish before the next draw; a busy slot publishes next tick
+            self._output_pending = not session.tick(solver.copy_positions)
         except FatalTransportError:
             _QUARANTINE.append(solver)
             raise
@@ -431,6 +435,7 @@ class SimSession:
             report({'ERROR'}, "Cancel the bake before Reset")
             return False
         t0 = time.perf_counter()
+        frame = getattr(self.scene, "frame_current", None)
         try:
             self._rebuild_at_start(context)
         except FatalTransportError as exc:
@@ -438,6 +443,13 @@ class SimSession:
             report({'ERROR'}, f"WarpSPH GPU transport failed; restart Blender: {exc}")
             return False
         except Exception as exc:  # SceneSetupError and other build errors: the current run continues
+            if frame is not None and getattr(self.scene, "frame_current", frame) != frame:
+                tracker = self.tracker
+                if tracker is not None:
+                    with tracker.muted():
+                        self.scene.frame_set(frame)
+                else:
+                    self.scene.frame_set(frame)
             report({'ERROR'}, f"WarpSPH cannot reset: {exc}; the current run continues")
             return False
         self.last_reset_ms = (time.perf_counter() - t0) * 1000.0
@@ -585,6 +597,21 @@ class SimSession:
                     report({'ERROR'}, f"WarpSPH stopped: {exc}")
                 self.stop(context)
                 return False
+
+        if self._output_pending and self.session is not None:
+            try:
+                self._output_pending = not self.session.tick(self.solver.copy_positions)
+            except FatalTransportError as exc:
+                self.mark_fatal(str(exc))
+                report({'ERROR'}, f"WarpSPH GPU transport failed; restart Blender: {exc}")
+                self.stop(context)
+                return False
+            except Exception as exc:
+                report({'ERROR'}, f"WarpSPH stopped: {exc}")
+                self.stop(context)
+                return False
+            _redraw_views(screen)
+            return True  # publish the initial state before advancing, including when paused
 
         if self.paused and not self.step_once:
             _redraw_views(screen)  # keep redrawing so display settings stay live on the frozen frame

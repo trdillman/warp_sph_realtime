@@ -226,15 +226,27 @@ class ChangeTrackerTest(unittest.TestCase):
         self.tracker.note_updates([NS(id=self.scene)])
         self.assertEqual(self.tracker.refresh(self.scene), {"objects": "'Block' left the simulation"})
 
-    def test_undo_drops_its_own_geometry_flags(self):
-        everything = [NS(is_updated_geometry=True, id=o) for o in self.scene.objects]
-        self.tracker.note_updates([everything[0]])                       # a reshape the undo then reverts
+    def test_undo_preserves_pending_geometry_that_tokens_cannot_compare(self):
+        fluid = find(self.scene, "Fluid")
+        # Interior vertex edits can leave counts and bounds identical. The geometry flag is the only evidence.
+        self.tracker.note_updates([NS(is_updated_geometry=True, id=fluid)])
+        self.assertIn("FLUID", self.tracker.refresh(self.scene))
+        # Undo a later unrelated edit: the fluid edit and its Reset requirement still exist.
         self.tracker.after_undo()
-        self.assertEqual(self.tracker.refresh(self.scene), {})            # undo_post may come before its update
-        self.tracker.note_updates(everything)                             # the undo's own update flags everything
-        self.assertEqual(self.tracker.refresh(self.scene), {})
+        self.assertIn("FLUID", self.tracker.refresh(self.scene))
+
+    def test_redo_geometry_flags_are_not_discarded(self):
+        self.tracker.after_undo()
+        self.tracker.refresh(self.scene)  # redo_post may precede depsgraph evaluation
         self.tracker.note_updates([NS(is_updated_geometry=True, id=find(self.scene, "Fluid"))])
-        self.assertEqual(self.tracker.refresh(self.scene), {"FLUID": "fluid 'Fluid' reshaped"})   # real edits count
+        self.assertIn("FLUID", self.tracker.refresh(self.scene))
+
+    def test_undo_geometry_uncertainty_is_cleared_by_reset(self):
+        self.tracker.after_undo()
+        self.tracker.note_updates([NS(is_updated_geometry=True, id=find(self.scene, "Fluid"))])
+        self.assertIn("FLUID", self.tracker.refresh(self.scene))
+        self.tracker.rebase(self.scene)
+        self.assertEqual(self.tracker.refresh(self.scene), {})
 
     def test_uid_falls_back_to_the_name(self):
         self.assertEqual(live_edits.uid(NS(name="Cube")), ("name", "Cube"))

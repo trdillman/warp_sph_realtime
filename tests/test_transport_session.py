@@ -795,6 +795,46 @@ def reset_rebuilds_at_the_start_frame_and_keeps_the_run(ctx):
     assert not addon.WM_OT_warp_sph_reset.poll(ctx) and reset_op.execute(ctx) == {'CANCELLED'}
 
 @case
+def paused_reset_retries_publication_after_backpressure(ctx):
+    op, _ = start(ctx)
+    assert op.modal(ctx, TIMER) == {'PASS_THROUGH'}
+    RT.paused = True
+    session, old_solver = RT.session, RT.solver
+    published = session.transport.frame
+    session.transport.ready = False
+    assert addon.WM_OT_warp_sph_reset().execute(ctx) == {'FINISHED'}
+    assert RT.solver is not old_solver and RT.paused and RT.session is session
+    assert op.modal(ctx, TIMER) == {'PASS_THROUGH'}
+    assert session.transport.frame == published and RT.solver.steps == 0
+    session.transport.ready = True
+    assert op.modal(ctx, TIMER) == {'PASS_THROUGH'}
+    assert session.transport.frame == published + 1, 'paused Reset must eventually display its initial state'
+    assert RT.solver.steps == 0 and RT.step_count == 0 and RT.paused
+    assert op.modal(ctx, TIMER) == {'PASS_THROUGH'}
+    assert session.transport.frame == published + 1  # publish once, without advancing physics
+
+@case
+def rejected_reset_restores_the_scene_frame(ctx):
+    ctx.scene.warp_sph.scene_source = 'CUSTOM'
+    ctx.scene.frame_current = 1
+    visited = []
+    def frame_set(frame):
+        visited.append(frame)
+        ctx.scene.frame_current = frame
+    ctx.scene.frame_set = frame_set
+    start(ctx)
+    old_solver, session = RT.solver, RT.session
+    ctx.scene.frame_current = 20
+    Solver.fill_error = SceneValidationError('invalid edited scene')
+    reset_op = addon.WM_OT_warp_sph_reset()
+    assert reset_op.execute(ctx) == {'CANCELLED'}
+    assert ctx.scene.frame_current == 20, 'rejected Reset must restore the visible scene frame'
+    assert visited == [1, 20] and RT.start_frame == 1
+    assert RT.running and RT.solver is old_solver and RT.session is session
+    Solver.fill_error = None
+    assert reset_op.execute(ctx) == {'FINISHED'} and ctx.scene.frame_current == 1
+
+@case
 def live_gravity_is_one_recapture(ctx):
     ctx.scene.warp_sph.scene_source = 'CUSTOM'
     op, _ = start(ctx)

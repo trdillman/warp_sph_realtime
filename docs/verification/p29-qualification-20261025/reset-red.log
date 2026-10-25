@@ -1,0 +1,49 @@
+............F                                                          [100%]
+=================================== FAILURES ===================================
+____________ AddonLifecycleTest.test_lifecycle_with_fake_transport _____________
+
+self = <test_transport_session.AddonLifecycleTest testMethod=test_lifecycle_with_fake_transport>
+
+    def test_lifecycle_with_fake_transport(self):
+        # Script on stdin: it outgrew the Windows command-line limit for `-c`.
+        result = subprocess.run([sys.executable, '-'], input=LIFECYCLE, cwd=str(ROOT),
+                                capture_output=True, text=True, timeout=60)
+>       self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+E       AssertionError: 1 != 0 : ok start_step_stop
+E       ok immediate_disable
+E       ok in_flight_disable_quarantines
+E       ok failed_close_requires_restart
+E       ok repeated_close
+E       ok no_view_startup_and_last_view_closure
+E       ok file_load
+E       ok failure_after_every_setup_acquisition
+E       ok recoverable_interop_falls_back_once
+E       ok fatal_tick_stops_without_cleanup
+E       ok transactional_resize
+E       ok load_demo_while_running_uses_transaction
+E       ok solver_step_error_is_fatal
+E       ok graph_rebuild_error_is_fatal
+E       ok viscosity_change_recaptures_the_graph_once
+E       ok step_once_survives_backpressure
+E       ok redraw_only_on_new_frame
+E       ok priming_failure_with_failed_close_quarantines_solver
+E       ok gl_resize_commits_solver_with_buffer
+E       ok opengl_points_runs_through_gl_texture_session
+E       ok opengl_ssfr_and_spheres_keep_the_legacy_vbo_path
+E       ok opengl_texture_failure_falls_back_once_then_uses_legacy_vbo
+E       ok opengl_texture_fatal_failure_requires_restart
+E       ok resize_never_downgrades_interop
+E       ok resize_failed_old_close_quarantines_everything
+E       ok undo_and_redo_keep_the_run
+E       ok undo_cancels_a_bake_and_keeps_the_run
+E       ok reset_rebuilds_at_the_start_frame_and_keeps_the_run
+E       Traceback (most recent call last):
+E         File "<stdin>", line 603, in <module>
+E         File "<stdin>", line 180, in case
+E         File "<stdin>", line 617, in paused_reset_retries_publication_after_backpressure
+E       AssertionError: paused Reset must eventually display its initial state
+
+tests/test_transport_session.py:1200: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_transport_session.py::AddonLifecycleTest::test_lifecycle_with_fake_transport
+1 failed, 12 passed, 2 subtests passed in 0.41s
