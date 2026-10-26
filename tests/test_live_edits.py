@@ -338,6 +338,27 @@ class ChangeTrackerTest(unittest.TestCase):
         self.tracker.note_updates([NS(id=block)])
         self.assertEqual(self.tracker.refresh(self.scene), {})
 
+    def test_a_drag_tick_does_not_re_read_bounds_but_a_geometry_update_does(self):
+        # Live gate: 32 dragged objects cost <= 1 ms per tick. A move cannot change a mesh, so the shape token
+        # (bounds) is re-read only when Blender flags the object's geometry.
+        calls = []
+        real = live_edits._shape
+        def counted(obj):
+            calls.append(obj.name)
+            return real(obj)
+        live_edits._shape = counted
+        self.addCleanup(setattr, live_edits, "_shape", real)
+        block = find(self.scene, "Block")
+        block.matrix_world = translated(0.2)
+        self.tracker.note_updates([NS(is_updated_geometry=False, id=block)])
+        self.assertEqual(self.tracker.refresh(self.scene), {"COLLIDER": "collider 'Block' moved"})
+        self.assertEqual(calls, [])
+        block.matrix_world = IDENTITY
+        block.bound_box = [(-2.0, -1.0, -1.0), (1.0, 1.0, 1.0)]
+        self.tracker.note_updates([NS(is_updated_geometry=True, id=block)])
+        self.assertEqual(self.tracker.refresh(self.scene), {"COLLIDER": "collider 'Block' reshaped"})
+        self.assertEqual(calls, ["Block"])
+
     def test_pending_order_does_not_depend_on_which_object_changed_last(self):
         block, paddle_free = find(self.scene, "Block"), find(self.scene, "Domain")
         paddle_free.matrix_world = translated(0.3)

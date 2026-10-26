@@ -85,7 +85,7 @@ def _scene_api():
 
 
 def _matrix(obj) -> tuple:
-    return tuple(tuple(float(v) for v in row) for row in obj.matrix_world)
+    return tuple(map(tuple, obj.matrix_world))  # rows of floats; read every tick for each dragged object
 
 
 def _shape(obj) -> tuple:
@@ -143,8 +143,9 @@ def _settings(scene, custom: bool) -> dict:
     return values
 
 
-def _state(api, obj, role: str) -> ObjectState:
-    return ObjectState(obj.name, role, api._is_animated(obj), _matrix(obj), _shape(obj),
+def _state(api, obj, role: str, shape=None) -> ObjectState:
+    """``shape``: the object's last shape token, when Blender reported no geometry change since (a move)."""
+    return ObjectState(obj.name, role, api._is_animated(obj), _matrix(obj), _shape(obj) if shape is None else shape,
                        _emit(obj) if role == "EMITTER" else ())
 
 
@@ -342,7 +343,9 @@ class ChangeTracker:
                     if role is None:
                         objects.pop(key, None)
                     else:
-                        objects[key] = _state(api, obj, role)
+                        last = objects.get(key)  # bounds change only with geometry, which Blender flags
+                        keep = last.shape if last is not None and key not in self._unverified else None
+                        objects[key] = _state(api, obj, role, keep)
                 return Snapshot(True, _settings(scene, True), objects), False
             except ReferenceError:  # an object was removed under its update: read everything
                 pass
