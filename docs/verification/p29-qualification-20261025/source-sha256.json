@@ -1,0 +1,7 @@
+{
+  "warp_sph_realtime/sim_session.py": "edd8ba1bbe27860b89b86ac57d47225457da9ff2c9d50da86cc626cc651c6701",
+  "warp_sph_realtime/live_edits.py": "fecba3e104f23765438fbd08b47d0d00ebf8678df0ebc62b7e7392f8d1937306",
+  "tests/test_transport_session.py": "fb1c44e5aa4510e0805847455f9939458a4086ca05c3b8cc03edc09c38771d1d",
+  "tests/test_live_edits.py": "e930bfb873efa8cf115f2c85ac965f0921189c07ed89484c2e96d02257b74c97",
+  "docs/manual/authoring.md": "5d99cf87bb5628d76fa8249130bcd5155ab80bf80449b3e671aa3ad9176bfe2c"
+}

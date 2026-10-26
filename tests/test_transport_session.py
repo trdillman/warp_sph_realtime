@@ -227,8 +227,10 @@ for name in ('BoolProperty', 'EnumProperty', 'FloatProperty', 'FloatVectorProper
 bpy.utils = NS(register_class=lambda c: None, unregister_class=lambda c: None)
 def persistent(f): f._bpy_persistent = True; return f
 bpy.app = NS(online_access=False, online_access_override=True,
-             handlers=NS(load_pre=[], exit_pre=[], undo_pre=[], redo_pre=[], persistent=persistent))
-PRE_HANDLERS = ('load_pre', 'exit_pre', 'undo_pre', 'redo_pre')
+             handlers=NS(load_pre=[], exit_pre=[], undo_pre=[], redo_pre=[], undo_post=[], redo_post=[],
+                         depsgraph_update_post=[], persistent=persistent))
+PRE_HANDLERS = ('load_pre', 'exit_pre')   # undo and redo keep the run (P2.9)
+UNDO_HANDLERS = ('undo_pre', 'redo_pre', 'undo_post', 'redo_post')
 sys.modules['bpy'] = bpy
 sys.modules['bpy.props'] = bpy.props
 gpu = types.ModuleType('gpu')
@@ -312,7 +314,7 @@ def open_session(backend, count, window, *, interop_unavailable=''):
                      alloc=lambda n: 'scratch', renderer_factory=Renderer)
 sim_session.transport_session.open_session = open_session
 RUNTIME = sim_session.runtime
-RUNTIME.wp = NS(copy=lambda dst, src: None)  # marks the runtime active; no Warp import
+RUNTIME.wp = NS(copy=lambda dst, src: None, vec3=lambda *g: ('vec3',) + g)  # marks the runtime active; no Warp import
 RUNTIME.RealtimeWCSPHSolver = Solver
 RUNTIME.launch_demo_scene_init = lambda solver, demo: None
 HELPERS = []
@@ -377,6 +379,8 @@ assert all(addon._on_load_pre in getattr(bpy.app.handlers, n) for n in PRE_HANDL
 addon._install_handlers()  # idempotent: never installs a handler twice
 assert all(getattr(bpy.app.handlers, n).count(addon._on_load_pre) == 1 for n in PRE_HANDLERS)
 assert addon._on_load_pre._bpy_persistent
+assert all(addon._on_load_pre not in getattr(bpy.app.handlers, n) for n in UNDO_HANDLERS)
+assert addon._on_undo_pre in bpy.app.handlers.undo_pre and addon._on_undo_post in bpy.app.handlers.redo_post
 
 @case
 def start_step_stop(ctx):
@@ -721,18 +725,137 @@ def resize_failed_old_close_quarantines_everything(ctx):
     assert old_solver in solvers and any(o.num_particles == 2000 for o in solvers)
 
 @case
-def undo_and_redo_stop_the_run(ctx):
-    for name in ('undo_pre', 'redo_pre'):
+def undo_and_redo_keep_the_run(ctx):
+    for pre, post in (('undo_pre', 'undo_post'), ('redo_pre', 'redo_post')):
         ctx = reset()
+        ctx.scene.session_uid = 41
         op, _ = start(ctx)
-        session = RT.session
-        for handler in getattr(bpy.app.handlers, name):
+        session, run = RT.session, CUR[0]
+        assert sim_session._on_depsgraph_update in bpy.app.handlers.depsgraph_update_post  # watched while running
+        restored = Scene()                       # undo swaps in an earlier copy of the scene: same session_uid
+        restored.session_uid, restored.warp_sph = 41, ctx.scene.warp_sph
+        bpy.data = NS(scenes=[NS(session_uid=7), restored])
+        for handler in getattr(bpy.app.handlers, pre) + getattr(bpy.app.handlers, post):
             handler(None)
-        assert session.transport.closes == 1 and RT.session is None and RT.solver is None and not RT.running, name
-        assert op.modal(ctx, TIMER) == {'CANCELLED'}
-        for handler in getattr(bpy.app.handlers, name):  # idempotent when nothing is running
-            handler(None)
-        assert session.transport.closes == 1
+        assert run.running and RT.session is session and session.transport.closes == 0, pre
+        assert run.scene is restored and sim_session.get(restored) is run    # re-keyed to the restored scene
+        ctx.scene = restored
+        assert op.modal(ctx, TIMER) == {'PASS_THROUGH'} and RT.solver.steps == 1, pre
+    bpy.data = NS(scenes=[])                     # undo removed the simulated scene: the run stops
+    for handler in bpy.app.handlers.undo_post:
+        handler(None)
+    assert not run.running and session.transport.closes == 1 and 'undo removed' in run.last_error
+    assert sim_session._on_depsgraph_update not in bpy.app.handlers.depsgraph_update_post
+    for handler in bpy.app.handlers.undo_pre + bpy.app.handlers.undo_post:   # idempotent when idle
+        handler(None)
+    del bpy.data
+
+@case
+def undo_cancels_a_bake_and_keeps_the_run(ctx):
+    start(ctx)
+    cancels = []
+    RT.bake = NS(cancel=lambda: cancels.append(1))
+    for handler in bpy.app.handlers.undo_pre:
+        handler(None)
+    assert cancels == [1] and RT.running
+    RT.bake = None
+
+@case
+def reset_rebuilds_at_the_start_frame_and_keeps_the_run(ctx):
+    op, _ = start(ctx)
+    assert op.modal(ctx, TIMER) == {'PASS_THROUGH'} and RT.step_count == 1
+    old_solver, timer, session = RT.solver, RT.timer, RT.session
+    published = session.transport.frame
+    reset_op = addon.WM_OT_warp_sph_reset()
+    assert addon.WM_OT_warp_sph_reset.poll(ctx)
+    assert reset_op.execute(ctx) == {'FINISHED'}, getattr(reset_op, 'reports', None)
+    assert RT.running and RT.solver is not old_solver and RT.step_count == 0 and RT.timer is timer
+    assert RT.last_reset_ms >= 0.0 and 'reset to frame' in reset_op.reports[-1][1]
+    # Same particle count: the transport session is kept (no reopen, no close), the new solver is published.
+    assert RT.session is session and session.transport.closes == 0 and FACTORY.counts == [1000]
+    assert session.transport.frame == published + 1
+    assert op.modal(ctx, TIMER) == {'PASS_THROUGH'} and RT.solver.steps == 1
+    ctx.scene.warp_sph.particle_count = 2000           # another count: a new output, the old one retired
+    assert addon.WM_OT_warp_sph_reset().execute(ctx) == {'FINISHED'}
+    assert RT.session is not session and session.transport.closes == 1 and FACTORY.counts == [1000, 2000]
+    current = RT.solver
+    Solver.fail = RuntimeError('out of memory')        # a failed Reset keeps the current run
+    reset_op = addon.WM_OT_warp_sph_reset()
+    assert reset_op.execute(ctx) == {'CANCELLED'} and reset_op.reports[-1][0] == 'ERROR'
+    assert 'current run continues' in reset_op.reports[-1][1]
+    assert RT.running and RT.solver is current
+    Solver.fail = None
+    RT.bake = NS(cancel=lambda: None)                  # no Reset during a bake
+    assert not addon.WM_OT_warp_sph_reset.poll(ctx)
+    reset_op = addon.WM_OT_warp_sph_reset()
+    assert reset_op.execute(ctx) == {'CANCELLED'} and 'bake' in reset_op.reports[-1][1]
+    RT.bake = None
+    RT.stop(ctx)
+    reset_op = addon.WM_OT_warp_sph_reset()
+    assert not addon.WM_OT_warp_sph_reset.poll(ctx) and reset_op.execute(ctx) == {'CANCELLED'}
+
+@case
+def paused_reset_retries_publication_after_backpressure(ctx):
+    op, _ = start(ctx)
+    assert op.modal(ctx, TIMER) == {'PASS_THROUGH'}
+    RT.paused = True
+    session, old_solver = RT.session, RT.solver
+    published = session.transport.frame
+    session.transport.ready = False
+    assert addon.WM_OT_warp_sph_reset().execute(ctx) == {'FINISHED'}
+    assert RT.solver is not old_solver and RT.paused and RT.session is session
+    assert op.modal(ctx, TIMER) == {'PASS_THROUGH'}
+    assert session.transport.frame == published and RT.solver.steps == 0
+    session.transport.ready = True
+    assert op.modal(ctx, TIMER) == {'PASS_THROUGH'}
+    assert session.transport.frame == published + 1, 'paused Reset must eventually display its initial state'
+    assert RT.solver.steps == 0 and RT.step_count == 0 and RT.paused
+    assert op.modal(ctx, TIMER) == {'PASS_THROUGH'}
+    assert session.transport.frame == published + 1  # publish once, without advancing physics
+
+@case
+def rejected_reset_restores_the_scene_frame(ctx):
+    ctx.scene.warp_sph.scene_source = 'CUSTOM'
+    ctx.scene.frame_current = 1
+    visited = []
+    def frame_set(frame):
+        visited.append(frame)
+        ctx.scene.frame_current = frame
+    ctx.scene.frame_set = frame_set
+    start(ctx)
+    old_solver, session = RT.solver, RT.session
+    ctx.scene.frame_current = 20
+    Solver.fill_error = SceneValidationError('invalid edited scene')
+    reset_op = addon.WM_OT_warp_sph_reset()
+    assert reset_op.execute(ctx) == {'CANCELLED'}
+    assert ctx.scene.frame_current == 20, 'rejected Reset must restore the visible scene frame'
+    assert visited == [1, 20] and RT.start_frame == 1
+    assert RT.running and RT.solver is old_solver and RT.session is session
+    Solver.fill_error = None
+    assert reset_op.execute(ctx) == {'FINISHED'} and ctx.scene.frame_current == 1
+
+@case
+def live_gravity_is_one_recapture(ctx):
+    ctx.scene.warp_sph.scene_source = 'CUSTOM'
+    op, _ = start(ctx)
+    accepted = []
+    class Tracker:
+        pending = {'gravity': 'gravity'}
+        current = NS(settings={'gravity': (0.0, 0.0, -3.0)})
+        def refresh(self, scene): return self.pending
+        def accept(self, kind): accepted.append(kind); self.pending = {}
+        def note_updates(self, updates=()): pass
+        def reset_reasons(self): return []
+        @contextlib.contextmanager
+        def muted(self): yield
+    RT.tracker = Tracker()
+    before = Solver.rebuilds
+    assert op.modal(ctx, TIMER) == {'PASS_THROUGH'} and RT.solver.steps == 1
+    assert Solver.rebuilds == before + 1 and RT.solver.gravity == ('vec3', 0.0, 0.0, -3.0) and accepted == ['gravity']
+    assert op.modal(ctx, TIMER) == {'PASS_THROUGH'} and Solver.rebuilds == before + 1  # applied once
+    ctx.scene.warp_sph.viscosity = 0.3                 # gravity and physics together: still one recapture
+    RT.tracker.pending = {'gravity': 'gravity'}
+    assert op.modal(ctx, TIMER) == {'PASS_THROUGH'} and Solver.rebuilds == before + 2
 
 def _capture_draw_log():
     import logging

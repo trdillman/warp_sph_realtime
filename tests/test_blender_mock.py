@@ -157,6 +157,36 @@ class TestBlenderIntegrationAndDemos(unittest.TestCase):
         self.assertNotIn("WARPSPH_SceneSettings", registered)
         self.assertFalse(hasattr(bpy_mock.types.Scene, "warp_sph"), "scene settings not cleaned up after unregister")
 
+    def test_tracked_settings_notify_the_running_session(self):
+        """P2.9: Blender sends no depsgraph update when an add-on property is set, so every property the change
+        tracker reads has an update callback that tells the running session's tracker."""
+        from warp_sph_realtime import addon, live_edits, props, sim_session
+        tracked = {
+            props.WARPSPH_SceneSettings: live_edits.SCENE_SETTINGS,
+            addon.WARPSPH_ObjectSettings: ("role", *(f"emit_{f}" for f in live_edits._EMIT_FIELDS)),
+        }
+        self.assertEqual(set(live_edits.SCENE_SETTINGS), {"scene_source", "particle_spacing", "max_particles"})
+        noted = []
+        tracker = types.SimpleNamespace(note_edited=noted.append)
+        running = types.SimpleNamespace(tracker=tracker)
+        original = sim_session.active
+        sim_session.active = lambda: running
+        try:
+            for cls, names in tracked.items():
+                for name in names:
+                    spec = cls.__annotations__[name]
+                    if isinstance(spec, str):
+                        spec = eval(spec, vars(sys.modules[cls.__module__]))
+                    with self.subTest(setting=f"{cls.__name__}.{name}"):
+                        self.assertIn("update", spec)
+                        owner = object()
+                        spec["update"](types.SimpleNamespace(id_data=owner), None)
+                        self.assertIs(noted[-1], owner)
+            sim_session.active = lambda: None
+            props.note_edit(types.SimpleNamespace(id_data=object()), None)  # nothing running: nothing to tell
+        finally:
+            sim_session.active = original
+
     def test_interop_bridge_interface(self):
         """Verifies that ZeroCopyGLBuffer52 class and OpenGL methods are properly exposed."""
         self.assertTrue(hasattr(ZeroCopyGLBuffer52, "map_to_warp"))

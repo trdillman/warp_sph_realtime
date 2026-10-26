@@ -22,8 +22,9 @@ READBACK_LABEL = 'Readback (CPU copy)'
 
 
 class TransportSession:
-    def __init__(self, transport, positions, renderer, backend: str, reason: str = ''):
+    def __init__(self, transport, positions, renderer, backend: str, reason: str = '', count: int | None = None):
         self.transport = transport
+        self.count = count  # particles per frame; a solver of the same size can reuse the session
         self.positions = positions
         self.renderer = renderer
         self.backend = backend
@@ -130,7 +131,7 @@ def open_session(backend: str, count: int, window: int, *, interop_unavailable: 
     if transport is None:
         transport = create_readback(count, reason=reason)
     try:
-        return TransportSession(transport, alloc(count), renderer_factory(), backend, reason)
+        return TransportSession(transport, alloc(count), renderer_factory(), backend, reason, count)
     except BaseException:
         transport.close()
         raise

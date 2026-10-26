@@ -19,8 +19,8 @@ running: **Bake** starts it. Baking is an explicit action; the live view never r
 
 * Cancel, Esc or a failure keeps every frame saved so far.
 * **Resume** continues after the last saved frame (or extends **End**). It refuses a cache baked with a different
-  particle count, solver gravity or different solver settings. After editing Scene Gravity, Stop and Start
-  the simulation to rebuild its physics before baking. Old caches without recorded gravity remain playable
+  particle count, solver gravity or different solver settings. Scene Gravity edits reach the running simulation
+  on its next step (not during a bake), so a cache baked before the change cannot be resumed after it. Old caches without recorded gravity remain playable
   but cannot be resumed safely: choose a new cache folder or use **Bake** to start a fresh bake.
 * **Invalidate From Current Frame** deletes the current frame onward so **Resume** re-simulates it.
 * **Delete** (**Delete Cache**) removes every cached frame of this scene.

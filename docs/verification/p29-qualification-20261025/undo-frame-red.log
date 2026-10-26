@@ -1,0 +1,91 @@
+.................F..FF............F                         [100%]
+=================================== FAILURES ===================================
+_________ ChangeTrackerTest.test_redo_geometry_flags_are_not_discarded _________
+
+self = <test_live_edits.ChangeTrackerTest testMethod=test_redo_geometry_flags_are_not_discarded>
+
+    def test_redo_geometry_flags_are_not_discarded(self):
+        self.tracker.after_undo()
+        self.tracker.refresh(self.scene)  # redo_post may precede depsgraph evaluation
+        self.tracker.note_updates([NS(is_updated_geometry=True, id=find(self.scene, "Fluid"))])
+>       self.assertIn("FLUID", self.tracker.refresh(self.scene))
+E       AssertionError: 'FLUID' not found in {}
+
+tests/test_live_edits.py:242: AssertionError
+_____ ChangeTrackerTest.test_undo_geometry_uncertainty_is_cleared_by_reset _____
+
+self = <test_live_edits.ChangeTrackerTest testMethod=test_undo_geometry_uncertainty_is_cleared_by_reset>
+
+    def test_undo_geometry_uncertainty_is_cleared_by_reset(self):
+        self.tracker.after_undo()
+        self.tracker.note_updates([NS(is_updated_geometry=True, id=find(self.scene, "Fluid"))])
+>       self.assertIn("FLUID", self.tracker.refresh(self.scene))
+E       AssertionError: 'FLUID' not found in {}
+
+tests/test_live_edits.py:247: AssertionError
+_ ChangeTrackerTest.test_undo_preserves_pending_geometry_that_tokens_cannot_compare _
+
+self = <test_live_edits.ChangeTrackerTest testMethod=test_undo_preserves_pending_geometry_that_tokens_cannot_compare>
+
+    def test_undo_preserves_pending_geometry_that_tokens_cannot_compare(self):
+        fluid = find(self.scene, "Fluid")
+        # Interior vertex edits can leave counts and bounds identical. The geometry flag is the only evidence.
+        self.tracker.note_updates([NS(is_updated_geometry=True, id=fluid)])
+        self.assertIn("FLUID", self.tracker.refresh(self.scene))
+        # Undo a later unrelated edit: the fluid edit and its Reset requirement still exist.
+        self.tracker.after_undo()
+>       self.assertIn("FLUID", self.tracker.refresh(self.scene))
+E       AssertionError: 'FLUID' not found in {}
+
+tests/test_live_edits.py:236: AssertionError
+____________ AddonLifecycleTest.test_lifecycle_with_fake_transport _____________
+
+self = <test_transport_session.AddonLifecycleTest testMethod=test_lifecycle_with_fake_transport>
+
+    def test_lifecycle_with_fake_transport(self):
+        # Script on stdin: it outgrew the Windows command-line limit for `-c`.
+        result = subprocess.run([sys.executable, '-'], input=LIFECYCLE, cwd=str(ROOT),
+                                capture_output=True, text=True, timeout=60)
+>       self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+E       AssertionError: 1 != 0 : ok start_step_stop
+E       ok immediate_disable
+E       ok in_flight_disable_quarantines
+E       ok failed_close_requires_restart
+E       ok repeated_close
+E       ok no_view_startup_and_last_view_closure
+E       ok file_load
+E       ok failure_after_every_setup_acquisition
+E       ok recoverable_interop_falls_back_once
+E       ok fatal_tick_stops_without_cleanup
+E       ok transactional_resize
+E       ok load_demo_while_running_uses_transaction
+E       ok solver_step_error_is_fatal
+E       ok graph_rebuild_error_is_fatal
+E       ok viscosity_change_recaptures_the_graph_once
+E       ok step_once_survives_backpressure
+E       ok redraw_only_on_new_frame
+E       ok priming_failure_with_failed_close_quarantines_solver
+E       ok gl_resize_commits_solver_with_buffer
+E       ok opengl_points_runs_through_gl_texture_session
+E       ok opengl_ssfr_and_spheres_keep_the_legacy_vbo_path
+E       ok opengl_texture_failure_falls_back_once_then_uses_legacy_vbo
+E       ok opengl_texture_fatal_failure_requires_restart
+E       ok resize_never_downgrades_interop
+E       ok resize_failed_old_close_quarantines_everything
+E       ok undo_and_redo_keep_the_run
+E       ok undo_cancels_a_bake_and_keeps_the_run
+E       ok reset_rebuilds_at_the_start_frame_and_keeps_the_run
+E       ok paused_reset_retries_publication_after_backpressure
+E       Traceback (most recent call last):
+E         File "<stdin>", line 622, in <module>
+E         File "<stdin>", line 180, in case
+E         File "<stdin>", line 637, in rejected_reset_restores_the_scene_frame
+E       AssertionError: rejected Reset must restore the visible scene frame
+
+tests/test_transport_session.py:1221: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_live_edits.py::ChangeTrackerTest::test_redo_geometry_flags_are_not_discarded
+FAILED tests/test_live_edits.py::ChangeTrackerTest::test_undo_geometry_uncertainty_is_cleared_by_reset
+FAILED tests/test_live_edits.py::ChangeTrackerTest::test_undo_preserves_pending_geometry_that_tokens_cannot_compare
+FAILED tests/test_transport_session.py::AddonLifecycleTest::test_lifecycle_with_fake_transport
+4 failed, 31 passed, 13 subtests passed in 0.51s

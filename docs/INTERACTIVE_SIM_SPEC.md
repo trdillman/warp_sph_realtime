@@ -175,7 +175,7 @@ Each phase ships on its own, behind no flag, and keeps every earlier test passin
 
 ## Acceptance
 
-These gates are fixed now and are not changed after measurement. The collider gates are in
+These gates are fixed now and are not changed after measurement, except by an owner decision recorded here. The collider gates are in
 [`LIVE_COLLIDER_SPEC.md`](LIVE_COLLIDER_SPEC.md).
 
 **Phase 1**
@@ -210,7 +210,11 @@ These gates are fixed now and are not changed after measurement. The collider ga
 - The snapshot ring never exceeds its VRAM budget.
 
 **Every phase, live Blender** (one Blender at a time, isolated profile, both backends, 100k and 1M particles):
-- Steps/s during continuous editing is at least 90% of an untouched run.
+- Steps/s during continuous editing is at least 90% of the same interaction with change handling switched off
+  (A/B, interleaved repeats, medians). Restated by the owner on 2026-10-26: the original gate, "at least 90% of an
+  untouched run", failed (66-87%). It failed just as much with change handling off, and orbiting the view alone
+  lost as much: the cost is viewport redraws competing with the simulation, which predates P2.9
+  (`docs/verification/p29-runtime-20261026/REPORT.md`). That redraw contention is tracked separately.
 - UI-thread time spent on change handling is at most 1 ms per tick for 32 live objects.
 - A screen capture of the phase's headline interaction is recorded for the launch kit.
 

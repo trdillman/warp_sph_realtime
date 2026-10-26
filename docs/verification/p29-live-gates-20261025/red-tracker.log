@@ -1,0 +1,44 @@
+E       AssertionError: Lists differ: ['Block', 'Paddle', 'Domain', 'Fluid', 'Tap', 'Block[33 chars]Tap'] != ['Block', 'Block']
+E       
+E       First differing element 1:
+E       'Paddle'
+E       'Block'
+E       
+E       First list contains 8 additional elements.
+E       First extra element 2:
+E       'Domain'
+E       
+E       + ['Block', 'Block']
+E       - ['Block',
+E       -  'Paddle',
+E       -  'Domain',
+E       -  'Fluid',
+E       -  'Tap',
+E       -  'Block',
+E       -  'Paddle',
+E       -  'Domain',
+E       -  'Fluid',
+E       -  'Tap']
+E       AttributeError: 'ChangeTracker' object has no attribute 'note_edited'. Did you mean: 'note_updates'?
+E       AssertionError: {'COLLIDER': "collider 'Block' reshaped", '[103 chars]ped"} != {'FLUID': "fluid 'Fluid' reshaped"}
+E       - {'COLLIDER': "collider 'Block' reshaped",
+E       -  'DOMAIN': "domain 'Domain' reshaped",
+E       -  'EMITTER': "emitter 'Tap' reshaped",
+E       -  'FLUID': "fluid 'Fluid' reshaped"}
+E       ? ^
+E       
+E       + {'FLUID': "fluid 'Fluid' reshaped"}
+E       ? ^
+E       AssertionError: {'COLLIDER': "collider 'Block' reshaped", [104 chars]ped"} != {}
+E       + {}
+E       - {'COLLIDER': "collider 'Block' reshaped",
+E       -  'DOMAIN': "domain 'Domain' reshaped",
+E       -  'EMITTER': "emitter 'Tap' reshaped",
+E       -  'FLUID': "fluid 'Fluid' reshaped"}
+E       AttributeError: module 'warp_sph_realtime.live_edits' has no attribute 'SCENE_SETTINGS'
+FAILED tests/test_live_edits.py::ChangeTrackerTest::test_a_drag_tick_compares_only_the_dragged_object
+FAILED tests/test_live_edits.py::ChangeTrackerTest::test_a_property_set_without_a_depsgraph_update_is_seen
+FAILED tests/test_live_edits.py::ChangeTrackerTest::test_an_interior_vertex_edit_is_a_reshape_even_after_undo
+FAILED tests/test_live_edits.py::ChangeTrackerTest::test_undo_flags_on_unchanged_geometry_are_not_reshapes
+FAILED tests/test_blender_mock.py::TestBlenderIntegrationAndDemos::test_tracked_settings_notify_the_running_session
+5 failed, 31 passed, 13 subtests passed in 19.74s

@@ -13,6 +13,19 @@ from bpy.props import BoolProperty, EnumProperty, FloatProperty, FloatVectorProp
 
 _LOG = logging.getLogger(__name__)
 
+
+def note_edit(self, _context):
+    """Update callback of every add-on property the P2.9 change tracker reads (live_edits.SCENE_SETTINGS, the
+    object role and emitter fields): Blender sends no depsgraph update when one is set, so tell the running
+    session's tracker directly. Never raises into Blender."""
+    try:
+        from . import sim_session
+        tracker = getattr(sim_session.active(), "tracker", None)
+        if tracker is not None:
+            tracker.note_edited(self.id_data)
+    except Exception:  # pragma: no cover - a property callback must never fail the edit
+        _LOG.exception("WarpSPH change detection failed")
+
 SCENE_SOURCE_ITEMS = [
     ("DEMO", "Demo", "Run one of the built-in demo scenes"),
     ("CUSTOM", "Custom", "Build the simulation from objects marked Domain, Fluid and Collider"),
@@ -35,7 +48,7 @@ STIFFNESS_UNIT = 1000.0  # the stiffness setting is in thousands, so one UI clic
 
 
 class WARPSPH_SceneSettings(bpy.types.PropertyGroup):
-    scene_source: EnumProperty(name="Scene Source", items=SCENE_SOURCE_ITEMS, default="DEMO")
+    scene_source: EnumProperty(name="Scene Source", items=SCENE_SOURCE_ITEMS, default="DEMO", update=note_edit)
     particle_spacing: FloatProperty(
         name="Particle Spacing",
         description="Distance between fluid particles in a Custom scene, in scene length units (it follows "
@@ -45,12 +58,13 @@ class WARPSPH_SceneSettings(bpy.types.PropertyGroup):
         default=0.02, min=0.0001, max=1000.0, soft_min=0.005, soft_max=0.5,
         step=0.1,        # 0.001 scene units per click
         precision=4,
+        update=note_edit,
     )
     max_particles: IntProperty(
         name="Max Particles",
         description="Particle budget of a Custom scene with emitters: the GPU pool is allocated once at this "
                     "size and emitters stop when it is full. Scenes without emitters use exactly their fill",
-        default=1_000_000, min=1000, max=4_000_000, step=100_000,
+        default=1_000_000, min=1000, max=4_000_000, step=100_000, update=note_edit,
     )
     demo_scene: EnumProperty(name="Demo Scene", items=DEMO_ITEMS, default="DOUBLE_DAM_PILLARS")
     particle_count: IntProperty(

@@ -17,6 +17,7 @@ from collections.abc import Callable
 
 import bpy
 
+from . import live_edits
 from .props import spacing_metres, stiffness_pa
 from .render import session as transport_session
 from .render.gpu_points import settings_from_scene
@@ -114,6 +115,7 @@ class SimSession:
 
     def __init__(self, scene=None):
         self.scene = scene
+        self.scene_uid = live_edits.uid(scene)
         self.gl_buf = None
         self.session: transport_session.TransportSession | None = None
         self.solver = None
@@ -134,6 +136,14 @@ class SimSession:
         self.draw_errors: set = set()  # distinct draw failures already logged this run
         self.bake = None               # cache.bake.BakeJob while a bake runs (P2.2); driven by tick()
         self.bake_result = ""          # outcome of the last bake, for the panel
+        # Interactive mode (P2.9): scene changes since the run was built, and the frame Reset returns to.
+        self.tracker: live_edits.ChangeTracker | None = None
+        self.start_frame: int | None = None
+        self.last_reset_ms = 0.0
+        self._output_pending = False  # a rebuilt solver still needs its initial frame published
+        self._collider_uids: list = []   # animated colliders in solver order, by session_uid
+        self._colliders: list = []       # the same, resolved to objects (None once removed)
+        self._held: dict = {}            # index -> last pose of each animated collider
 
     # Process-lifetime flags: they outlive add-on disable/enable (module reload).
     @property
@@ -250,16 +260,24 @@ class SimSession:
         solver.rebuild_cuda_graph()
         return solver
 
-    def reallocate(self, scene, num_p: int, demo_type: str, window=None, depsgraph=None):
+    def reallocate(self, scene, num_p: int, demo_type: str, window=None, depsgraph=None, keep_output=False):
         """Transactional: the new output and solver are built while the old ones stay live;
         on failure the new ones are released and the running session is untouched.
 
         demo_type CUSTOM_SCENE builds the authored scene from tagged objects; num_p is then ignored and
-        every output is sized from the solver's fill count."""
+        every output is sized from the solver's fill count. ``keep_output`` (Reset) keeps the current
+        output when the new solver has the same particle count: no transport or renderer is rebuilt."""
         backend = gpu_backend()
-        if backend == 'OPENGL' and not self.gl_uses_texture(scene):
+        uses_vbo = backend == 'OPENGL' and not self.gl_uses_texture(scene)
+        solver = None
+        if keep_output and (self.gl_buf if uses_vbo else self.session) is not None:
+            solver = self._new_solver(scene, num_p, demo_type, depsgraph)
+        if solver is not None and self._reuse_output(solver, uses_vbo):
+            self.solver, self.active_demo = solver, demo_type
+        elif uses_vbo:
             # An authored scene's particle count is known only after the fill, so its solver comes first.
-            solver = self._new_solver(scene, num_p, demo_type, depsgraph) if demo_type == CUSTOM_SCENE else None
+            if solver is None and demo_type == CUSTOM_SCENE:
+                solver = self._new_solver(scene, num_p, demo_type, depsgraph)
             gl_buf = runtime.ZeroCopyGLBuffer52(solver.num_particles if solver is not None else num_p)
             try:
                 if solver is None:
@@ -274,8 +292,10 @@ class SimSession:
             self.solver, self.active_demo = solver, demo_type
             if old_buf:
                 old_buf.destroy()
+            self._output_pending = False
         else:
-            solver = self._new_solver(scene, num_p, demo_type, depsgraph)
+            if solver is None:
+                solver = self._new_solver(scene, num_p, demo_type, depsgraph)
             window = window or bpy.context.window
             try:
                 session = transport_session.open_session(
@@ -284,7 +304,7 @@ class SimSession:
                 _QUARANTINE.append(solver)
                 raise
             try:
-                session.tick(solver.copy_positions)  # publish before first draw
+                output_pending = not session.tick(solver.copy_positions)  # retry if the output is busy
             except FatalTransportError:
                 _QUARANTINE.extend((solver, session))  # no CUDA cleanup after a fatal error
                 raise
@@ -308,21 +328,152 @@ class SimSession:
             # Commit point: output and solver switch together, before the old session is retired.
             self.session = session
             self.solver, self.active_demo = solver, demo_type
+            self._output_pending = output_pending
             if old_session is not None:
                 self._retire(old_session)
                 if self.restart_required:  # old cleanup failed: stop; stop() quarantines the new pair
                     _QUARANTINE.append(old_solver)
                     raise FatalTransportError(self.restart_required)
 
-        self.vram_mb = solver.get_vram_usage_mb()
+        self.vram_mb = self.solver.get_vram_usage_mb()
         self.step_count = 0
         self.last_tick = 0.0
+        self._rebase(scene)
         if demo_type == CUSTOM_SCENE:
             if runtime.remove_blender_demo_helpers is not None:
                 runtime.remove_blender_demo_helpers()  # demo wireframes would only confuse an authored scene
         else:
             # Spawn matching Blender 3D viewport wireframe domain & obstacle collider meshes
             runtime.build_blender_demo_helpers(demo_type)
+
+    def _reuse_output(self, solver, uses_vbo: bool) -> bool:
+        """Reset with an unchanged particle count: the new solver publishes through the current output, so no
+        transport, interop buffer or renderer is rebuilt. False when the count differs (a new output is built)."""
+        count = solver.num_particles
+        if uses_vbo:
+            if getattr(self.gl_buf, "num_particles", None) != count:
+                return False
+            with self.gl_buf.mapped() as pos_vbo_wp:
+                solver.copy_positions(pos_vbo_wp)
+            self._output_pending = False
+            return True
+        session = self.session
+        if session is None or session.count != count:
+            return False
+        try:
+            self._output_pending = not session.tick(solver.copy_positions)
+        except FatalTransportError:
+            _QUARANTINE.append(solver)
+            raise
+        return True
+
+    # -- interactive mode (P2.9) -----------------------------------------------------------------
+
+    def _rebase(self, scene):
+        """The run was just built from ``scene`` as it is now: nothing is pending, and this is its start frame."""
+        self.start_frame = int(getattr(scene, "frame_current", 1))
+        self.tracker = live_edits.ChangeTracker(scene, custom=self.active_demo == CUSTOM_SCENE)
+        names = list(getattr(self.solver, "animated_collider_names", ()) or ()) if self.active_demo == CUSTOM_SCENE else []
+        if names:
+            by_name = {obj.name: obj for obj in scene.objects}
+            objs = [by_name.get(n) for n in names]
+        else:
+            objs = []
+        self._collider_uids = [live_edits.uid(o) if o is not None else None for o in objs]
+        self._colliders = objs
+        # Start-frame poses: a collider deleted before its first sync still has a pose to hold.
+        matrix = _scene_api()._matrix_or_none
+        self._held = {i: m for i, m in enumerate(matrix(o) for o in objs) if m is not None}
+
+    def _resolve_objects(self):
+        """Re-find the animated colliders by session_uid (after undo / redo); a missing one is None."""
+        if not self._collider_uids:
+            return
+        by_uid = live_edits.objects_by_uid(self.scene)
+        self._colliders = [by_uid.get(key) for key in self._collider_uids]
+
+    def note_updates(self, updates=()):
+        """depsgraph_update_post while this run is active: mark changes, no GPU work."""
+        if self.tracker is not None:
+            self.tracker.note_updates(updates)
+
+    def pending_gravity(self):
+        """The scene gravity (m/s^2) to apply live, or None."""
+        tracker = self.tracker
+        if self.active_demo != CUSTOM_SCENE or tracker is None or "gravity" not in tracker.pending:
+            return None
+        return tracker.current.settings["gravity"]
+
+    def reset_reasons(self) -> list[str]:
+        return self.tracker.reset_reasons() if self.tracker is not None else []
+
+    def _rebuild_at_start(self, context):
+        """Rebuild solver and output from the scene at the run's start frame (transactional, see reallocate)."""
+        scene = self.scene
+        settings = scene.warp_sph
+        if settings.scene_source == 'CUSTOM':
+            start = self.start_frame
+            if start is not None and getattr(scene, "frame_current", start) != start:
+                tracker = self.tracker
+                if tracker is not None:
+                    with tracker.muted():
+                        scene.frame_set(start)
+                else:
+                    scene.frame_set(start)
+            self.reallocate(scene, 0, CUSTOM_SCENE, context.window, depsgraph=context.evaluated_depsgraph_get(),
+                            keep_output=True)
+        else:
+            self.reallocate(scene, settings.particle_count, settings.demo_scene, context.window, keep_output=True)
+
+    def reset(self, context, report: Report) -> bool:
+        """Restart the running simulation at its start frame with every scene edit applied, keeping the Warp
+        runtime, the timer and the draw handler. A scene that cannot be built keeps the current run."""
+        if not self.running or self.solver is None:
+            report({'ERROR'}, "Start the simulation before Reset")
+            return False
+        if self.bake is not None:
+            report({'ERROR'}, "Cancel the bake before Reset")
+            return False
+        t0 = time.perf_counter()
+        frame = getattr(self.scene, "frame_current", None)
+        try:
+            self._rebuild_at_start(context)
+        except FatalTransportError as exc:
+            self.mark_fatal(str(exc))
+            report({'ERROR'}, f"WarpSPH GPU transport failed; restart Blender: {exc}")
+            return False
+        except Exception as exc:  # SceneSetupError and other build errors: the current run continues
+            if frame is not None and getattr(self.scene, "frame_current", frame) != frame:
+                tracker = self.tracker
+                if tracker is not None:
+                    with tracker.muted():
+                        self.scene.frame_set(frame)
+                else:
+                    self.scene.frame_set(frame)
+            report({'ERROR'}, f"WarpSPH cannot reset: {exc}; the current run continues")
+            return False
+        self.last_reset_ms = (time.perf_counter() - t0) * 1000.0
+        self.step_once = False
+        report({'INFO'}, f"WarpSPH reset to frame {self.start_frame} ({self.last_reset_ms:.0f} ms)")
+        return True
+
+    def after_undo(self):
+        """undo_post / redo_post: undo swaps in an earlier copy of the file's data, so find the run's scene and
+        objects again by session_uid. A scene that no longer exists stops the run."""
+        scene = _find_scene(self.scene_uid)
+        if scene is None:
+            self.stop()
+            self.last_error = "Stopped: undo removed the simulated scene"
+            return
+        old_key = next((k for k, s in _SESSIONS.items() if s is self), None)
+        self.scene = scene
+        new_key = _scene_key(scene)
+        if old_key is not None and old_key != new_key:
+            del _SESSIONS[old_key]
+            _SESSIONS[new_key] = self
+        self._resolve_objects()
+        if self.tracker is not None:
+            self.tracker.after_undo()  # re-read everything the undo may have changed
 
     def apply_scene(self, context, count: int, demo: str, report: Report) -> bool:
         """Resize or switch demo while running; on failure the running session is kept and the
@@ -355,6 +506,7 @@ class SimSession:
             report({'ERROR'}, f"WarpSPH needs a Blender restart: {self.restart_required}")
             return None
         self.scene = context.scene
+        self.scene_uid = live_edits.uid(context.scene)
         self.last_error = ""
         self.draw_errors.clear()
         try:
@@ -391,6 +543,7 @@ class SimSession:
             self.stop(context)
             report({'ERROR'}, f"WarpSPH cannot start: {exc}")
             return None
+        _watch_depsgraph(True)
         return self.token
 
     def tick(self, context, report: Report) -> bool:
@@ -409,11 +562,14 @@ class SimSession:
             self.stop(context)
             return False
 
-        if self.bake is not None:  # a bake owns the solver: settings changes apply to the next bake
+        if self.tracker is not None:
+            self.tracker.refresh(self.scene)  # re-reads the scene only after Blender reported a change
+        if self.bake is not None:  # a bake owns the solver: live edits apply when it ends
             return self._tick_bake(context, report, screen)
+        gravity = self.pending_gravity()
 
         # Dynamic Buffer & Demo Manager: reallocate/reset on-the-fly if slider or demo changed.
-        # An authored scene is fixed for the run: role or geometry changes need Stop + Start.
+        # An authored scene's object and spacing changes apply on Reset (live_edits.EDITS).
         if self.active_demo != CUSTOM_SCENE and (
                 self.solver.num_particles != target_count or self.active_demo != target_demo):
             if not self.apply_scene(context, target_count, target_demo, report):
@@ -422,12 +578,17 @@ class SimSession:
                     return False
                 _redraw_views(screen)  # kept the running session; no step this tick
                 return True
-        elif physics_changed(self.solver, settings):
+        elif gravity is not None or physics_changed(self.solver, settings):
             try:
-                # Stiffness, time step and viscosity are captured by value: recapture the graph (no
+                # Stiffness, time step, viscosity and gravity are captured by value: recapture the graph (no
                 # allocation; the same path the stiffness slider has always used).
-                apply_physics(self.solver, settings)
+                if physics_changed(self.solver, settings):
+                    apply_physics(self.solver, settings)
+                if gravity is not None:
+                    self.solver.gravity = runtime.wp.vec3(*gravity)
                 self.solver.rebuild_cuda_graph()
+                if gravity is not None:
+                    self.tracker.accept("gravity")
             except Exception as exc:
                 if self.session is not None:  # as a failed step (session.tick): CUDA state unknown
                     self.mark_fatal(f"CUDA graph rebuild failed; CUDA state unknown: {exc}")
@@ -436,6 +597,21 @@ class SimSession:
                     report({'ERROR'}, f"WarpSPH stopped: {exc}")
                 self.stop(context)
                 return False
+
+        if self._output_pending and self.session is not None:
+            try:
+                self._output_pending = not self.session.tick(self.solver.copy_positions)
+            except FatalTransportError as exc:
+                self.mark_fatal(str(exc))
+                report({'ERROR'}, f"WarpSPH GPU transport failed; restart Blender: {exc}")
+                self.stop(context)
+                return False
+            except Exception as exc:
+                report({'ERROR'}, f"WarpSPH stopped: {exc}")
+                self.stop(context)
+                return False
+            _redraw_views(screen)
+            return True  # publish the initial state before advancing, including when paused
 
         if self.paused and not self.step_once:
             _redraw_views(screen)  # keep redrawing so display settings stay live on the frozen frame
@@ -447,7 +623,7 @@ class SimSession:
         solver, use_graph = self.solver, settings.use_cuda_graph
         try:
             if self.active_demo == CUSTOM_SCENE:  # animated colliders: one transform read per frame
-                _scene_api().sync_collider_keyframes(self.scene, solver)
+                self._sync_colliders(solver)
             if self.session is not None:
                 # No host sync: the adapter orders publication on the solver stream and
                 # skips the step (backpressure) while a step is in flight or both slots are busy.
@@ -489,6 +665,14 @@ class SimSession:
             _redraw_views(screen)
         return True
 
+    def _sync_colliders(self, solver):
+        tracker = self.tracker
+        if tracker is None:
+            _scene_api().sync_collider_keyframes(self.scene, solver)
+            return
+        with tracker.muted():  # its frame_set is not a user edit
+            _scene_api().sync_collider_keyframes(self.scene, solver, objects=self._colliders, held=self._held)
+
     # -- bake (P2.2) ---------------------------------------------------------------------------------
 
     def begin_bake(self, context, report: Report, *, first: int, last: int, resume: bool) -> bool:
@@ -512,13 +696,9 @@ class SimSession:
         settings = scene.warp_sph
         fps = scene.render.fps / scene.render.fps_base
         try:
-            if not resume and self.step_count > 0:  # a fresh bake starts from the initial state
+            if not resume and self.step_count > 0:  # a fresh bake starts from the initial state, at the start frame
                 self.paused = False
-                if settings.scene_source == 'CUSTOM':
-                    self.reallocate(scene, 0, CUSTOM_SCENE, context.window,
-                                    depsgraph=context.evaluated_depsgraph_get())
-                else:
-                    self.reallocate(scene, settings.particle_count, settings.demo_scene, context.window)
+                self._rebuild_at_start(context)
             solver = self.solver
             apply_physics(solver, settings)
             solver.rebuild_cuda_graph()
@@ -542,8 +722,8 @@ class SimSession:
             store = FrameStore(disk, ring)
             before_step = None
             if self.active_demo == CUSTOM_SCENE:  # animated colliders: one transform read per frame, as in tick
-                def before_step(scene=scene, solver=solver):
-                    _scene_api().sync_collider_keyframes(scene, solver)
+                def before_step(solver=solver):
+                    self._sync_colliders(solver)
             try:
                 self.bake = cache_bake.BakeJob(
                     store, SolverSource(runtime.wp, solver, steps, settings.use_cuda_graph,
@@ -648,6 +828,9 @@ class SimSession:
         self.step_once = False
         self.token += 1
         self._discard_bake()
+        self.tracker = None
+        if active() is None:
+            _watch_depsgraph(False)
         if self.timer is not None:
             wm = getattr(context, "window_manager", None)
             if wm is not None:
@@ -683,6 +866,50 @@ class SimSession:
             if session is self:
                 del _SESSIONS[key]
         self.scene = None
+
+
+# -- change detection (P2.9) -------------------------------------------------------------------------
+
+def _on_depsgraph_update(_scene=None, depsgraph=None):
+    """depsgraph_update_post, installed only while a run is active. Records changes; never raises."""
+    session = active()
+    if session is not None:
+        try:
+            session.note_updates(getattr(depsgraph, "updates", ()) or ())
+        except Exception:  # pragma: no cover - a handler must never raise into Blender
+            _LOG.exception("WarpSPH change detection failed")
+
+
+def _watch_depsgraph(on: bool):
+    hooks = getattr(getattr(getattr(bpy, "app", None), "handlers", None), "depsgraph_update_post", None)
+    if hooks is None:
+        return
+    if on and _on_depsgraph_update not in hooks:
+        hooks.append(_on_depsgraph_update)
+    while not on and _on_depsgraph_update in hooks:
+        hooks.remove(_on_depsgraph_update)
+
+
+def _find_scene(key):
+    """The scene with session_uid (or name) ``key``, or None."""
+    for scene in getattr(getattr(bpy, "data", None), "scenes", ()) or ():
+        if live_edits.uid(scene) == key:
+            return scene
+    return None
+
+
+def before_undo():
+    """undo_pre / redo_pre: a bake reads only the scene as it was when it began, so undo cancels it
+    (frames already captured are kept); the live run itself continues."""
+    for session in sessions():
+        if session.bake is not None:
+            session.cancel_bake()
+
+
+def after_undo():
+    for session in sessions():
+        if session.running:
+            session.after_undo()
 
 
 # -- per-scene registry ------------------------------------------------------------------------------
