@@ -3,10 +3,11 @@
 Gates from `docs/INTERACTIVE_SIM_SPEC.md` (§Risks R1–R4, §Acceptance Phase 1 and "Every phase, live Blender"),
 measured in real Blender with the harness `scripts/run_p29_runtime_gates.py` → `scripts/p29_runtime_gates.py`.
 
-**Verdict: Phase 1 is NOT accepted.** Every gate passes except the throughput gate ("steps/s during continuous
-editing ≥ 90% of an untouched run"). That gate fails at both sizes and on both backends. Attribution (below) shows
-the cause is viewport redraw contention, which already existed before P2.9, not P2.9 change handling. The gate is
-not relabelled; what to do about it is the owner's decision.
+**Verdict: Phase 1 accepted under the restated throughput gate (owner decision, 2026-10-26).** Every gate passed
+except the original throughput gate ("steps/s during continuous editing ≥ 90% of an untouched run"). That one
+failed at both sizes and on both backends, and the attribution below traces it to viewport redraw contention that
+already existed before P2.9. The owner restated the gate as "≥ 90% of the same interaction with change handling off".
+All eight A/B pairs meet it (0.935–1.02, table below). The redraw contention is tracked as separate work.
 
 ## Setup
 
@@ -33,8 +34,8 @@ not relabelled; what to do about it is the owner's decision.
 | Eager vs CUDA-graph step, max abs velocity difference | 0.0 | 0.0 | 0.0 | 0.0 | PASS |
 | Undo/redo of a transform, a role change, a delete keeps the run | yes | yes | yes | yes | PASS |
 | Change handling, 32 objects moved every 20 ms: p95 per tick | 0.75 ms | 0.56 ms | 0.62 ms | 0.58 ms | PASS (≤ 1 ms) |
-| Throughput, G-grab drag ≥ 90% of untouched | 84% | 75% | 87% | 66% | **FAIL** |
-| Throughput, gravity drag (50 Hz) ≥ 90% of untouched | 65% | 78% | 104% | 64% | **FAIL** (3 of 4) |
+| Throughput, G-grab drag ≥ 90% of untouched (original gate) | 84% | 75% | 87% | 66% | FAIL → restated |
+| Throughput, gravity drag (50 Hz) ≥ 90% of untouched (original gate) | 65% | 78% | 104% | 64% | FAIL → restated |
 
 Change-handling mean per tick: 0.09–0.25 ms; max 0.85–1.6 ms. Untouched steps/s drift by up to 10% between two
 windows of the same run (e.g. OpenGL 1M: 85.0 then 77.0), so single-window ratios are noisy. The attribution runs
@@ -54,6 +55,9 @@ detection, no live gravity). Median ratio to the untouched window just before ea
 | OpenGL 100k | 0.889 | 0.951 | 0.799 | 0.788 |
 | Vulkan 100k | 0.907 | 0.960 | 0.918 | 0.942 |
 
+Restated gate (on ÷ off): grab 0.987 / 1.020 / 0.935 / 0.945 and gravity 1.015 / 1.013 / 1.014 / 0.975 (rows in
+table order): all ≥ 0.90, PASS.
+
 At 1M, turning change handling off does not recover throughput. At 100k it accounts for a few percent at most,
 within the noise.
 
@@ -69,9 +73,7 @@ Orbiting, which edits nothing, loses as much as grabbing or more. Not drawing th
 Conclusion: the shortfall comes from extra viewport redraws (Blender's own redraw work, plus the add-on's particle
 draw on each one) competing with the simulation on the UI thread and the GPU. It is not P2.9 change detection,
 classification or live gravity. Meeting the gate as written needs the simulation's stepping decoupled from viewport
-redraws, which is an architecture change outside Phase 1's listed scope. It is an owner decision whether to do
-that before Phase 1 ships, or to restate the gate as "P2.9 adds ≤ 10% over the same interaction with change
-handling off".
+redraws, which is an architecture change outside Phase 1's listed scope. The owner chose to restate the gate and track the decoupling separately.
 
 ## Fixed during this qualification
 
