@@ -25,6 +25,13 @@ def test_runtime_modules_are_shipped():
         assert required in files
 
 
+def test_licence_files_are_shipped():
+    files = build_extension.shipped_files()
+    assert "LICENSE" in files and "THIRD_PARTY_NOTICES.md" in files
+    manifest = build_extension.tomllib.loads((ROOT / "warp_sph_realtime" / "blender_manifest.toml").read_text())
+    assert manifest["license"] == ["SPDX:GPL-3.0-or-later"]
+
+
 def test_exclusion_rules():
     patterns = ["__pycache__/", ".*", "/experimental/"]
     assert build_extension.is_excluded("experimental/ipbf_solver.py", patterns)
