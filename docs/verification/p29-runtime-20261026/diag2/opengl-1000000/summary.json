@@ -1,0 +1,64 @@
+{
+  "demo": "p29_runtime_gates",
+  "ok": true,
+  "checks": {
+    "started": {
+      "ok": true,
+      "detail": null
+    },
+    "redraw_diag_recorded": {
+      "ok": true,
+      "detail": {
+        "grab_shown": 0.826,
+        "grab_hidden": 0.91,
+        "orbit_shown": 0.83,
+        "orbit_hidden": 0.942
+      }
+    }
+  },
+  "timings": {
+    "redraw_diag": 59.03,
+    "total": 59.96
+  },
+  "media": [],
+  "blender": "5.2.0 LTS",
+  "particles": null,
+  "transport": null,
+  "backend": "OPENGL",
+  "measurements": {
+    "redraw_diag": {
+      "rows": [
+        {
+          "idle_shown": 86.2,
+          "grab_shown": 64.7,
+          "orbit_shown": 65.8,
+          "idle_hidden": 80.9,
+          "grab_hidden": 73.6,
+          "orbit_hidden": 76.2
+        },
+        {
+          "idle_shown": 79.2,
+          "grab_shown": 65.4,
+          "orbit_shown": 66.1,
+          "idle_hidden": 78.6,
+          "grab_hidden": 72.0,
+          "orbit_hidden": 74.3
+        },
+        {
+          "idle_shown": 76.9,
+          "grab_shown": 63.7,
+          "orbit_shown": 63.8,
+          "idle_hidden": 78.2,
+          "grab_hidden": 68.7,
+          "orbit_hidden": 71.0
+        }
+      ],
+      "median_ratio": {
+        "grab_shown": 0.826,
+        "grab_hidden": 0.91,
+        "orbit_shown": 0.83,
+        "orbit_hidden": 0.942
+      }
+    }
+  }
+}

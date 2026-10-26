@@ -1,0 +1,70 @@
+{
+  "demo": "p29_runtime_gates",
+  "ok": true,
+  "checks": {
+    "started": {
+      "ok": true,
+      "detail": null
+    },
+    "diag_recorded": {
+      "ok": true,
+      "detail": {
+        "grab_on": 0.889,
+        "grab_off": 0.951,
+        "gravity_on": 0.799,
+        "gravity_off": 0.788
+      }
+    }
+  },
+  "timings": {
+    "throughput_diag": 78.61,
+    "total": 79.34
+  },
+  "media": [],
+  "blender": "5.2.0 LTS",
+  "particles": null,
+  "transport": null,
+  "backend": "OPENGL",
+  "measurements": {
+    "throughput_diag": {
+      "rows": [
+        {
+          "idle_before_grab_on": 242.7,
+          "grab_on": 218.6,
+          "idle_before_grab_off": 237.1,
+          "grab_off": 211.5,
+          "idle_before_gravity_on": 243.5,
+          "gravity_on": 172.3,
+          "idle_before_gravity_off": 208.8,
+          "gravity_off": 217.7
+        },
+        {
+          "idle_before_grab_on": 244.4,
+          "grab_on": 187.9,
+          "idle_before_grab_off": 184.5,
+          "grab_off": 197.9,
+          "idle_before_gravity_on": 227.2,
+          "gravity_on": 214.8,
+          "idle_before_gravity_off": 211.3,
+          "gravity_off": 166.5
+        },
+        {
+          "idle_before_grab_on": 219.3,
+          "grab_on": 194.9,
+          "idle_before_grab_off": 233.6,
+          "grab_off": 222.1,
+          "idle_before_gravity_on": 244.0,
+          "gravity_on": 195.0,
+          "idle_before_gravity_off": 252.5,
+          "gravity_off": 199.0
+        }
+      ],
+      "median_ratio": {
+        "grab_on": 0.889,
+        "grab_off": 0.951,
+        "gravity_on": 0.799,
+        "gravity_off": 0.788
+      }
+    }
+  }
+}

@@ -237,6 +237,84 @@ def stage_throughput():
     sc.check("moved_statics_pending_reset", bool(reasons), reasons[:3])
 
 
+def _tracker_off(s):
+    """Control: the session sees no scene changes (no change handling, no live gravity)."""
+    tracker = s.tracker
+    tracker.refresh = lambda scene: {}
+    tracker.note_updates = lambda updates=(): None
+    tracker.note_edited = lambda ident: None
+    return lambda: [tracker.__dict__.pop(n, None) for n in ("refresh", "note_updates", "note_edited")]
+
+
+def stage_throughput_diag():
+    """A/B attribution of the editing throughput: each edit with the add-on's change handling on and off,
+    interleaved with untouched windows, REPEATS times."""
+    s = sim()
+    yield from sc.wait_until(lambda: s.step_count >= 60, 120, "warm-up")
+    gravity_edit = lambda e: setattr(bpy.context.scene, "gravity", (2.0 * math.sin(3 * e), 0.0, -9.81))  # noqa: E731
+    rows = []
+    for _ in range(int(os.environ.get("P29_DIAG_REPEATS", "3"))):
+        row = {}
+        for label, kind, off in (("grab_on", "grab", False), ("grab_off", "grab", True),
+                                 ("gravity_on", "gravity", False), ("gravity_off", "gravity", True)):
+            row[f"idle_before_{label}"] = round((yield from steps_per_second(3.0)), 1)
+            restore = _tracker_off(s) if off else None
+            try:
+                if kind == "grab":
+                    v = yield from _measure(lambda: grab_drag("Static05", 3.0))
+                else:
+                    v = yield from steps_per_second(3.0, during=gravity_edit)
+            finally:
+                if restore is not None:
+                    restore()
+            row[label] = round(v, 1)
+            bpy.context.scene.gravity = (0.0, 0.0, -9.81)
+            yield from sc.pause(0.3)
+        rows.append(row)
+    ratio = {k: round(statistics.median(r[k] / r[f"idle_before_{k}"] for r in rows), 3)
+             for k in ("grab_on", "grab_off", "gravity_on", "gravity_off")}
+    M["throughput_diag"] = {"rows": rows, "median_ratio": ratio}
+    sc.check("diag_recorded", True, ratio)
+
+
+def _orbit(seconds):
+    """Control: rotate the viewport at 60 Hz (redraws only, no scene edit)."""
+    from mathutils import Quaternion
+    _, area, _ = sc.view3d()
+    r3d = area.spaces.active.region_3d
+    start = r3d.view_rotation.copy()
+    t0, i = time.perf_counter(), 0
+    while time.perf_counter() - t0 < seconds:
+        i += 1
+        r3d.view_rotation = Quaternion((0.0, 0.0, 1.0), 0.3 * math.sin(i / 20.0)) @ start
+        area.tag_redraw()
+        yield 1.0 / 60.0
+    r3d.view_rotation = start
+
+
+def stage_redraw_diag():
+    """Is the editing slowdown the viewport redraws? Grab and orbit, with the particles drawn and hidden."""
+    s = sim()
+    settings = bpy.context.scene.warp_sph
+    yield from sc.wait_until(lambda: s.step_count >= 60, 120, "warm-up")
+    rows = []
+    for _ in range(int(os.environ.get("P29_DIAG_REPEATS", "3"))):
+        row = {}
+        for shown in (True, False):
+            settings.show_particles = shown
+            tag = "shown" if shown else "hidden"
+            yield from sc.pause(0.3)
+            row[f"idle_{tag}"] = round((yield from steps_per_second(3.0)), 1)
+            row[f"grab_{tag}"] = round((yield from _measure(lambda: grab_drag("Static05", 3.0))), 1)
+            row[f"orbit_{tag}"] = round((yield from _measure(lambda: _orbit(3.0))), 1)
+        settings.show_particles = True
+        rows.append(row)
+    ratio = {f"{k}_{t}": round(statistics.median(r[f"{k}_{t}"] / r[f"idle_{t}"] for r in rows), 3)
+             for k in ("grab", "orbit") for t in ("shown", "hidden")}
+    M["redraw_diag"] = {"rows": rows, "median_ratio": ratio}
+    sc.check("redraw_diag_recorded", True, ratio)
+
+
 def _host_state(solver):
     return (solver.pos_sim.numpy().copy(), solver.vel.numpy().copy(), solver.pid.numpy().copy(), solver.sim_time)
 
@@ -491,8 +569,11 @@ def main():
     s = sim()
     if not sc.check("started", s.running, s.last_error or None):
         return
-    for name, stage in (("throughput", stage_throughput), ("gravity", stage_gravity),
-                        ("modal_transform", stage_modal_transform), ("undo", stage_undo), ("reset", stage_reset)):
+    stages = (("throughput", stage_throughput), ("gravity", stage_gravity), ("modal_transform", stage_modal_transform),
+              ("undo", stage_undo), ("reset", stage_reset), ("throughput_diag", stage_throughput_diag),
+              ("redraw_diag", stage_redraw_diag))
+    chosen = os.environ.get("P29_STAGES", "throughput,gravity,modal_transform,undo,reset").split(",")
+    for name, stage in ((n, f) for n, f in stages if n in chosen):
         with sc.timed(name):
             try:
                 yield from stage()

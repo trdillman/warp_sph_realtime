@@ -1,0 +1,427 @@
+{
+  "demo": "p29_runtime_gates",
+  "ok": false,
+  "checks": {
+    "started": {
+      "ok": true,
+      "detail": null
+    },
+    "throughput_grab_drag_ge_90pct": {
+      "ok": false,
+      "detail": {
+        "idle_sps": 85.0,
+        "idle_after_sps": 77.0,
+        "grab_drag_sps": 60.4,
+        "grab_drag_ratio": 0.746,
+        "gravity_drag_sps": 63.5,
+        "gravity_drag_ratio": 0.784,
+        "gravity_recaptures": 250,
+        "recapture_ms_mean": 0.401
+      }
+    },
+    "throughput_gravity_drag_ge_90pct": {
+      "ok": false,
+      "detail": {
+        "idle_sps": 85.0,
+        "idle_after_sps": 77.0,
+        "grab_drag_sps": 60.4,
+        "grab_drag_ratio": 0.746,
+        "gravity_drag_sps": 63.5,
+        "gravity_drag_ratio": 0.784,
+        "gravity_recaptures": 250,
+        "recapture_ms_mean": 0.401
+      }
+    },
+    "change_handling_le_1ms_per_tick_32_objects": {
+      "ok": true,
+      "detail": {
+        "ticks": 1068,
+        "mean_ms": 0.1297,
+        "p95_ms": 0.5614,
+        "max_ms": 1.1276,
+        "sps_while_moving_32": 62.8,
+        "ratio_while_moving_32": 0.775
+      }
+    },
+    "moved_statics_pending_reset": {
+      "ok": true,
+      "detail": [
+        "collider 'Showcase Static00' moved"
+      ]
+    },
+    "gravity_one_recapture": {
+      "ok": true,
+      "detail": {
+        "recaptures": 1
+      }
+    },
+    "gravity_next_step_acceleration": {
+      "ok": true,
+      "detail": {
+        "expected_mean_dvx": 0.0038247315213735876,
+        "measured_mean_dvx": 0.003812826005741954,
+        "eager_vs_graph_max_abs": 0.0,
+        "step_dv_max": 3.702633857727051,
+        "substeps": 2,
+        "dt": 0.0003187276267811323
+      }
+    },
+    "gravity_eager_graph_equivalent": {
+      "ok": true,
+      "detail": {
+        "expected_mean_dvx": 0.0038247315213735876,
+        "measured_mean_dvx": 0.003812826005741954,
+        "eager_vs_graph_max_abs": 0.0,
+        "step_dv_max": 3.702633857727051,
+        "substeps": 2,
+        "dt": 0.0003187276267811323
+      }
+    },
+    "r2_transform_modal_active": {
+      "ok": true,
+      "detail": {
+        "samples": 107,
+        "samples_in_translate": 107,
+        "steps_during": 141,
+        "seconds": 2.32,
+        "sps_during": 60.9,
+        "frame_changes": 2,
+        "x_before": 0.25,
+        "x_after": 3.3595314025878906,
+        "x_track_monotonic": true
+      }
+    },
+    "r2_ticks_continue_during_transform": {
+      "ok": true,
+      "detail": {
+        "samples": 107,
+        "samples_in_translate": 107,
+        "steps_during": 141,
+        "seconds": 2.32,
+        "sps_during": 60.9,
+        "frame_changes": 2,
+        "x_before": 0.25,
+        "x_after": 3.3595314025878906,
+        "x_track_monotonic": true
+      }
+    },
+    "r3_frame_set_during_transform_keeps_tracking": {
+      "ok": true,
+      "detail": {
+        "samples": 107,
+        "samples_in_translate": 107,
+        "steps_during": 141,
+        "seconds": 2.32,
+        "sps_during": 60.9,
+        "frame_changes": 2,
+        "x_before": 0.25,
+        "x_after": 3.3595314025878906,
+        "x_track_monotonic": true
+      }
+    },
+    "undo_transform_keeps_run": {
+      "ok": true,
+      "detail": {
+        "moved": 0.6700000166893005,
+        "after_undo": 0.4699999988079071,
+        "after_redo": 0.6700000166893005,
+        "running_after_undo": true,
+        "running_after_redo": true,
+        "pending": [
+          "COLLIDER"
+        ]
+      }
+    },
+    "undo_role_change_keeps_run": {
+      "ok": true,
+      "detail": {
+        "pending_after_change": [
+          "'Showcase Static02' left the simulation"
+        ],
+        "role_after_undo": "COLLIDER",
+        "role_after_redo": "NONE",
+        "running": [
+          true,
+          true
+        ],
+        "static01_x_after_role_undo": 0.6700000166893005
+      }
+    },
+    "undo_delete_keeps_run": {
+      "ok": true,
+      "detail": {
+        "running_after_delete": true,
+        "pose_held_after_delete": true,
+        "restored_by_undo": true,
+        "resolved_by_uid_after_undo": true,
+        "running": [
+          true,
+          true
+        ]
+      }
+    },
+    "r1_session_uid_stable_across_undo_redo": {
+      "ok": true,
+      "detail": {
+        "compared": 35,
+        "changed": []
+      }
+    },
+    "reset_applies_pending_edits": {
+      "ok": true,
+      "detail": [
+        {
+          "op_s": 0.118,
+          "first_step_s": 0.129,
+          "last_reset_ms": 118.1,
+          "pending_after": []
+        },
+        {
+          "op_s": 0.113,
+          "first_step_s": 0.115,
+          "last_reset_ms": 112.4,
+          "pending_after": []
+        },
+        {
+          "op_s": 0.12,
+          "first_step_s": 0.123,
+          "last_reset_ms": 120.3,
+          "pending_after": []
+        }
+      ]
+    },
+    "r4_reset_1m_le_2s": {
+      "ok": true,
+      "detail": {
+        "particles": 1000000,
+        "reset": [
+          {
+            "op_s": 0.118,
+            "first_step_s": 0.129,
+            "last_reset_ms": 118.1,
+            "pending_after": []
+          },
+          {
+            "op_s": 0.113,
+            "first_step_s": 0.115,
+            "last_reset_ms": 112.4,
+            "pending_after": []
+          },
+          {
+            "op_s": 0.12,
+            "first_step_s": 0.123,
+            "last_reset_ms": 120.3,
+            "pending_after": []
+          }
+        ],
+        "stop_start": [
+          {
+            "op_s": 0.191,
+            "first_step_s": 0.199
+          },
+          {
+            "op_s": 0.134,
+            "first_step_s": 0.141
+          },
+          {
+            "op_s": 0.142,
+            "first_step_s": 0.15
+          }
+        ],
+        "reset_median_s": 0.123,
+        "stop_start_median_s": 0.15,
+        "reset_op_median_s": 0.118,
+        "stop_start_op_median_s": 0.142
+      }
+    },
+    "r4_reset_faster_than_stop_start": {
+      "ok": true,
+      "detail": {
+        "particles": 1000000,
+        "reset": [
+          {
+            "op_s": 0.118,
+            "first_step_s": 0.129,
+            "last_reset_ms": 118.1,
+            "pending_after": []
+          },
+          {
+            "op_s": 0.113,
+            "first_step_s": 0.115,
+            "last_reset_ms": 112.4,
+            "pending_after": []
+          },
+          {
+            "op_s": 0.12,
+            "first_step_s": 0.123,
+            "last_reset_ms": 120.3,
+            "pending_after": []
+          }
+        ],
+        "stop_start": [
+          {
+            "op_s": 0.191,
+            "first_step_s": 0.199
+          },
+          {
+            "op_s": 0.134,
+            "first_step_s": 0.141
+          },
+          {
+            "op_s": 0.142,
+            "first_step_s": 0.15
+          }
+        ],
+        "reset_median_s": 0.123,
+        "stop_start_median_s": 0.15,
+        "reset_op_median_s": 0.118,
+        "stop_start_op_median_s": 0.142
+      }
+    }
+  },
+  "timings": {
+    "throughput": 26.45,
+    "gravity": 1.02,
+    "modal_transform": 2.36,
+    "undo": 2.98,
+    "reset": 4.5,
+    "total": 38.28
+  },
+  "media": [
+    "<local>\\full-990b11c\\opengl-1000000\\editing_32_objects.png",
+    "<local>\\full-990b11c\\opengl-1000000\\after_grab.png"
+  ],
+  "blender": "5.2.0 LTS",
+  "particles": 1000000,
+  "transport": {
+    "label": "OpenGL interop (GPU copy, no CPU readback)",
+    "backend": "OPENGL",
+    "readback": false,
+    "reason": ""
+  },
+  "backend": "OPENGL",
+  "measurements": {
+    "particles": 1000000,
+    "transport": {
+      "label": "OpenGL interop (GPU copy, no CPU readback)",
+      "backend": "OPENGL",
+      "readback": false,
+      "reason": ""
+    },
+    "throughput": {
+      "idle_sps": 85.0,
+      "idle_after_sps": 77.0,
+      "grab_drag_sps": 60.4,
+      "grab_drag_ratio": 0.746,
+      "gravity_drag_sps": 63.5,
+      "gravity_drag_ratio": 0.784,
+      "gravity_recaptures": 250,
+      "recapture_ms_mean": 0.401
+    },
+    "change_handling": {
+      "ticks": 1068,
+      "mean_ms": 0.1297,
+      "p95_ms": 0.5614,
+      "max_ms": 1.1276,
+      "sps_while_moving_32": 62.8,
+      "ratio_while_moving_32": 0.775
+    },
+    "gravity": {
+      "expected_mean_dvx": 0.0038247315213735876,
+      "measured_mean_dvx": 0.003812826005741954,
+      "eager_vs_graph_max_abs": 0.0,
+      "step_dv_max": 3.702633857727051,
+      "substeps": 2,
+      "dt": 0.0003187276267811323
+    },
+    "modal_transform": {
+      "samples": 107,
+      "samples_in_translate": 107,
+      "steps_during": 141,
+      "seconds": 2.32,
+      "sps_during": 60.9,
+      "frame_changes": 2,
+      "x_before": 0.25,
+      "x_after": 3.3595314025878906,
+      "x_track_monotonic": true
+    },
+    "undo": {
+      "transform": {
+        "moved": 0.6700000166893005,
+        "after_undo": 0.4699999988079071,
+        "after_redo": 0.6700000166893005,
+        "running_after_undo": true,
+        "running_after_redo": true,
+        "pending": [
+          "COLLIDER"
+        ]
+      },
+      "role": {
+        "pending_after_change": [
+          "'Showcase Static02' left the simulation"
+        ],
+        "role_after_undo": "COLLIDER",
+        "role_after_redo": "NONE",
+        "running": [
+          true,
+          true
+        ],
+        "static01_x_after_role_undo": 0.6700000166893005
+      },
+      "delete": {
+        "running_after_delete": true,
+        "pose_held_after_delete": true,
+        "restored_by_undo": true,
+        "resolved_by_uid_after_undo": true,
+        "running": [
+          true,
+          true
+        ]
+      },
+      "uids_compared": 35,
+      "uids_changed": [],
+      "scene_is_current": true
+    },
+    "reset": {
+      "particles": 1000000,
+      "reset": [
+        {
+          "op_s": 0.118,
+          "first_step_s": 0.129,
+          "last_reset_ms": 118.1,
+          "pending_after": []
+        },
+        {
+          "op_s": 0.113,
+          "first_step_s": 0.115,
+          "last_reset_ms": 112.4,
+          "pending_after": []
+        },
+        {
+          "op_s": 0.12,
+          "first_step_s": 0.123,
+          "last_reset_ms": 120.3,
+          "pending_after": []
+        }
+      ],
+      "stop_start": [
+        {
+          "op_s": 0.191,
+          "first_step_s": 0.199
+        },
+        {
+          "op_s": 0.134,
+          "first_step_s": 0.141
+        },
+        {
+          "op_s": 0.142,
+          "first_step_s": 0.15
+        }
+      ],
+      "reset_median_s": 0.123,
+      "stop_start_median_s": 0.15,
+      "reset_op_median_s": 0.118,
+      "stop_start_op_median_s": 0.142
+    }
+  }
+}

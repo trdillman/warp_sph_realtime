@@ -1,0 +1,383 @@
+{
+  "demo": "p29_runtime_gates",
+  "ok": false,
+  "checks": {
+    "started": {
+      "ok": true,
+      "detail": null
+    },
+    "throughput_grab_drag_ge_90pct": {
+      "ok": false,
+      "detail": {
+        "idle_sps": 196.9,
+        "idle_after_sps": 193.8,
+        "grab_drag_sps": 169.3,
+        "grab_drag_ratio": 0.867,
+        "gravity_drag_sps": 202.2,
+        "gravity_drag_ratio": 1.035,
+        "gravity_recaptures": 250,
+        "recapture_ms_mean": 0.341
+      }
+    },
+    "throughput_gravity_drag_ge_90pct": {
+      "ok": true,
+      "detail": {
+        "idle_sps": 196.9,
+        "idle_after_sps": 193.8,
+        "grab_drag_sps": 169.3,
+        "grab_drag_ratio": 0.867,
+        "gravity_drag_sps": 202.2,
+        "gravity_drag_ratio": 1.035,
+        "gravity_recaptures": 250,
+        "recapture_ms_mean": 0.341
+      }
+    },
+    "change_handling_le_1ms_per_tick_32_objects": {
+      "ok": true,
+      "detail": {
+        "ticks": 844,
+        "mean_ms": 0.1666,
+        "p95_ms": 0.6246,
+        "max_ms": 0.9597,
+        "sps_while_moving_32": 168.8,
+        "ratio_while_moving_32": 0.864
+      }
+    },
+    "moved_statics_pending_reset": {
+      "ok": true,
+      "detail": [
+        "collider 'Showcase Static00' moved"
+      ]
+    },
+    "gravity_one_recapture": {
+      "ok": true,
+      "detail": {
+        "recaptures": 1
+      }
+    },
+    "gravity_next_step_acceleration": {
+      "ok": true,
+      "detail": {
+        "expected_mean_dvx": 0.008240134333618717,
+        "measured_mean_dvx": 0.008185149170458317,
+        "eager_vs_graph_max_abs": 0.0,
+        "step_dv_max": 0.6825201511383057,
+        "substeps": 2,
+        "dt": 0.0006866778611348931
+      }
+    },
+    "gravity_eager_graph_equivalent": {
+      "ok": true,
+      "detail": {
+        "expected_mean_dvx": 0.008240134333618717,
+        "measured_mean_dvx": 0.008185149170458317,
+        "eager_vs_graph_max_abs": 0.0,
+        "step_dv_max": 0.6825201511383057,
+        "substeps": 2,
+        "dt": 0.0006866778611348931
+      }
+    },
+    "r2_transform_modal_active": {
+      "ok": true,
+      "detail": {
+        "samples": 105,
+        "samples_in_translate": 105,
+        "steps_during": 441,
+        "seconds": 2.39,
+        "sps_during": 184.7,
+        "frame_changes": 13,
+        "x_before": 0.25,
+        "x_after": 3.301412582397461,
+        "x_track_monotonic": true
+      }
+    },
+    "r2_ticks_continue_during_transform": {
+      "ok": true,
+      "detail": {
+        "samples": 105,
+        "samples_in_translate": 105,
+        "steps_during": 441,
+        "seconds": 2.39,
+        "sps_during": 184.7,
+        "frame_changes": 13,
+        "x_before": 0.25,
+        "x_after": 3.301412582397461,
+        "x_track_monotonic": true
+      }
+    },
+    "r3_frame_set_during_transform_keeps_tracking": {
+      "ok": true,
+      "detail": {
+        "samples": 105,
+        "samples_in_translate": 105,
+        "steps_during": 441,
+        "seconds": 2.39,
+        "sps_during": 184.7,
+        "frame_changes": 13,
+        "x_before": 0.25,
+        "x_after": 3.301412582397461,
+        "x_track_monotonic": true
+      }
+    },
+    "undo_transform_keeps_run": {
+      "ok": true,
+      "detail": {
+        "moved": 0.6700000166893005,
+        "after_undo": 0.4699999988079071,
+        "after_redo": 0.6700000166893005,
+        "running_after_undo": true,
+        "running_after_redo": true,
+        "pending": [
+          "COLLIDER"
+        ]
+      }
+    },
+    "undo_role_change_keeps_run": {
+      "ok": true,
+      "detail": {
+        "pending_after_change": [
+          "'Showcase Static02' left the simulation"
+        ],
+        "role_after_undo": "COLLIDER",
+        "role_after_redo": "NONE",
+        "running": [
+          true,
+          true
+        ],
+        "static01_x_after_role_undo": 0.6700000166893005
+      }
+    },
+    "undo_delete_keeps_run": {
+      "ok": true,
+      "detail": {
+        "running_after_delete": true,
+        "pose_held_after_delete": true,
+        "restored_by_undo": true,
+        "resolved_by_uid_after_undo": true,
+        "running": [
+          true,
+          true
+        ]
+      }
+    },
+    "r1_session_uid_stable_across_undo_redo": {
+      "ok": true,
+      "detail": {
+        "compared": 35,
+        "changed": []
+      }
+    },
+    "reset_applies_pending_edits": {
+      "ok": true,
+      "detail": [
+        {
+          "op_s": 0.055,
+          "first_step_s": 0.066,
+          "last_reset_ms": 55.0,
+          "pending_after": []
+        },
+        {
+          "op_s": 0.053,
+          "first_step_s": 0.064,
+          "last_reset_ms": 53.1,
+          "pending_after": []
+        },
+        {
+          "op_s": 0.055,
+          "first_step_s": 0.068,
+          "last_reset_ms": 55.1,
+          "pending_after": []
+        }
+      ]
+    },
+    "reset_faster_than_stop_start": {
+      "ok": true,
+      "detail": {
+        "particles": 101614,
+        "reset": [
+          {
+            "op_s": 0.055,
+            "first_step_s": 0.066,
+            "last_reset_ms": 55.0,
+            "pending_after": []
+          },
+          {
+            "op_s": 0.053,
+            "first_step_s": 0.064,
+            "last_reset_ms": 53.1,
+            "pending_after": []
+          },
+          {
+            "op_s": 0.055,
+            "first_step_s": 0.068,
+            "last_reset_ms": 55.1,
+            "pending_after": []
+          }
+        ],
+        "stop_start": [
+          {
+            "op_s": 1.121,
+            "first_step_s": 1.138
+          },
+          {
+            "op_s": 1.126,
+            "first_step_s": 1.143
+          },
+          {
+            "op_s": 1.084,
+            "first_step_s": 1.099
+          }
+        ],
+        "reset_median_s": 0.066,
+        "stop_start_median_s": 1.138,
+        "reset_op_median_s": 0.055,
+        "stop_start_op_median_s": 1.121
+      }
+    }
+  },
+  "timings": {
+    "throughput": 26.14,
+    "gravity": 0.77,
+    "modal_transform": 2.45,
+    "undo": 2.64,
+    "reset": 7.37,
+    "total": 41.44
+  },
+  "media": [
+    "<local>\\full-990b11c\\vulkan-100000\\editing_32_objects.png",
+    "<local>\\full-990b11c\\vulkan-100000\\after_grab.png"
+  ],
+  "blender": "5.2.0 LTS",
+  "particles": 101614,
+  "transport": {
+    "label": "Vulkan interop (GPU copy, no CPU readback)",
+    "backend": "VULKAN",
+    "readback": false,
+    "reason": ""
+  },
+  "backend": "VULKAN",
+  "measurements": {
+    "particles": 101614,
+    "transport": {
+      "label": "Vulkan interop (GPU copy, no CPU readback)",
+      "backend": "VULKAN",
+      "readback": false,
+      "reason": ""
+    },
+    "throughput": {
+      "idle_sps": 196.9,
+      "idle_after_sps": 193.8,
+      "grab_drag_sps": 169.3,
+      "grab_drag_ratio": 0.867,
+      "gravity_drag_sps": 202.2,
+      "gravity_drag_ratio": 1.035,
+      "gravity_recaptures": 250,
+      "recapture_ms_mean": 0.341
+    },
+    "change_handling": {
+      "ticks": 844,
+      "mean_ms": 0.1666,
+      "p95_ms": 0.6246,
+      "max_ms": 0.9597,
+      "sps_while_moving_32": 168.8,
+      "ratio_while_moving_32": 0.864
+    },
+    "gravity": {
+      "expected_mean_dvx": 0.008240134333618717,
+      "measured_mean_dvx": 0.008185149170458317,
+      "eager_vs_graph_max_abs": 0.0,
+      "step_dv_max": 0.6825201511383057,
+      "substeps": 2,
+      "dt": 0.0006866778611348931
+    },
+    "modal_transform": {
+      "samples": 105,
+      "samples_in_translate": 105,
+      "steps_during": 441,
+      "seconds": 2.39,
+      "sps_during": 184.7,
+      "frame_changes": 13,
+      "x_before": 0.25,
+      "x_after": 3.301412582397461,
+      "x_track_monotonic": true
+    },
+    "undo": {
+      "transform": {
+        "moved": 0.6700000166893005,
+        "after_undo": 0.4699999988079071,
+        "after_redo": 0.6700000166893005,
+        "running_after_undo": true,
+        "running_after_redo": true,
+        "pending": [
+          "COLLIDER"
+        ]
+      },
+      "role": {
+        "pending_after_change": [
+          "'Showcase Static02' left the simulation"
+        ],
+        "role_after_undo": "COLLIDER",
+        "role_after_redo": "NONE",
+        "running": [
+          true,
+          true
+        ],
+        "static01_x_after_role_undo": 0.6700000166893005
+      },
+      "delete": {
+        "running_after_delete": true,
+        "pose_held_after_delete": true,
+        "restored_by_undo": true,
+        "resolved_by_uid_after_undo": true,
+        "running": [
+          true,
+          true
+        ]
+      },
+      "uids_compared": 35,
+      "uids_changed": [],
+      "scene_is_current": true
+    },
+    "reset": {
+      "particles": 101614,
+      "reset": [
+        {
+          "op_s": 0.055,
+          "first_step_s": 0.066,
+          "last_reset_ms": 55.0,
+          "pending_after": []
+        },
+        {
+          "op_s": 0.053,
+          "first_step_s": 0.064,
+          "last_reset_ms": 53.1,
+          "pending_after": []
+        },
+        {
+          "op_s": 0.055,
+          "first_step_s": 0.068,
+          "last_reset_ms": 55.1,
+          "pending_after": []
+        }
+      ],
+      "stop_start": [
+        {
+          "op_s": 1.121,
+          "first_step_s": 1.138
+        },
+        {
+          "op_s": 1.126,
+          "first_step_s": 1.143
+        },
+        {
+          "op_s": 1.084,
+          "first_step_s": 1.099
+        }
+      ],
+      "reset_median_s": 0.066,
+      "stop_start_median_s": 1.138,
+      "reset_op_median_s": 0.055,
+      "stop_start_op_median_s": 1.121
+    }
+  }
+}
