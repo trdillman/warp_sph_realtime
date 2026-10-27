@@ -179,6 +179,23 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - GitHub Actions CI running ruff, pyright, and pytest (CUDA tests skip on hosted runners).
 
 ### Fixed
+- Warp install: promotion is rename-only inside the install folder with an on-disk journal, so a locked DLL or a
+  crash mid-install can no longer lose the previous Warp; an interrupted install is finished or undone on the next
+  Install/Repair or Blender start. Start refuses to load Warp while an install runs; Cancel answers within ~10 s.
+- Vulkan transport: a slow but healthy step now holds the last frame instead of going fatal; only work stuck for
+  more than 5 s is treated as a hung GPU.
+- Viewport: a partial SSFR shader-build failure reports the real compiler error; SSFR GL resources are freed after
+  Stop; a GL buffer no longer leaks when CUDA registration fails; cudart is chosen in a fixed order and skips
+  wrong-version copies.
+- Bake: a fresh or resumed bake of an authored scene is built at Bake Start, not at the playhead; a fresh bake asks
+  before deleting frames even when the manifest is missing; a failed last-frame write no longer reports Done; frames
+  and manifest are flushed before rename; resume checks every frame and refuses a cache whose colliders, emitters or
+  domain changed (older authored-scene caches still play back but cannot be resumed).
+- Playback and export report unreadable cache frames instead of silently holding the previous frame.
+- Colliders animated only through NLA strips are treated as animated; Unit Scale is ignored when the unit system
+  is None (matching Blender); demo helpers no longer change the selection.
+- Solver: wall damping can no longer reverse velocity at Time Step above 0.5 (unchanged at the 0.4 default); fast
+  particles no longer tunnel through colliders; a capped viscosity is logged as well as shown in the panel.
 - Bake with a Unit Scale other than 1: the first baked frame, the viewport during a bake and a resumed bake used
   metres where the cache and the viewport use scene units (frame 1 of a centimetre scene was 100x too small and a
   resume restarted from the wrong place). Every cached frame is now in scene units and a resume converts back.
