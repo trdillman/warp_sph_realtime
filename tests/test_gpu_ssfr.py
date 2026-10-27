@@ -319,3 +319,24 @@ def test_session_defaults_to_the_dispatching_renderer():
     session = ts.open_session('OPENGL', 8, 1, create_readback=lambda count, reason='': transport,
                               alloc=lambda n: None, resolve=lambda: None, create_vulkan=lambda *a, **k: None)
     assert isinstance(session.renderer, gs.ViewportRenderer)
+
+
+def test_partial_shader_build_failure_keeps_reporting_the_real_error():
+    # Regression: the passes compiled before a failure stayed cached, so the next draw skipped the
+    # build and died with KeyError('filter'), hiding the GLSL error.
+    rec = Recorder()
+    gpu = fake_gpu(rec)
+    create = gpu.shader.create_from_info
+
+    def failing(info):
+        if info.tag == 'warp_sph_ssfr_filter':
+            raise RuntimeError('filter: GLSL compile error')
+        return create(info)
+    gpu.shader.create_from_info = failing
+    r = gs.SSFRRenderer(gpu, lambda s, k, a: Batch(rec, s, k, a))
+    for _ in range(2):
+        with pytest.raises(RuntimeError, match='GLSL compile error'):
+            r.draw(frame(), SETTINGS)
+        assert r._shaders == {} and r._batches == {}
+    gpu.shader.create_from_info = create  # e.g. a driver/settings fix: the next draw builds everything
+    assert r.draw(frame(), SETTINGS) and set(r._shaders) == {'depth', 'thickness', 'filter', 'composite'}
