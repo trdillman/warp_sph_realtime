@@ -30,6 +30,9 @@ jobs:
           python-version: "3.13"  # Blender 5.2 bundled Python
       - name: Install dev dependencies
         run: pip install numpy matplotlib "warp-lang==1.17.0" "fake-bpy-module==20251003" "pytest==9.0.1" "ruff==0.14.11" "pyright==1.1.408"
+      - name: Install glslangValidator (viewport shader compile tests)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update -q && sudo apt-get install -y -q glslang-tools
       - name: Lint
         run: ruff check .
       - name: Type check
