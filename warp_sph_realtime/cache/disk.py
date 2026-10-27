@@ -159,8 +159,13 @@ class DiskCache:
         signature = json.loads(json.dumps(signature))  # compare as JSON, not as Python objects
         existing = self.manifest()
         if existing is not None:
+            old_signature = existing.get("signature") or {}
+            if "boundaries" in signature and old_signature.get("boundaries") != signature["boundaries"]:
+                what = "unknown (older cache)" if "boundaries" not in old_signature else "changed"
+                raise CacheMismatchError(
+                    f"cached colliders, emitters or domain {what}; use Bake Cache to start a fresh bake "
+                    "or choose a new cache folder")
             if "gravity" in signature:
-                old_signature = existing.get("signature") or {}
                 if "gravity" not in old_signature:
                     raise CacheMismatchError(
                         "cached gravity is unknown (older cache); use Bake Cache to start a fresh bake "

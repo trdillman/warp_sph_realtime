@@ -36,6 +36,9 @@ def solver_signature(solver, steps: int, fps: float, scene: str, demo: str) -> d
     unit = float(getattr(solver, "unit_scale", 1.0))
     if unit != 1.0:  # preserve PR #17's position/meshing unit contract
         signature["unit_scale"] = unit
+    boundaries = getattr(solver, "boundary_fingerprint", None)  # authored scenes: colliders, emitters, domain
+    if isinstance(boundaries, str):
+        signature["boundaries"] = boundaries
     return signature
 
 

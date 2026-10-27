@@ -858,6 +858,7 @@ class RealtimeWCSPHSolver:
             self.grid.reserve(self.num_particles)  # the grid never grows while the pool fills
         self.scene_mode = True
         self.collider_radius = self.h  # re-derived in set_particle_spacing
+        self.boundary_fingerprint = desc.boundary_fingerprint()  # bake signature: colliders, emitters, domain
 
     def _setup_emitters(self, desc: SceneDescription):
         self._emitters = []

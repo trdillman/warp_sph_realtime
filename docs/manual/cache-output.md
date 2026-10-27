@@ -27,8 +27,9 @@ running: **Bake** starts it. Baking is an explicit action; the live view never r
 
 With unchanged physics on the same GPU and driver, unit-scale-1 resumes can match uninterrupted results bit for bit.
 Other unit scales round positions through float32 scene units and can introduce small numerical differences.
-Changing domain geometry, fluid placement, colliders, collider animation or emitter settings after a bake is not
-detected by the signature: start a fresh bake after those edits.
+An authored scene's cache also records its domain box, colliders (static shapes, which ones move) and emitters:
+**Resume** refuses a cache baked before a change to them, and older caches without that record. Fluid placement
+and the keyframes of an animated collider are not recorded: start a fresh bake after editing those.
 
 ## Playback
 
