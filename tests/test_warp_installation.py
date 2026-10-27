@@ -4,6 +4,8 @@ from __future__ import annotations
 import hashlib
 import io
 import json
+import os
+import shutil
 import stat
 import sys
 import tempfile
@@ -239,21 +241,138 @@ class ManagedWarpTest(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, "Symlink"):
             installer._extract_wheel(path, self.owned)
 
-    def test_failed_backup_move_keeps_original_receipt(self):
-        self.install()
-        before = (self.owned/"warp"/"__init__.py").read_bytes()
-        wheel=Path(self.temp.name)/"repair.whl"
+    # ---- promotion rollback and crash recovery ----------------------------------------------
+
+    def _repair_wheel(self):
+        wheel = Path(self.temp.name) / "repair.whl"
         wheel.write_bytes(self.data)
-        original=installer.shutil.move
-        def fail_receipt(source,dest,*args,**kwargs):
-            if str(source).endswith(".warpsph-owned.json"):
-                raise OSError("simulate backup receipt failure")
-            return original(source,dest,*args,**kwargs)
-        with mock.patch.object(installer.shutil,"move",side_effect=fail_receipt):
-            with self.assertRaisesRegex(OSError,"receipt failure"):
-                installer._promote_verified_wheel(wheel,self.owned,self.wheel)
-        self.assertTrue(installer._is_managed(self.owned))
-        self.assertEqual((self.owned/"warp"/"__init__.py").read_bytes(),before)
+        return wheel
+
+    def _snapshot(self):
+        return {p.relative_to(self.owned).as_posix(): (p.read_bytes() if p.is_file() else None)
+                for p in self.owned.rglob("*")}
+
+    def _install_marked(self):
+        """Install, then tag the copy so a restore is provably the previous install, not the new one."""
+        self.install()
+        (self.owned / "warp" / "original.txt").write_text("previous install", encoding="utf8")
+        return self._snapshot()
+
+    @staticmethod
+    def _failing_rename(should_fail):
+        """Patch os.rename; ``should_fail(src, dst, calls)`` raises a locked-file error for chosen moves."""
+        real = os.rename
+        calls = []
+
+        def rename(src, dst):
+            calls.append((Path(src), Path(dst)))
+            if should_fail(Path(src), Path(dst), calls):
+                raise PermissionError("simulated locked file")
+            return real(src, dst)
+        return mock.patch.object(installer.os, "rename", side_effect=rename)
+
+    @staticmethod
+    def _nth_move_from(folder, n):
+        def fail(src, _dst, calls):
+            return src.parent.name == folder and sum(c[0].parent.name == folder for c in calls) == n
+        return fail
+
+    def test_partial_promotion_failure_restores_previous_install_exactly(self):
+        # The second move of each phase fails, so one entry has already moved: the partial-move path.
+        phases = {
+            "backup": lambda src, dst, calls: dst.parent.name == "backup"
+            and sum(c[1].parent.name == "backup" for c in calls) == 2,
+            "staging": self._nth_move_from("staging", 2),
+        }
+        for phase, fail in phases.items():
+            with self.subTest(phase=phase):
+                before = self._install_marked()
+                with self._failing_rename(fail), self.assertRaisesRegex(OSError, "locked"):
+                    installer._promote_verified_wheel(self._repair_wheel(), self.owned, self.wheel)
+                self.assertEqual(self._snapshot(), before)  # no journal, no nesting, original bytes
+                self.assertFalse((self.owned / "warp" / "warp").exists())
+                self.assertTrue(installer._is_managed(self.owned))
+
+    def test_locked_file_during_rollback_keeps_backup_until_recovered(self):
+        before = self._install_marked()
+        first_staging_fail = self._nth_move_from("staging", 2)
+        locked = {"on": True}
+
+        def fail(src, dst, calls):  # the install fails, then the new 'warp' cannot be moved aside
+            return first_staging_fail(src, dst, calls) or (locked["on"] and dst.parent.name == "trash")
+        real_rmtree = shutil.rmtree
+
+        def rmtree(path, ignore_errors=False, **kwargs):  # a DLL held open by a scanner
+            if locked["on"] and not ignore_errors:
+                raise PermissionError("simulated locked DLL")
+            return real_rmtree(path, ignore_errors=ignore_errors, **kwargs)
+        with self._failing_rename(fail), mock.patch.object(installer.shutil, "rmtree", side_effect=rmtree):
+            with self.assertRaisesRegex(RuntimeError, "rollback did not finish"):
+                installer._promote_verified_wheel(self._repair_wheel(), self.owned, self.wheel)
+        backup = self.owned / ".warpsph-promote" / "backup"
+        self.assertEqual((backup / "warp" / "original.txt").read_text("utf8"), "previous install")
+        locked["on"] = False
+        result = installer.install_warp()  # the next press restores the previous install first
+        self.assertTrue(result.already_installed, result.message)
+        self.assertEqual(self._snapshot(), before)
+
+    def test_crash_mid_promotion_is_repaired_by_next_install_or_start(self):
+        for existing in (False, True):
+            with self.subTest(existing=existing):
+                self.owned = Path(self.temp.name) / f"crash-{existing}" / ".local"
+                before = self._install_marked() if existing else None
+                # The process dies after one new entry moved in: no rollback runs.
+                with self._failing_rename(self._nth_move_from("staging", 2)), \
+                        mock.patch.object(installer, "_recover_interrupted_promotion", return_value=False), \
+                        self.assertRaises(OSError):
+                    installer._promote_verified_wheel(self._repair_wheel(), self.owned, self.wheel)
+                self.assertFalse(installer._is_managed(self.owned))
+                if existing:
+                    installer.apply_pending_repair_on_startup()
+                    self.assertEqual(self._snapshot(), before)
+                else:
+                    result = installer.install_warp()
+                    self.assertTrue(result.success, result.message)
+                    self.assertTrue(installer._is_managed(self.owned))
+                    self.assertFalse((self.owned / ".warpsph-promote").exists())
+
+    def test_download_reads_small_chunks_with_short_timeout(self):
+        destination = Path(self.temp.name) / "download.whl"
+        data, sizes, timeouts = self.data, [], []
+
+        class Response:
+            position = 0
+            def __enter__(self): return self
+            def __exit__(self, *_args): return False
+            def geturl(self): return "https://files.pythonhosted.org/packages/test.whl"
+            def read(self, size):
+                sizes.append(size)
+                chunk = data[self.position:self.position + size]
+                self.position += len(chunk)
+                return chunk
+
+        def fake_urlopen(_url, timeout):
+            timeouts.append(timeout)
+            return Response()
+        with mock.patch.object(installer, "urlopen", side_effect=fake_urlopen):
+            _original_download(self.wheel.url, destination,
+                               expected_sha256=self.wheel.sha256, expected_size=self.wheel.size)
+        self.assertEqual(destination.read_bytes(), self.data)
+        self.assertLessEqual(max(sizes), 64 * 1024)  # Cancel is checked between small reads
+        self.assertLessEqual(timeouts[0], 10)        # a stalled read gives up quickly
+
+    def test_cancel_during_stalled_read_is_reported_as_cancelled(self):
+        pressed = {"cancel": False}
+
+        def stalled(url, dest, **kwargs):
+            pressed["cancel"] = True  # Cancel pressed while the read was blocked; it then times out
+            raise TimeoutError("The read operation timed out")
+        self.patch("_download_wheel", stalled)
+        plan = installer.plan_install()
+        assert isinstance(plan, installer.InstallPlan)
+        result = installer.run_plan(plan, cancel=lambda: pressed["cancel"])
+        self.assertTrue(result.cancelled, result.message)
+        self.assertFalse(self.owned.exists())
 
     @unittest.skipUnless(sys.platform=="win32","Windows long-path guard")
     def test_long_path_extract_and_cleanup(self):
@@ -269,24 +388,6 @@ class ManagedWarpTest(unittest.TestCase):
         self.assertTrue((installer._filesystem_path(deep)/"warp"/"__init__.py").is_file())
         license_path=installer._filesystem_path(deep)/"warp_lang-1.17.0.dist-info"/"licenses"/("very-long-license-folder-"*3)/"LICENSE.txt"
         self.assertEqual(license_path.read_text("utf8"),"MIT license")
-
-    def test_promote_failed_move_restores_owned_install(self):
-        self.install()
-        initial = (self.owned / "warp" / "__init__.py").read_bytes()
-        source = Path(self.temp.name) / "repair.whl"
-        source.write_bytes(self.data)
-        original_move = installer.shutil.move
-        fail_once = {"count": 0}
-        def simulated_failure(a, b, *args, **kwargs):
-            if "staging" in str(a) and fail_once["count"] == 0:
-                fail_once["count"] += 1
-                raise OSError("disk failure")
-            return original_move(a, b, *args, **kwargs)
-        with mock.patch.object(installer.shutil, "move", side_effect=simulated_failure):
-            with self.assertRaisesRegex(OSError, "disk failure"):
-                installer._promote_verified_wheel(source, self.owned, self.wheel)
-        self.assertEqual((self.owned / "warp" / "__init__.py").read_bytes(), initial)
-        self.assertTrue(installer._is_managed(self.owned))
 
     def test_runtime_status_refuses_unmanaged(self):
         self.owned.mkdir(parents=True, exist_ok=True)

@@ -31,6 +31,7 @@ alone and imports Warp from a folder the user chose; WarpSPH only reads it.
 
 from __future__ import annotations
 
+import contextlib
 import hashlib
 import importlib.util
 import json
@@ -41,6 +42,8 @@ import shutil
 import stat
 import sys
 import tempfile
+import threading
+import uuid
 import zipfile
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -51,11 +54,22 @@ from urllib.request import urlopen
 from .warp_runtime import CERTIFIED_WARP_VERSION, folder_version_support, warp_version_support
 
 _CHUNK_SIZE = 1024 * 1024
+# Small reads and a short socket timeout bound how long Cancel waits on a slow or stalled download.
+_DOWNLOAD_CHUNK_SIZE = 64 * 1024
+_DOWNLOAD_TIMEOUT = 10
 _LOCK_PATH = Path(__file__).with_name("warp_wheels.lock.json")
 _OWNED_LOCAL_DIR = ".local"
 _RECEIPT = ".warpsph-owned.json"
 _PENDING_REPAIR_WHEEL = ".warpsph-warp-repair.whl"
 _PENDING_REPAIR_PID = ".warpsph-warp-repair.pid"
+# Promotion journal inside the owned directory (same volume, so every move is an atomic rename).
+_PROMOTE_DIR = ".warpsph-promote"
+_DISCARD_PREFIX = ".warpsph-discard-"
+_BACKED_UP = "BACKED_UP"    # every previous Warp entry is in backup/; destination Warp entries are new
+_COMMITTED = "COMMITTED"    # the new install and its receipt are in place; backup/ may be deleted
+
+_active_installs = 0
+_active_installs_lock = threading.Lock()
 
 
 @dataclass(frozen=True)
@@ -101,6 +115,24 @@ CancelFn = Callable[[], bool]
 def _check_cancel(cancel: CancelFn | None) -> None:
     if cancel is not None and cancel():
         raise InstallCancelled()
+
+
+def begin_install_activity() -> None:
+    """Mark an install as running (from plan to result) so Start cannot import Warp meanwhile."""
+    global _active_installs
+    with _active_installs_lock:
+        _active_installs += 1
+
+
+def end_install_activity() -> None:
+    global _active_installs
+    with _active_installs_lock:
+        _active_installs = max(_active_installs - 1, 0)
+
+
+def install_running() -> bool:
+    with _active_installs_lock:
+        return _active_installs > 0
 
 
 def _host_platform() -> str | None:
@@ -162,12 +194,12 @@ def _download_wheel(
     size = 0
     try:
         _check_cancel(cancel)
-        with urlopen(url, timeout=60) as response:
+        with urlopen(url, timeout=_DOWNLOAD_TIMEOUT) as response:
             final = urlparse(response.geturl())
             if final.scheme != "https" or final.hostname != "files.pythonhosted.org":
                 raise RuntimeError("Refusing redirect to an untrusted Warp download host")
             with temp.open("wb") as handle:
-                while chunk := response.read(_CHUNK_SIZE):
+                while chunk := response.read(_DOWNLOAD_CHUNK_SIZE):
                     _check_cancel(cancel)
                     size += len(chunk)
                     if size > expected_size:
@@ -481,9 +513,12 @@ def apply_pending_repair_on_startup() -> None:
         return
     for owned in _owned_candidates():
         if owned.is_dir():
+            _recover_interrupted_promotion(owned)
             _apply_pending_repair(owned)
 
 def ensure_installed_warp_on_path() -> None:
+    if install_running():
+        raise RuntimeError("A Warp install is still running; wait for it to finish (or cancel it), then press Start")
     block_reason = foreign_warp_block_reason()
     if block_reason:
         raise RuntimeError(block_reason)
@@ -497,6 +532,7 @@ def ensure_installed_warp_on_path() -> None:
     _select_import_path(source)
     for owned in _owned_candidates():
         if owned.is_dir():
+            _recover_interrupted_promotion(owned)
             _apply_pending_repair(owned)
             if not _is_managed(owned) or _owned_distribution_version(owned) != CERTIFIED_WARP_VERSION:
                 raise RuntimeError("Warp installation is unverified or unmanaged")
@@ -678,13 +714,16 @@ def _has_warp(dest: Path) -> bool:
     return ((dest / "warp").exists() or (dest / "warp.libs").exists()
             or any(dest.glob("warp_lang-*.dist-info")))
 
+def _is_warp_entry(name: str) -> bool:
+    """A top-level name a Warp install owns: the package, its libs, its dist-info and our receipt."""
+    return name in {"warp", "warp.libs", _RECEIPT} or (name.startswith("warp_lang-") and name.endswith(".dist-info"))
+
 def _delete_warp_entries(dest: Path) -> None:
     dest = _filesystem_path(dest)
     if not dest.is_dir():
         return
     for child in dest.iterdir():
-        name = child.name
-        if name not in {"warp", "warp.libs", _RECEIPT} and not (name.startswith("warp_lang-") and name.endswith(".dist-info")):
+        if not _is_warp_entry(child.name):
             continue
         if child.is_dir() and not child.is_symlink():
             shutil.rmtree(child)
@@ -775,56 +814,117 @@ def _promote_verified_wheel(
     cancel: CancelFn | None = None,
     progress: Callable[[int, int], None] | None = None,
 ) -> None:
-    """Promote only a locked wheel; rollback any failed filesystem operation.
+    """Promote only a locked wheel; any failure rolls back to the previous install.
 
-    Cancel is honored while extracting into the temporary staging directory.
-    Once files start moving into ``destination`` the promotion runs to the end
-    (or rolls back), so a cancel never leaves half an install.
+    The wheel is extracted into a journal directory inside ``destination``
+    (``.warpsph-promote``), so every move is an atomic same-volume rename: no
+    copy+delete fallback, never a half-moved package. The previous install is
+    renamed into ``.warpsph-promote/backup`` and is deleted only after the new
+    install and its receipt are in place. If a rollback step fails (a DLL held
+    open by a scanner) or the process dies mid-promotion, the journal stays on
+    disk and ``_recover_interrupted_promotion`` restores the previous install on
+    the next Install/Repair press or Blender start.
+
+    Cancel is honored while extracting into staging. Once files start moving
+    into ``destination`` the promotion runs to the end (or rolls back), so a
+    cancel never leaves half an install.
     """
     if not _wheel_matches_lock(wheel, info):
         raise RuntimeError("Wheel differs from immutable SHA-256/size lock")
+    _recover_interrupted_promotion(destination)
     if _has_warp(destination) and not _is_managed(destination):
         raise RuntimeError("Unmanaged Warp already occupies the target; refusing overwrite")
     if _owned_warp_is_loaded(destination):
         raise RuntimeError("Native Warp library is still loaded; restart to repair")
-    with tempfile.TemporaryDirectory(prefix="warpsph-verified-") as temporary:
-        staging = Path(temporary) / "staging"
-        backup = Path(temporary) / "backup"
-        backup.mkdir()
+    created = not destination.exists()
+    destination.mkdir(parents=True, exist_ok=True)
+    root = _filesystem_path(destination)
+    work = root / _PROMOTE_DIR
+    staging = work / "staging"
+    backup = work / "backup"
+    if work.exists():
+        raise RuntimeError(f"Files left by an earlier Warp install are still locked ({work}); restart Blender, then retry")
+    work.mkdir()
+    try:
         _extract_wheel(wheel, staging, cancel=cancel, progress=progress)
         if _owned_distribution_version(staging) != CERTIFIED_WARP_VERSION:
             raise RuntimeError("Wheel metadata does not match certified version")
         _check_cancel(cancel)
-        destination.mkdir(parents=True, exist_ok=True)
-        old = []
-        added = []
-        receipt_write_started = False
+        backup.mkdir()
+    except BaseException:
+        # Nothing in ``destination`` was touched yet: drop the staging copy.
+        with contextlib.suppress(OSError):
+            _discard(work)
+        if created:
+            with contextlib.suppress(OSError):
+                root.rmdir()
+        raise
+    try:
+        for entry in list(root.iterdir()):
+            if _is_warp_entry(entry.name):
+                os.rename(entry, backup / entry.name)
+        (work / _BACKED_UP).touch()
+        for entry in list(staging.iterdir()):
+            os.rename(entry, root / entry.name)
+        _receipt_write(destination, info)
+        (work / _COMMITTED).touch()
+    except BaseException as exc:
         try:
-            for e in list(destination.iterdir()):
-                if e.name in {"warp", "warp.libs", _RECEIPT} or (e.name.startswith("warp_lang-") and e.name.endswith(".dist-info")):
-                    shutil.move(str(_filesystem_path(e)), str(_filesystem_path(backup / e.name)))
-                    old.append(e.name)
-            for e in staging.iterdir():
-                shutil.move(str(_filesystem_path(e)), str(_filesystem_path(destination / e.name)))
-                added.append(e.name)
-            receipt_write_started = True
-            _receipt_write(destination, info)
-        except BaseException:
-            for name in added:
-                current = _filesystem_path(destination / name)
-                if current.is_dir() and not current.is_symlink():
-                    shutil.rmtree(current)
-                elif current.exists():
-                    current.unlink()
-            # If the original receipt was not moved yet, leave it intact.
-            if receipt_write_started or _RECEIPT in old:
-                _receipt_path(destination).unlink(missing_ok=True)
-            (destination / (_RECEIPT + ".part")).unlink(missing_ok=True)
-            for name in reversed(old):
-                source = _filesystem_path(backup / name)
-                if source.exists():
-                    shutil.move(str(source), str(_filesystem_path(destination / name)))
-            raise
+            _recover_interrupted_promotion(destination)
+        except Exception as rollback_error:  # noqa: BLE001 - reported together with the original failure
+            raise RuntimeError(
+                f"Warp install failed ({exc}) and the rollback did not finish ({rollback_error}). "
+                f"The previous Warp is kept in {backup} and is restored automatically the next "
+                "time you press Install/Repair Warp or restart Blender."
+            ) from exc
+        raise
+    with contextlib.suppress(OSError):
+        _discard(work)  # the new install is verified in place; a locked leftover is retried later
+
+
+def _discard(path: Path) -> None:
+    """Rename ``path`` aside atomically, then delete it best-effort (a locked file just lingers)."""
+    aside = path.with_name(f"{_DISCARD_PREFIX}{uuid.uuid4().hex}")
+    os.rename(path, aside)
+    shutil.rmtree(aside, ignore_errors=True)
+
+
+def _recover_interrupted_promotion(destination: Path) -> bool:
+    """Finish or undo a promotion left half-done by a crash or a failed rollback.
+
+    Idempotent and safe to retry: every step is a same-volume rename, and the
+    ``BACKED_UP`` marker is removed only once the new entries are out of the way,
+    so a retry never mistakes a restored install for a new one. Raises
+    ``OSError`` (journal kept) while a file is still locked. Returns whether a
+    journal was found.
+    """
+    root = _filesystem_path(destination)
+    if not root.is_dir():
+        return False
+    for leftover in root.glob(_DISCARD_PREFIX + "*"):
+        shutil.rmtree(leftover, ignore_errors=True)
+    work = root / _PROMOTE_DIR
+    if not work.is_dir():
+        return False
+    if not (work / _COMMITTED).exists():
+        if (work / _BACKED_UP).exists():
+            # Every Warp entry now in ``destination`` came from staging: move it aside.
+            trash = work / "trash"
+            trash.mkdir(exist_ok=True)
+            for entry in list(root.iterdir()):
+                if _is_warp_entry(entry.name):
+                    os.rename(entry, trash / f"{entry.name}-{uuid.uuid4().hex}")
+            (work / _BACKED_UP).unlink()
+        (root / (_RECEIPT + ".part")).unlink(missing_ok=True)
+        backup = work / "backup"
+        if backup.is_dir():
+            for entry in list(backup.iterdir()):
+                os.rename(entry, root / entry.name)
+    # The install is consistent now; what is left in the journal is garbage.
+    with contextlib.suppress(OSError):
+        _discard(work)
+    shutil.rmtree(work, ignore_errors=True)  # the rename fails while a leftover is locked
+    return True
 
 def _extract_wheel(
     wheel: Path,
@@ -947,6 +1047,15 @@ def plan_install(
     if blocked:
         return InstallResult(success=False, message=blocked)
 
+    for owned in _owned_candidates():
+        try:
+            _recover_interrupted_promotion(owned)  # a crashed promotion otherwise looks unmanaged forever
+        except OSError as exc:
+            return InstallResult(
+                success=False,
+                message=f"An interrupted Warp install could not be rolled back yet ({exc}). Restart Blender, then retry.",
+            )
+
     repairing_certified = False
     owned_version = None
     for owned in _owned_candidates():
@@ -1035,9 +1144,10 @@ def run_plan(
 ) -> InstallResult:
     """Download (or copy) the wheel, verify it, then extract and promote it atomically.
 
-    Safe to run on a worker thread: it never touches ``bpy``. All work happens
-    in a temporary directory until the verified wheel is promoted, so a cancel
-    or failure before that point leaves the owned directory untouched.
+    Safe to run on a worker thread: it never touches ``bpy``. The download
+    happens in a temporary directory and extraction in the owned directory's
+    promotion journal, so a cancel or failure before promotion leaves the
+    installed Warp untouched.
     """
 
     def report(message: str, fraction: float) -> None:
@@ -1074,6 +1184,7 @@ def run_plan(
             except InstallCancelled:
                 raise
             except Exception as exc:  # noqa: BLE001 - the UI reports the failure
+                _check_cancel(cancel)  # a read cut short by Cancel is a cancel, not a failure
                 prefix = "Wheel refused" if plan.local_wheel is not None else "Download failed"
                 return InstallResult(success=False, message=f"{prefix}: {exc}")
             report("Verifying checksum...", 0.86)
@@ -1162,4 +1273,8 @@ def install_warp(
             last.append(message)
             progress_callback(message)
 
-    return run_plan(plan, progress=relay)
+    begin_install_activity()
+    try:
+        return run_plan(plan, progress=relay)
+    finally:
+        end_install_activity()
