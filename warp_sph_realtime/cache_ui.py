@@ -95,10 +95,13 @@ class WM_OT_warp_sph_bake(bpy.types.Operator):
         return _session(context).bake is None
 
     def invoke(self, context, event):
-        cached, _size = cache_status(_cache_dir(context.scene), max_age=0.0)
-        if not self.resume and cached is not None:
-            return context.window_manager.invoke_confirm(
-                self, event, message=f"Replace the {cached[1] - cached[0] + 1} cached frames?")
+        if not self.resume:
+            # Count frame files, not the manifest's range: a fresh bake deletes every frame file, also when the
+            # manifest is missing or unreadable.
+            frames = _disk().DiskCache(_cache_dir(context.scene)).frames()
+            if frames:
+                return context.window_manager.invoke_confirm(
+                    self, event, message=f"Replace the {len(frames)} cached frames?")
         return self.execute(context)
 
     def execute(self, context):
