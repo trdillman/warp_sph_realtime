@@ -64,6 +64,58 @@ class ShaderCleanup(unittest.TestCase):
         self.assertCountEqual(deleted, [11, 12])
 
 
+class StopCleanup(unittest.TestCase):
+    """Stop runs in the operator GL context; SSFR objects belong to the viewport draw context."""
+
+    def test_stop_frees_draw_context_resources_on_the_next_viewport_draw(self):
+        gl = _StatefulGL()
+        gl._initialized = True
+        gl.glDeleteProgram, gl.glDeleteVertexArrays = Mock(), Mock()
+        handlers, timers = [], []
+        space = SimpleNamespace(draw_handler_add=Mock(side_effect=lambda fn, *a: handlers.append(fn) or 'handle'),
+                                draw_handler_remove=Mock())
+        app = SimpleNamespace(timers=SimpleNamespace(register=lambda fn, **kw: timers.append(fn),
+                                                     is_registered=lambda fn: fn in timers))
+        renderer = v.SSFRViewportRenderer()
+        with patch.object(v, '_GLInterop', gl), patch.object(v, '_SSFR_RENDERER', renderer), \
+                patch.object(v, '_CLEANUP_HANDLE', None), \
+                patch.object(v.bpy, 'types', SimpleNamespace(SpaceView3D=space), create=True), \
+                patch.object(v.bpy, 'app', app, create=True), \
+                patch.object(v.bpy, 'context', SimpleNamespace(), create=True):
+            gl.current_context.return_value = 'viewport'
+            renderer._get_or_create_ctx_data(64, 48)
+            gl.current_context.return_value = 'operator'
+            v.cleanup_viewport_renderer()                      # Stop: the run's draw handler is already gone
+            self.assertIn('viewport', renderer._ctx_resources)
+            self.assertEqual(handlers, [v._drain_pending_cleanup], 'nothing would ever free them')
+            gl.current_context.return_value = 'viewport'
+            handlers[0]()                                      # next viewport redraw
+            self.assertEqual(renderer._ctx_resources, {})
+            self.assertFalse(gl.framebuffers)                  # every SSFR FBO deleted in its own context
+            self.assertEqual(gl.glDeleteProgram.call_count, 5)
+            gl.glDeleteVertexArrays.assert_called_once()
+            space.draw_handler_remove.assert_not_called()      # never from inside its own callback
+            self.assertEqual(timers, [v._remove_cleanup_handler])
+            timers[0]()
+            space.draw_handler_remove.assert_called_once_with('handle', 'WINDOW')
+            self.assertIsNone(v._CLEANUP_HANDLE)
+
+    def test_stop_in_the_owning_context_frees_immediately_without_a_handler(self):
+        gl = _StatefulGL()
+        gl._initialized = True
+        gl.glDeleteProgram, gl.glDeleteVertexArrays = Mock(), Mock()
+        space = SimpleNamespace(draw_handler_add=Mock())
+        renderer = v.SSFRViewportRenderer()
+        with patch.object(v, '_GLInterop', gl), patch.object(v, '_SSFR_RENDERER', renderer), \
+                patch.object(v, '_CLEANUP_HANDLE', None), \
+                patch.object(v.bpy, 'types', SimpleNamespace(SpaceView3D=space), create=True):
+            renderer._get_or_create_ctx_data(64, 48)
+            v.cleanup_viewport_renderer()
+        self.assertEqual(renderer._ctx_resources, {})
+        self.assertFalse(renderer._pending_destroy)
+        space.draw_handler_add.assert_not_called()
+
+
 class PipelineGL(_StatefulGL):
     """Track actual mutations and enforce the multisample scaling restriction."""
     def __init__(self):
