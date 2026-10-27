@@ -407,21 +407,32 @@ class SimSession:
     def reset_reasons(self) -> list[str]:
         return self.tracker.reset_reasons() if self.tracker is not None else []
 
-    def _rebuild_at_start(self, context):
-        """Rebuild solver and output from the scene at the run's start frame (transactional, see reallocate)."""
+    def _set_frame(self, frame):
+        """Move the playhead (not a user edit: the tracker is muted)."""
+        tracker = self.tracker
+        if tracker is not None:
+            with tracker.muted():
+                self.scene.frame_set(frame)
+        else:
+            self.scene.frame_set(frame)
+
+    def _rebuild_at_start(self, context, start=None):
+        """Rebuild solver and output from the scene at ``start`` (default: the run's start frame), which becomes
+        the run's start frame. Transactional (see reallocate): on failure the playhead is put back too."""
         scene = self.scene
         settings = scene.warp_sph
         if settings.scene_source == 'CUSTOM':
-            start = self.start_frame
-            if start is not None and getattr(scene, "frame_current", start) != start:
-                tracker = self.tracker
-                if tracker is not None:
-                    with tracker.muted():
-                        scene.frame_set(start)
-                else:
-                    scene.frame_set(start)
-            self.reallocate(scene, 0, CUSTOM_SCENE, context.window, depsgraph=context.evaluated_depsgraph_get(),
-                            keep_output=True)
+            start = self.start_frame if start is None else start
+            frame = getattr(scene, "frame_current", None)
+            if start is not None and frame is not None and frame != start:
+                self._set_frame(start)
+            try:
+                self.reallocate(scene, 0, CUSTOM_SCENE, context.window,
+                                depsgraph=context.evaluated_depsgraph_get(), keep_output=True)
+            except BaseException:
+                if frame is not None and getattr(scene, "frame_current", frame) != frame:
+                    self._set_frame(frame)
+                raise
         else:
             self.reallocate(scene, settings.particle_count, settings.demo_scene, context.window, keep_output=True)
 
@@ -435,21 +446,13 @@ class SimSession:
             report({'ERROR'}, "Cancel the bake before Reset")
             return False
         t0 = time.perf_counter()
-        frame = getattr(self.scene, "frame_current", None)
         try:
-            self._rebuild_at_start(context)
+            self._rebuild_at_start(context)  # puts the playhead back if the scene cannot be built
         except FatalTransportError as exc:
             self.mark_fatal(str(exc))
             report({'ERROR'}, f"WarpSPH GPU transport failed; restart Blender: {exc}")
             return False
         except Exception as exc:  # SceneSetupError and other build errors: the current run continues
-            if frame is not None and getattr(self.scene, "frame_current", frame) != frame:
-                tracker = self.tracker
-                if tracker is not None:
-                    with tracker.muted():
-                        self.scene.frame_set(frame)
-                else:
-                    self.scene.frame_set(frame)
             report({'ERROR'}, f"WarpSPH cannot reset: {exc}; the current run continues")
             return False
         self.last_reset_ms = (time.perf_counter() - t0) * 1000.0
@@ -696,9 +699,13 @@ class SimSession:
         settings = scene.warp_sph
         fps = scene.render.fps / scene.render.fps_base
         try:
-            if not resume and self.step_count > 0:  # a fresh bake starts from the initial state, at the start frame
+            # Frame ``first`` is the initial state at the solver's start frame: emitters and animated colliders run
+            # on that clock, so an authored scene built at another frame (the playhead at Start) is rebuilt there.
+            # Resume needs the same clock: restore sets the time from ``first``.
+            custom = self.active_demo == CUSTOM_SCENE
+            if (custom and self.start_frame != first) or (not resume and self.step_count > 0):
                 self.paused = False
-                self._rebuild_at_start(context)
+                self._rebuild_at_start(context, first if custom else None)
             solver = self.solver
             apply_physics(solver, settings)
             solver.rebuild_cuda_graph()
