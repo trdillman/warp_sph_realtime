@@ -7,7 +7,8 @@ running: **Bake** starts it. Baking is an explicit action; the live view never r
 
 1. **Cache Folder**: leave empty for the default, `<blend folder>/<name>_warp_sph_cache/<scene>` next to the saved
    .blend (a temporary folder while the file is unsaved), or choose a folder. Each scene has its own.
-2. Set **Start** and **End** frames (frame 1 is the initial state) and **Steps / Frame** (0 means real time: the
+2. Set **Start** and **End** frames (**Start** is the initial state: an authored scene is rebuilt at that frame, so
+   emitters and animated colliders follow the timeline whatever frame the playhead was on) and **Steps / Frame** (0 means real time: the
    steps that make one frame last 1 / frame rate seconds of simulated time).
 3. The panel shows the size before you bake ("Size: ... (N frames x ...)"): 28 bytes per particle per frame, and
    warns "Only ... free on this drive" if the drive is too small.
@@ -27,14 +28,17 @@ running: **Bake** starts it. Baking is an explicit action; the live view never r
 
 With unchanged physics on the same GPU and driver, unit-scale-1 resumes can match uninterrupted results bit for bit.
 Other unit scales round positions through float32 scene units and can introduce small numerical differences.
-Changing domain geometry, fluid placement, colliders, collider animation or emitter settings after a bake is not
-detected by the signature: start a fresh bake after those edits.
+An authored scene's cache also records its domain box, colliders (static shapes, which ones move) and emitters:
+**Resume** refuses a cache baked before a change to them, and older caches without that record. Fluid placement
+and the keyframes of an animated collider are not recorded: start a fresh bake after editing those.
 
 ## Playback
 
 **Show Cache as Point Cloud** adds an object that follows the timeline (frames outside the cached range show the
 nearest cached frame). It has `velocity`, `id` and `radius` point attributes and renders in Cycles as spheres of the
-particle radius. **Hide Cache** removes it (and the mesh preset object, which reads it).
+particle radius. **Hide Cache** removes it (and the mesh preset object, which reads it). A cached frame that cannot
+be read keeps the previous frame on screen: the panel shows an error for that frame, and an export that passed
+through such frames finishes with a warning naming them (re-bake them).
 
 ## Output
 

@@ -99,7 +99,8 @@ assert addon.VIEW3D_PT_warp_sph_advanced.bl_options == {'DEFAULT_CLOSED'}
 assert not [n for n in dir(Scene) if n.startswith('warp_sph_')]   # no flat scene properties any more
 assert addon.OBJECT_OT_warp_sph_set_role.bl_idname == 'object.warp_sph_set_role'
 assert addon.OBJECT_PT_warp_sph.bl_context == 'physics'
-assert 'numpy' not in sys.modules or True  # registration itself never needs the scene helpers
+for helper in ('warp_sph_realtime.scene.blender_scene', 'warp_sph_realtime.scene.fill'):
+    assert helper not in sys.modules, helper  # registration itself never needs the scene helpers
 
 def set_role(ctx, role):
     op = addon.OBJECT_OT_warp_sph_set_role()
@@ -309,6 +310,71 @@ def vram_warning_follows_the_particle_estimate():
     assert vram_warnings(draw_panel(ctx)) == ['Needs about 9.0 GB of GPU memory: may not fit']
     ctx.scene.warp_sph.particle_spacing = 0.02                    # 1M particles
     assert not vram_warnings(draw_panel(ctx))
+
+@case
+def fresh_bake_confirms_before_replacing_any_frame_files():
+    import tempfile
+    from pathlib import Path
+    from warp_sph_realtime import cache_ui
+    from warp_sph_realtime.cache.disk import DiskCache
+    tmp = tempfile.TemporaryDirectory()
+    folder = Path(tmp.name) / 'cache'
+    real_dir = cache_ui._cache_dir
+    cache_ui._cache_dir = lambda scene: folder
+    confirms = []
+    ctx = make_context()
+    ctx.window_manager = NS(invoke_confirm=lambda op, event, message: confirms.append(message) or {'RUNNING_MODAL'})
+    op = cache_ui.WM_OT_warp_sph_bake()
+    op.resume = False
+    op.execute = lambda context: {'FINISHED'}
+    try:
+        assert op.invoke(ctx, None) == {'FINISHED'} and not confirms           # nothing on disk: no question
+        disk = DiskCache(folder)
+        disk.begin(1, {'particles': 2})
+        for n in (1, 2):
+            disk.write_frame(n, np.zeros((2, 3), np.float32), np.zeros((2, 3), np.float32), np.arange(2, dtype=np.int32))
+        cache_ui._forget_status()
+        assert op.invoke(ctx, None) == {'RUNNING_MODAL'} and confirms[-1] == 'Replace the 2 cached frames?'
+        disk.manifest_path.write_text('{not json', encoding='utf-8')           # unreadable manifest
+        cache_ui._forget_status()
+        assert op.invoke(ctx, None) == {'RUNNING_MODAL'} and len(confirms) == 2, confirms
+        disk.manifest_path.unlink()                                            # missing manifest, frames left
+        cache_ui._forget_status()
+        assert op.invoke(ctx, None) == {'RUNNING_MODAL'} and len(confirms) == 3, confirms
+        op.resume = True                                                       # resume never replaces frames
+        assert op.invoke(ctx, None) == {'FINISHED'} and len(confirms) == 3
+    finally:
+        cache_ui._cache_dir = real_dir
+        tmp.cleanup()
+
+@case
+def export_warns_about_frames_that_held_an_older_frame():
+    from pathlib import Path
+    from warp_sph_realtime import cache_ui
+    adapter = cache_ui._adapter()
+    folder = Path('unused-cache-dir')
+    real = cache_ui._cache_dir, cache_ui.cache_status, cache_ui._blender_output
+    stale = {}
+    def export_sequence(context, filepath, fmt, mesh, frames):
+        adapter._failures.setdefault(str(folder), {}).update(stale)  # what the frame handler records
+        return Path(filepath)
+    cache_ui._cache_dir = lambda scene: folder
+    cache_ui.cache_status = lambda directory, max_age=1.0: ((1, 10), 0)
+    cache_ui._blender_output = lambda: NS(find_mesh_object=lambda scene: object(), export_sequence=export_sequence)
+    adapter._failures[str(folder)] = {4: 'old failure from scrubbing'}  # cleared before the export
+    try:
+        op = cache_ui.WM_OT_warp_sph_cache_export()
+        op.filepath, op.format = 'out.usdc', 'USD'
+        assert op.execute(make_context()) == {'FINISHED'} and op.reports[-1][0] == 'INFO', op.reports
+        stale.update({3: 'frame 3 is unreadable', 99: 'outside the export'})
+        op = cache_ui.WM_OT_warp_sph_cache_export()
+        op.filepath, op.format = 'out.usdc', 'USD'
+        assert op.execute(make_context()) == {'FINISHED'}
+        level, message = op.reports[-1]
+        assert level == 'WARNING' and '1 cached frame(s) could not be read (3)' in message, op.reports
+    finally:
+        cache_ui._cache_dir, cache_ui.cache_status, cache_ui._blender_output = real
+        adapter.clear_playback_failures(folder)
 
 ext.unregister()
 assert registered == [] and not hasattr(Object, 'warp_sph') and not hasattr(Scene, 'warp_sph')

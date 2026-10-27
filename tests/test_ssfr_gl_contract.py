@@ -64,6 +64,58 @@ class ShaderCleanup(unittest.TestCase):
         self.assertCountEqual(deleted, [11, 12])
 
 
+class StopCleanup(unittest.TestCase):
+    """Stop runs in the operator GL context; SSFR objects belong to the viewport draw context."""
+
+    def test_stop_frees_draw_context_resources_on_the_next_viewport_draw(self):
+        gl = _StatefulGL()
+        gl._initialized = True
+        gl.glDeleteProgram, gl.glDeleteVertexArrays = Mock(), Mock()
+        handlers, timers = [], []
+        space = SimpleNamespace(draw_handler_add=Mock(side_effect=lambda fn, *a: handlers.append(fn) or 'handle'),
+                                draw_handler_remove=Mock())
+        app = SimpleNamespace(timers=SimpleNamespace(register=lambda fn, **kw: timers.append(fn),
+                                                     is_registered=lambda fn: fn in timers))
+        renderer = v.SSFRViewportRenderer()
+        with patch.object(v, '_GLInterop', gl), patch.object(v, '_SSFR_RENDERER', renderer), \
+                patch.object(v, '_CLEANUP_HANDLE', None), \
+                patch.object(v.bpy, 'types', SimpleNamespace(SpaceView3D=space), create=True), \
+                patch.object(v.bpy, 'app', app, create=True), \
+                patch.object(v.bpy, 'context', SimpleNamespace(), create=True):
+            gl.current_context.return_value = 'viewport'
+            renderer._get_or_create_ctx_data(64, 48)
+            gl.current_context.return_value = 'operator'
+            v.cleanup_viewport_renderer()                      # Stop: the run's draw handler is already gone
+            self.assertIn('viewport', renderer._ctx_resources)
+            self.assertEqual(handlers, [v._drain_pending_cleanup], 'nothing would ever free them')
+            gl.current_context.return_value = 'viewport'
+            handlers[0]()                                      # next viewport redraw
+            self.assertEqual(renderer._ctx_resources, {})
+            self.assertFalse(gl.framebuffers)                  # every SSFR FBO deleted in its own context
+            self.assertEqual(gl.glDeleteProgram.call_count, 5)
+            gl.glDeleteVertexArrays.assert_called_once()
+            space.draw_handler_remove.assert_not_called()      # never from inside its own callback
+            self.assertEqual(timers, [v._remove_cleanup_handler])
+            timers[0]()
+            space.draw_handler_remove.assert_called_once_with('handle', 'WINDOW')
+            self.assertIsNone(v._CLEANUP_HANDLE)
+
+    def test_stop_in_the_owning_context_frees_immediately_without_a_handler(self):
+        gl = _StatefulGL()
+        gl._initialized = True
+        gl.glDeleteProgram, gl.glDeleteVertexArrays = Mock(), Mock()
+        space = SimpleNamespace(draw_handler_add=Mock())
+        renderer = v.SSFRViewportRenderer()
+        with patch.object(v, '_GLInterop', gl), patch.object(v, '_SSFR_RENDERER', renderer), \
+                patch.object(v, '_CLEANUP_HANDLE', None), \
+                patch.object(v.bpy, 'types', SimpleNamespace(SpaceView3D=space), create=True):
+            renderer._get_or_create_ctx_data(64, 48)
+            v.cleanup_viewport_renderer()
+        self.assertEqual(renderer._ctx_resources, {})
+        self.assertFalse(renderer._pending_destroy)
+        space.draw_handler_add.assert_not_called()
+
+
 class PipelineGL(_StatefulGL):
     """Track actual mutations and enforce the multisample scaling restriction."""
     def __init__(self):
@@ -246,3 +298,75 @@ class MappedVboScope(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError, 'cudaGraphicsUnmapResources failed with CUDA error 700'):
                 with buffer.mapped():
                     pass
+
+
+class VboRegistrationFailure(unittest.TestCase):
+    def test_failed_cuda_registration_deletes_the_vbo(self):
+        # Regression: the constructor raised after glGenBuffers, and no caller could delete the VBO.
+        gl = v._ig._GLInterop
+        live = set()
+
+        def gen(count, out):
+            ctypes.cast(out, ctypes.POINTER(ctypes.c_uint))[0] = 77
+            live.add(77)
+
+        def delete(count, names):
+            live.discard(ctypes.cast(names, ctypes.POINTER(ctypes.c_uint))[0])
+        cudart = Mock()
+        cudart.cudaGraphicsGLRegisterBuffer.return_value = 999
+        with patch.object(v._ig, 'gpu', SimpleNamespace(platform=SimpleNamespace(backend_type_get=lambda: 'OPENGL'))), \
+                patch.multiple(gl, ensure_initialized=Mock(), validate_gl_cuda_device=Mock(), glGenBuffers=gen,
+                               glBindBuffer=Mock(), glBufferData=Mock(), glDeleteBuffers=delete, create=True), \
+                patch.object(gl, 'cudart', cudart, create=True):
+            with self.assertRaisesRegex(RuntimeError, 'cudaGraphicsGLRegisterBuffer failed with CUDA error 999'):
+                v._ig.ZeroCopyGLBuffer52(10)
+        self.assertEqual(live, set())
+
+
+class CudartSelection(unittest.TestCase):
+    """The interop runtime is the first candidate reporting 12.9, in a fixed, specific-first order."""
+
+    @staticmethod
+    def fake_runtime(version, code=0):
+        def get_version(out):
+            ctypes.cast(out, ctypes.POINTER(ctypes.c_int))[0] = version
+            return code
+        return SimpleNamespace(cudaRuntimeGetVersion=get_version)
+
+    def test_windows_order_is_specific_first_and_deduplicated(self):
+        env = {'CUDA_PATH': r'C:\cuda\v12.4', 'CUDA_PATH_V12_4': r'C:\cuda\v12.4', 'CUDA_PATH_V12_9': r'C:\cuda\v12.9',
+               'CUDA_PATH_V12_10': r'C:\cuda\v12.10', 'Path': r'C:\apps;C:\cuda\v12.9\bin'}
+        exists = {r'C:\cuda\v12.4\bin\cudart64_12.dll', r'C:\cuda\v12.9\bin\cudart64_12.dll',
+                  r'C:\cuda\v12.10\bin\cudart64_12.dll', r'C:\apps\cudart64_12.dll', r'D:\blender\cudart64_12.dll'}
+        found = v._ig.cudart_candidates(env, 'win32', isfile=lambda p: p in exists, loaded=r'D:\blender\cudart64_12.dll')
+        self.assertEqual(found, [r'D:\blender\cudart64_12.dll', r'C:\cuda\v12.9\bin\cudart64_12.dll',
+                                 r'C:\cuda\v12.4\bin\cudart64_12.dll', r'C:\cuda\v12.10\bin\cudart64_12.dll',
+                                 'cudart64_12.dll', r'C:\apps\cudart64_12.dll'])
+
+    def test_wrong_version_earlier_in_the_search_is_skipped(self):
+        # Regression: the first cudart64_12.dll found was final, so an older copy hid an installed 12.9.
+        libs = {'old.dll': self.fake_runtime(12040), 'cudart64_12.dll': None, 'new.dll': self.fake_runtime(12090)}
+
+        def load(path):
+            if libs[path] is None:
+                raise OSError('not found')
+            return libs[path]
+        with patch.object(v._ig, '_release_library') as released:
+            lib = v._ig._GLInterop._find_and_load_cudart(['old.dll', 'cudart64_12.dll', 'new.dll'], load)
+        self.assertIs(lib, libs['new.dll'])
+        released.assert_called_once_with(libs['old.dll'])
+
+    def test_no_match_lists_every_copy_and_version(self):
+        def load(path):
+            if path.endswith('broken.dll'):
+                raise OSError('bad image')
+            return self.fake_runtime(12040)
+        with patch.object(v._ig, '_release_library'), \
+                self.assertRaisesRegex(RuntimeError, r'12\.9 \(12090\).*C:\\a\\x\.dll: reports 12040.*broken\.dll: bad image'):
+            v._ig._GLInterop._find_and_load_cudart([r'C:\a\x.dll', r'C:\b\broken.dll'], load)
+
+    def test_nothing_found_keeps_the_documented_message(self):
+        def load(path):
+            raise OSError('not found')
+        with self.assertRaisesRegex(RuntimeError, 'CUDA 12 runtime .* not found'):
+            v._ig._GLInterop._find_and_load_cudart(['cudart64_12.dll'], load)

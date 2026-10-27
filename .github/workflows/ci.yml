@@ -13,7 +13,7 @@ jobs:
   check:
     # GitHub-hosted runners have no CUDA GPU: CUDA-only tests skip, CPU kernels and mocks still run.
     # Windows-only tests (long-path guard) run on windows-latest; the Blender 5.2 qualification tests
-    # need WARPSPH_BLENDER_EXE and skip on both.
+    # need WARPSPH_BLENDER_EXE and skip here (the `blender` job below runs the GPU-free one).
     name: check (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     strategy:
@@ -24,15 +24,46 @@ jobs:
       run:
         shell: bash
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4.4.0
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065  # v5.6.0
         with:
           python-version: "3.13"  # Blender 5.2 bundled Python
       - name: Install dev dependencies
-        run: pip install numpy matplotlib "warp-lang==1.17.0" "fake-bpy-module==20251003" "pytest>=8" "ruff>=0.6" "pyright==1.1.408"
+        run: pip install numpy matplotlib "warp-lang==1.17.0" "fake-bpy-module==20251003" "pytest==9.0.1" "ruff==0.14.11" "pyright==1.1.408"
+      - name: Install glslangValidator (viewport shader compile tests)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update -q && sudo apt-get install -y -q glslang-tools
       - name: Lint
         run: ruff check .
       - name: Type check
         run: pyright
       - name: Test
         run: pytest -rs
+
+  blender:
+    # Real Blender 5.2 (pinned build + checksum): build, install, register and the offline missing-Warp
+    # path. GPU-free; tests/test_blender52_cuda_gl.py needs a CUDA GPU and still runs only on the 4080S box.
+    name: blender 5.2 (ubuntu)
+    runs-on: ubuntu-latest
+    env:
+      BLENDER_VERSION: "5.2.3"
+      BLENDER_SHA256: "78486c018b4443efe5e75ab54c290ed8c15abafd249b862c2c9ce2530a918eec"
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4.4.0
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065  # v5.6.0
+        with:
+          python-version: "3.13"
+      - name: Install Blender
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q libxi6 libxkbcommon0 libxkbcommon-x11-0 libsm6 libgl1 libegl1 libxrender1 libxxf86vm1 libxfixes3
+          archive="blender-${BLENDER_VERSION}-linux-x64.tar.xz"
+          python -c "import urllib.request,sys; urllib.request.urlretrieve(sys.argv[1], sys.argv[2])" \
+            "https://download.blender.org/release/Blender5.2/${archive}" "$RUNNER_TEMP/$archive"
+          echo "${BLENDER_SHA256}  $RUNNER_TEMP/$archive" | sha256sum -c -
+          tar -xJf "$RUNNER_TEMP/$archive" -C "$RUNNER_TEMP"
+          echo "WARPSPH_BLENDER_EXE=$RUNNER_TEMP/blender-${BLENDER_VERSION}-linux-x64/blender" >> "$GITHUB_ENV"
+      - name: Install test runner
+        run: pip install "pytest==9.0.1"
+      - name: Blender qualification
+        run: test -x "$WARPSPH_BLENDER_EXE" && pytest -rs tests/test_blender52_isolated_install.py

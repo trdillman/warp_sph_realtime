@@ -149,7 +149,7 @@ on the same GPU and driver. Changing the scene's objects after a bake is not det
 The repository includes a `pytest` / `unittest` suite under `tests/` that validates physics kernels, mass/bounds conservation, CUDA Graph equivalence, demo scene initializers, the transports, the installer, and the build file list (running headless on CUDA without requiring an active Blender UI window):
 
 ```bash
-pip install numpy "warp-lang==1.17.0" "fake-bpy-module==20251003" "pytest>=8" "ruff>=0.6" "pyright==1.1.408"
+pip install numpy "warp-lang==1.17.0" "fake-bpy-module==20251003" "pytest==9.0.1" "ruff==0.14.11" "pyright==1.1.408"
 pytest                      # run from the repository root
 ruff check .
 pyright

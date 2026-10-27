@@ -45,7 +45,13 @@ class InstallJob:
         self._thread = threading.Thread(target=self._work, name="warpsph-install", daemon=True)
 
     def start(self) -> None:
-        self._thread.start()
+        # Held until the worker publishes its result, so Start cannot import Warp mid-install.
+        warp_installer.begin_install_activity()
+        try:
+            self._thread.start()
+        except BaseException:
+            warp_installer.end_install_activity()
+            raise
 
     def cancel(self) -> None:
         """Ask the worker to stop at its next checkpoint; nothing is promoted after this."""
@@ -68,5 +74,7 @@ class InstallJob:
             result = self._runner(self._plan, progress=self._on_progress, cancel=self._cancel.is_set)
         except Exception as exc:  # noqa: BLE001 - a worker must always end with a result for the UI
             result = InstallResult(success=False, message=f"Installation failed: {exc}")
+        finally:
+            warp_installer.end_install_activity()
         with self._lock:
             self._result = result

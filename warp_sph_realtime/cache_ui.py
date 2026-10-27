@@ -68,6 +68,11 @@ def _forget_status():
     _status_memo.clear()
 
 
+def _frame_list(frames, limit: int = 5) -> str:
+    shown = ", ".join(str(f) for f in frames[:limit])
+    return shown + (", ..." if len(frames) > limit else "")
+
+
 def particle_estimate(scene, session) -> int:
     """Particles a bake of this scene would have: the running solver's count, else the settings' estimate."""
     if session.solver is not None:
@@ -95,10 +100,13 @@ class WM_OT_warp_sph_bake(bpy.types.Operator):
         return _session(context).bake is None
 
     def invoke(self, context, event):
-        cached, _size = cache_status(_cache_dir(context.scene), max_age=0.0)
-        if not self.resume and cached is not None:
-            return context.window_manager.invoke_confirm(
-                self, event, message=f"Replace the {cached[1] - cached[0] + 1} cached frames?")
+        if not self.resume:
+            # Count frame files, not the manifest's range: a fresh bake deletes every frame file, also when the
+            # manifest is missing or unreadable.
+            frames = _disk().DiskCache(_cache_dir(context.scene)).frames()
+            if frames:
+                return context.window_manager.invoke_confirm(
+                    self, event, message=f"Replace the {len(frames)} cached frames?")
         return self.execute(context)
 
     def execute(self, context):
@@ -290,10 +298,17 @@ class WM_OT_warp_sph_cache_export(bpy.types.Operator):
             if mesh is None:
                 self.report({'ERROR'}, "The mesh preset could not be added")
                 return {'CANCELLED'}
+            directory = _cache_dir(scene)
+            _adapter().clear_playback_failures(directory)
             target = blender_output.export_sequence(context, self.filepath, self.format, mesh, frames)
         except (ValueError, RuntimeError, _disk().CacheError) as exc:
             self.report({'ERROR'}, f"Export failed: {exc}")
             return {'CANCELLED'}
+        held = sorted(f for f in _adapter().playback_failures(directory) if frames[0] <= f <= frames[1])
+        if held:
+            self.report({'WARNING'}, f"Exported to {target}, but {len(held)} cached frame(s) could not be read "
+                                     f"({_frame_list(held)}) and repeat the frame before them: re-bake them")
+            return {'FINISHED'}
         self.report({'INFO'}, f"Exported frames {frames[0]}-{frames[1]} to {target}")
         return {'FINISHED'}
 
@@ -365,11 +380,15 @@ class VIEW3D_PT_warp_sph_cache(bpy.types.Panel):
             row.operator("wm.warp_sph_cache_clear", text="Delete", icon='X')
 
         row = layout.row(align=True)
-        if _adapter().find_playback_object(scene) is None:
+        adapter = _adapter()
+        if adapter.find_playback_object(scene) is None:
             row.enabled = cached is not None
             row.operator("wm.warp_sph_cache_playback", text="Show Cache as Point Cloud", icon='OUTLINER_OB_POINTCLOUD')
         else:
             row.operator("wm.warp_sph_cache_playback", text="Hide Cache", icon='HIDE_ON').show = False
+            failed = adapter.playback_failures(directory).get(scene.frame_current)
+            if failed:
+                layout.label(text=f"Frame {scene.frame_current} not shown (an older frame is): {failed}", icon='ERROR')
 
         layout.separator()
         layout.label(text="Output")

@@ -835,6 +835,32 @@ def rejected_reset_restores_the_scene_frame(ctx):
     assert reset_op.execute(ctx) == {'FINISHED'} and ctx.scene.frame_current == 1
 
 @case
+def bake_builds_the_authored_scene_at_the_bake_start_frame(ctx):
+    ctx.scene.warp_sph.scene_source = 'CUSTOM'
+    ctx.scene.frame_current = 7                        # the playhead at Start: not the bake start
+    def frame_set(frame):
+        ctx.scene.frame_current = frame
+    ctx.scene.frame_set = frame_set
+    ctx.scene.render = NS(fps=24, fps_base=1.0)
+    start(ctx)
+    assert RT.start_frame == 7
+    seen = []
+    real_apply = sim_session.apply_physics
+    def stop_here(solver, settings):                   # past the rebuild: record the clock, end the bake
+        seen.append((RT.start_frame, ctx.scene.frame_current, RT.solver is solver))
+        raise RuntimeError('stop after the rebuild')
+    sim_session.apply_physics = stop_here
+    try:
+        for resume in (False, True):                   # resume restores the time from the bake start, too
+            RT.start_frame, ctx.scene.frame_current = 7, 7
+            reports = []
+            assert not RT.begin_bake(ctx, lambda kind, msg: reports.append(msg), first=3, last=9, resume=resume)
+            assert seen[-1] == (3, 3, True), (resume, seen)
+            assert 'stop after the rebuild' in reports[-1]
+    finally:
+        sim_session.apply_physics = real_apply
+
+@case
 def live_gravity_is_one_recapture(ctx):
     ctx.scene.warp_sph.scene_source = 'CUSTOM'
     op, _ = start(ctx)

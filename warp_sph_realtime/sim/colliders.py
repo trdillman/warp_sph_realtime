@@ -54,6 +54,35 @@ def mesh_signed_distance(mesh_id: wp.uint64, x: wp.vec3, radius: float) -> tuple
     return d, n, cp
 
 
+@wp.func
+def mesh_deep_signed_distance(mesh_id: wp.uint64, x: wp.vec3, max_dist: float) -> tuple[float, wp.vec3, wp.vec3]:
+    """mesh_signed_distance for a point with no face within the near query radius (so any inside is deep).
+
+    Searches up to `max_dist` and confirms every "inside" answer with the winding number. Only points inside
+    the collider's bounding box reach this, so the costly confirmation runs only for particles that are
+    really (or nearly) inside the solid.
+    """
+    d = float(max_dist)
+    n = wp.vec3(0.0, 0.0, 0.0)
+    cp = wp.vec3(x[0], x[1], x[2])
+    q = wp.mesh_query_point_sign_normal(mesh_id, x, max_dist)
+    if q.result:
+        cp = wp.vec3(wp.mesh_eval_position(mesh_id, q.face, q.u, q.v))
+        diff = x - cp
+        dist = wp.length(diff)
+        sign = q.sign
+        if sign < 0.0:
+            wq = wp.mesh_query_point_sign_winding_number(mesh_id, x, max_dist, 2.0, 0.5)
+            if wq.result:
+                sign = wq.sign
+        d = sign * dist
+        if dist > 1e-7:
+            n = wp.vec3(sign * diff / dist)
+        else:
+            n = wp.vec3(wp.normalize(wp.mesh_eval_face_normal(mesh_id, q.face)))
+    return d, n, cp
+
+
 class MeshSet:
     """Owns the `wp.Mesh` objects (they must outlive any kernel using their ids) and their id array."""
 
@@ -72,3 +101,11 @@ class MeshSet:
         ]
         ids = [int(m.id) for m in self._meshes] or [0]  # never hand kernels a zero-length array
         self.ids = wp.array(np.array(ids, dtype=np.uint64), dtype=wp.uint64, device=device)
+        # Bounding box of each mesh in its stored (local) frame: only points inside it can be deep inside.
+        lower = np.zeros((max(self.count, 1), 3), dtype=np.float32)
+        upper = np.zeros((max(self.count, 1), 3), dtype=np.float32)
+        for i, (m, shift) in enumerate(zip(meshes, shifts, strict=True)):
+            local = np.asarray(m.vertices, dtype=np.float64) - shift
+            lower[i], upper[i] = local.min(axis=0), local.max(axis=0)
+        self.lower = wp.array(lower, dtype=wp.vec3, device=device)
+        self.upper = wp.array(upper, dtype=wp.vec3, device=device)

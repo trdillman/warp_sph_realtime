@@ -130,6 +130,27 @@ class InstallJobTest(JobTestBase):
         assert result is not None
         self.assertTrue(result.cancelled)
 
+    def test_start_is_refused_while_an_install_runs(self):
+        started, release = threading.Event(), threading.Event()
+        self.addCleanup(release.set)
+
+        def runner(plan, *, progress, cancel):
+            started.set()
+            release.wait(10)
+            return installer.InstallResult(True, "ok")
+
+        job = install_job.InstallJob(self.plan, runner)
+        job.start()
+        self.assertTrue(started.wait(10))
+        self.assertTrue(installer.install_running())
+        # Start imports Warp through this check; it must not load files the worker is replacing.
+        with self.assertRaisesRegex(RuntimeError, "install is still running"):
+            installer.ensure_installed_warp_on_path()
+        release.set()
+        job.join(10)
+        self.assertTrue(job.snapshot().finished)
+        self.assertFalse(installer.install_running())
+
 
 class RealPlanJobTest(JobTestBase):
     """The real ``run_plan`` on a thread, with only the network faked."""

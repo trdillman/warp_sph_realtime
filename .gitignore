@@ -8,14 +8,16 @@ build/
 dist/
 *.blend1
 *.blend2
-.codex/context/
+.codex/
 .ruff_cache/
 evidence/
 
 # graft's local graph cache — regenerable, not committed (run `graft build`).
 /graft/
-.codex/poc-type-stubs/
 reports/review-project-progress/
+reports/cleanup-audit/
+# Local vendor SDKs (e.g. Vulkan/CUDA headers for interop probes), hundreds of MB
+/sdk/
 .claude/worktrees/
 
 # Owner-private business research and tracker notes (public repo: keep local)
