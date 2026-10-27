@@ -321,3 +321,52 @@ class VboRegistrationFailure(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError, 'cudaGraphicsGLRegisterBuffer failed with CUDA error 999'):
                 v._ig.ZeroCopyGLBuffer52(10)
         self.assertEqual(live, set())
+
+
+class CudartSelection(unittest.TestCase):
+    """The interop runtime is the first candidate reporting 12.9, in a fixed, specific-first order."""
+
+    @staticmethod
+    def fake_runtime(version, code=0):
+        def get_version(out):
+            ctypes.cast(out, ctypes.POINTER(ctypes.c_int))[0] = version
+            return code
+        return SimpleNamespace(cudaRuntimeGetVersion=get_version)
+
+    def test_windows_order_is_specific_first_and_deduplicated(self):
+        env = {'CUDA_PATH': r'C:\cuda\v12.4', 'CUDA_PATH_V12_4': r'C:\cuda\v12.4', 'CUDA_PATH_V12_9': r'C:\cuda\v12.9',
+               'CUDA_PATH_V12_10': r'C:\cuda\v12.10', 'Path': r'C:\apps;C:\cuda\v12.9\bin'}
+        exists = {r'C:\cuda\v12.4\bin\cudart64_12.dll', r'C:\cuda\v12.9\bin\cudart64_12.dll',
+                  r'C:\cuda\v12.10\bin\cudart64_12.dll', r'C:\apps\cudart64_12.dll', r'D:\blender\cudart64_12.dll'}
+        found = v._ig.cudart_candidates(env, 'win32', isfile=lambda p: p in exists, loaded=r'D:\blender\cudart64_12.dll')
+        self.assertEqual(found, [r'D:\blender\cudart64_12.dll', r'C:\cuda\v12.9\bin\cudart64_12.dll',
+                                 r'C:\cuda\v12.4\bin\cudart64_12.dll', r'C:\cuda\v12.10\bin\cudart64_12.dll',
+                                 'cudart64_12.dll', r'C:\apps\cudart64_12.dll'])
+
+    def test_wrong_version_earlier_in_the_search_is_skipped(self):
+        # Regression: the first cudart64_12.dll found was final, so an older copy hid an installed 12.9.
+        libs = {'old.dll': self.fake_runtime(12040), 'cudart64_12.dll': None, 'new.dll': self.fake_runtime(12090)}
+
+        def load(path):
+            if libs[path] is None:
+                raise OSError('not found')
+            return libs[path]
+        with patch.object(v._ig, '_release_library') as released:
+            lib = v._ig._GLInterop._find_and_load_cudart(['old.dll', 'cudart64_12.dll', 'new.dll'], load)
+        self.assertIs(lib, libs['new.dll'])
+        released.assert_called_once_with(libs['old.dll'])
+
+    def test_no_match_lists_every_copy_and_version(self):
+        def load(path):
+            if path.endswith('broken.dll'):
+                raise OSError('bad image')
+            return self.fake_runtime(12040)
+        with patch.object(v._ig, '_release_library'), \
+                self.assertRaisesRegex(RuntimeError, r'12\.9 \(12090\).*C:\\a\\x\.dll: reports 12040.*broken\.dll: bad image'):
+            v._ig._GLInterop._find_and_load_cudart([r'C:\a\x.dll', r'C:\b\broken.dll'], load)
+
+    def test_nothing_found_keeps_the_documented_message(self):
+        def load(path):
+            raise OSError('not found')
+        with self.assertRaisesRegex(RuntimeError, 'CUDA 12 runtime .* not found'):
+            v._ig._GLInterop._find_and_load_cudart(['cudart64_12.dll'], load)

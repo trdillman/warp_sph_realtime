@@ -1,6 +1,8 @@
 import contextlib
 import ctypes
+import ntpath
 import os
+import posixpath
 import sys
 
 import gpu
@@ -79,6 +81,76 @@ GL_COLOR_WRITEMASK = 0x0C23
 GL_SCISSOR_TEST = 0x0C11
 
 
+CUDART_VERSION = 12090  # the qualified CUDA 12.9 runtime (cudaRuntimeGetVersion)
+_CUDART_NAME = {"win32": "cudart64_12.dll", "linux": "libcudart.so.12"}
+
+
+def _loaded_module_path(name: str) -> str | None:
+    """Full path of ``name`` when the process has already loaded it (Windows), else None."""
+    if sys.platform != "win32":
+        return None
+    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    kernel32.GetModuleHandleW.restype, kernel32.GetModuleHandleW.argtypes = ctypes.c_void_p, [ctypes.c_wchar_p]
+    handle = kernel32.GetModuleHandleW(name)
+    if not handle:
+        return None
+    buffer = ctypes.create_unicode_buffer(32768)
+    kernel32.GetModuleFileNameW.argtypes = [ctypes.c_void_p, ctypes.c_wchar_p, ctypes.c_uint]
+    return buffer.value if kernel32.GetModuleFileNameW(handle, buffer, len(buffer)) else None
+
+
+def cudart_candidates(environ=None, platform: str | None = None, isfile=os.path.isfile,
+                      loaded: str | None = None) -> list[str]:
+    """Deterministic cudart search order, most specific first, de-duplicated:
+
+    the copy this process already loaded; the CUDA 12.9 toolkit (``CUDA_PATH_V12_9``); ``CUDA_PATH``;
+    other ``CUDA_PATH_V12_*`` toolkits, newest first; the loader's default search (bare name); then
+    PATH on Windows (the bare-name search skips it). No process-wide DLL directory is added.
+    Only existing files are listed by path. ``ensure_initialized`` takes the first that reports 12.9.
+    """
+    environ = os.environ if environ is None else environ
+    platform = platform or sys.platform
+    env = {str(k).upper(): v for k, v in environ.items() if v}
+    name, sub = (_CUDART_NAME["win32"], "bin") if platform == "win32" else (_CUDART_NAME["linux"], "lib64")
+    paths_of = ntpath if platform == "win32" else posixpath
+    if loaded is None:
+        loaded = _loaded_module_path(name) if platform == sys.platform else None
+
+    def minor(key: str) -> int:
+        tail = key.rsplit("_", 1)[-1]
+        return int(tail) if tail.isdigit() else -1
+    roots = [env.get("CUDA_PATH_V12_9"), env.get("CUDA_PATH"), env.get("CUDA_HOME")]
+    roots += [env[k] for k in sorted((k for k in env if k.startswith("CUDA_PATH_V12_")), key=minor, reverse=True)]
+    if platform != "win32":
+        roots.append("/usr/local/cuda-12.9")
+    paths = [loaded] + [paths_of.join(root, sub, name) for root in roots if root] + [name]
+    if platform == "win32":  # elsewhere the bare name already covers LD_LIBRARY_PATH
+        paths += [paths_of.join(d, name) for d in env.get("PATH", "").split(";") if d]
+    out, seen = [], set()
+    for path in paths:
+        if not path or (path != name and not isfile(path)):
+            continue
+        key = paths_of.normcase(paths_of.normpath(path))
+        if key not in seen:
+            seen.add(key)
+            out.append(path)
+    return out
+
+
+def _cudart_version(lib) -> tuple[int, int]:
+    version = ctypes.c_int()
+    fn = lib.cudaRuntimeGetVersion
+    fn.restype, fn.argtypes = ctypes.c_int, [ctypes.POINTER(ctypes.c_int)]
+    return fn(ctypes.byref(version)), version.value
+
+
+def _release_library(lib):
+    """Drop a rejected runtime so it is not left loaded beside the selected one."""
+    handle = getattr(lib, "_handle", None)
+    if handle and sys.platform == "win32":
+        ctypes.WinDLL("kernel32").FreeLibrary(ctypes.c_void_p(handle))
+
+
 class _GLInterop:
     _initialized = False
     gl = None
@@ -153,48 +225,34 @@ class _GLInterop:
     glUniformMatrix4fv = None
 
     @classmethod
-    def _find_and_load_cudart(cls):
-        if sys.platform == "win32":
-            candidates = ["cudart64_12.dll"]
-            for name in candidates:
-                try:
-                    return ctypes.WinDLL(name)
-                except OSError:
-                    pass
+    def _find_and_load_cudart(cls, candidates=None, load=None):
+        """Load the first candidate that reports the qualified runtime; see ``cudart_candidates``.
 
-            search_dirs = []
-            cuda_path = os.environ.get("CUDA_PATH")
-            if cuda_path:
-                search_dirs.append(os.path.join(cuda_path, "bin"))
-            for k, v in os.environ.items():
-                if k.startswith("CUDA_PATH_"):
-                    search_dirs.append(os.path.join(v, "bin"))
-            for p in os.environ.get("PATH", "").split(";"):
-                if p and os.path.isdir(p):
-                    search_dirs.append(p)
-
-            for d in search_dirs:
-                if hasattr(os, "add_dll_directory"):
-                    try:
-                        os.add_dll_directory(d)
-                    except Exception:
-                        pass
-                for name in candidates:
-                    full = os.path.join(d, name)
-                    if os.path.isfile(full):
-                        try:
-                            return ctypes.WinDLL(full)
-                        except OSError:
-                            pass
-            raise RuntimeError("CUDA 12 runtime cudart64_12.dll not found; install CUDA 12 runtime for GPU/OpenGL interop.")
-        else:
-            candidates = ["libcudart.so.12"]
-            for so in candidates:
-                try:
-                    return ctypes.CDLL(so)
-                except OSError:
-                    continue
-            raise RuntimeError("CUDA 12 runtime libcudart.so.12 not found; install the CUDA 12 runtime for GPU/OpenGL interop.")
+        A copy with another version is skipped (and released), not fatal, so an older cudart64_12
+        earlier on the search path no longer hides an installed 12.9 runtime.
+        """
+        if load is None:
+            load = ctypes.WinDLL if sys.platform == "win32" else ctypes.CDLL
+        tried = []
+        for path in cudart_candidates() if candidates is None else candidates:
+            try:
+                lib = load(path)
+            except OSError as exc:
+                if "/" in path or "\\" in path:
+                    tried.append(f"{path}: {exc}")
+                continue  # a bare name the loader cannot find is simply absent
+            code, version = _cudart_version(lib)
+            if code == 0 and version == CUDART_VERSION:
+                return lib
+            tried.append(f"{path}: reports {version} (error {code})")
+            _release_library(lib)
+        if not tried:
+            name = _CUDART_NAME.get(sys.platform, _CUDART_NAME["linux"])
+            raise RuntimeError(f"CUDA 12 runtime {name} not found; install CUDA 12 runtime for GPU/OpenGL interop.")
+        raise RuntimeError(
+            f"WarpSPH CUDA/OpenGL interop is qualified for CUDA 12.9 ({CUDART_VERSION}); no CUDA runtime "
+            f"matched: {'; '.join(tried)}"
+        )
 
     @classmethod
     def ensure_initialized(cls):
@@ -202,16 +260,6 @@ class _GLInterop:
             return
 
         cls.cudart = cls._find_and_load_cudart()
-        runtime_version = ctypes.c_int()
-        version_fn = cls.cudart.cudaRuntimeGetVersion
-        version_fn.restype = ctypes.c_int
-        version_fn.argtypes = [ctypes.POINTER(ctypes.c_int)]
-        code = version_fn(ctypes.byref(runtime_version))
-        if code != 0 or runtime_version.value != 12090:
-            raise RuntimeError(
-                f"WarpSPH CUDA/OpenGL interop is qualified for CUDA 12.9 (12090); found "
-                f"{runtime_version.value} (error {code})"
-            )
 
         if sys.platform == "win32":
             cls.gl = ctypes.windll.opengl32
