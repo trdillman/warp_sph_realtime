@@ -89,9 +89,9 @@ execution time. Time-limited selections include only fully completed evaluations
 including gradient/reverse work and result readback; unfinished work receives
 no credit. All fixed-budget traces extended past 10 s.
 
-![Measured outcomes](../evidence/keyframe-pour-20261017/main/outcomes.png)
+Measured outcomes (`evidence/keyframe-pour-20261017/main/outcomes.png`)
 
-[Actual particle animation](../evidence/keyframe-pour-20261017/main/artist-comparison.gif)
+Actual particle animation (`evidence/keyframe-pour-20261017/main/artist-comparison.gif`)
 shows seed 0 before correction, after gradients and after whole-path search at
 the 64-unit budget. The top row shows x/y and the bottom x/z. The green aperture,
 red protected volume and gray obstacle projections remain visible. All particle
@@ -144,7 +144,7 @@ Ruff passed, pinned Pyright 1.1.408 reported zero errors/warnings, and
 `git diff --check` passed. Logs are `evidence/keyframe-pytest-final.log`,
 `evidence/keyframe-ruff-final.log` and `evidence/keyframe-pyright-final.log`.
 The stricter independent receipt audit passed all 32 trials and 5 gradient
-vectors; its receipt is [verification.json](../evidence/keyframe-pour-20261017/main/verification.json).
+vectors; its receipt is verification.json (`evidence/keyframe-pour-20261017/main/verification.json`).
 After freezing the numerical candidate, tests were strengthened for grouped-key
 bounds and the independent verifier was tightened; runner, experiment and solver
 numerics were unchanged. Original measured source snapshots remain preserved;
@@ -160,12 +160,14 @@ acceptance of the bounded experiment, not release or commercial acceptance.
 
 ## Evidence and reproduction
 
-- [Measured receipt](../evidence/keyframe-pour-20261017/main/comparison.json): all 32 trials, hard metrics, every candidate, work counts, completion timestamps, gradients, A/A samples, environment and source hashes.
-- [Machine-readable summary](../evidence/keyframe-pour-20261017/main/summary.json): per-method/per-seed outcomes and censored first-success measurements.
-- [Measured source snapshots](../evidence/keyframe-pour-20261017/main/source/): exact runner, experiment, current solver, frozen contract and original audit/test pins.
-- [Plot provenance](../evidence/keyframe-pour-20261017/main/plots.json): receipt, plot-source and generated artifact SHA-256 values.
-- [Raw main log](../evidence/keyframe-pour-comparison.log): actual CUDA module/device execution and trial outputs.
-- [Failed pilots and diagnostics](../evidence/keyframe-pour-20261017/): initial floor-retention failures, downward-nozzle fallback, aperture contact-sensitive FD failure, epsilon-convergence evidence and qualifying translated pilot.
+The `evidence/` paths below are the local evidence archive; it is gitignored and not published with the repository.
+
+- Measured receipt (`evidence/keyframe-pour-20261017/main/comparison.json`): all 32 trials, hard metrics, every candidate, work counts, completion timestamps, gradients, A/A samples, environment and source hashes.
+- Machine-readable summary (`evidence/keyframe-pour-20261017/main/summary.json`): per-method/per-seed outcomes and censored first-success measurements.
+- Measured source snapshots (`evidence/keyframe-pour-20261017/main/source/`): exact runner, experiment, current solver, frozen contract and original audit/test pins.
+- Plot provenance (`evidence/keyframe-pour-20261017/main/plots.json`): receipt, plot-source and generated artifact SHA-256 values.
+- Raw main log (`evidence/keyframe-pour-comparison.log`): actual CUDA module/device execution and trial outputs.
+- Failed pilots and diagnostics (`evidence/keyframe-pour-20261017/`): initial floor-retention failures, downward-nozzle fallback, aperture contact-sensitive FD failure, epsilon-convergence evidence and qualifying translated pilot.
 
 Executed main command from the repository root:
 

@@ -9,12 +9,12 @@ Traceback (most recent call last):
     result = subprocess.run(["tasklist", "/FI", "IMAGENAME eq blender.exe", "/FO", "CSV", "/NH"],
                             stdin=subprocess.DEVNULL, capture_output=True, text=True, errors="replace",
                             check=False, timeout=10)
-  File "C:\Users\Tyler\AppData\Local\Python\pythoncore-3.14-64\Lib\subprocess.py", line 556, in run
+  File "%USERPROFILE%\AppData\Local\Python\pythoncore-3.14-64\Lib\subprocess.py", line 556, in run
     stdout, stderr = process.communicate(input, timeout=timeout)
                      ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^
-  File "C:\Users\Tyler\AppData\Local\Python\pythoncore-3.14-64\Lib\subprocess.py", line 1220, in communicate
+  File "%USERPROFILE%\AppData\Local\Python\pythoncore-3.14-64\Lib\subprocess.py", line 1220, in communicate
     stdout, stderr = self._communicate(input, endtime, timeout)
                      ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "C:\Users\Tyler\AppData\Local\Python\pythoncore-3.14-64\Lib\subprocess.py", line 1663, in _communicate
+  File "%USERPROFILE%\AppData\Local\Python\pythoncore-3.14-64\Lib\subprocess.py", line 1663, in _communicate
     raise TimeoutExpired(self.args, orig_timeout)
 subprocess.TimeoutExpired: Command '['tasklist', '/FI', 'IMAGENAME eq blender.exe', '/FO', 'CSV', '/NH']' timed out after 10 seconds
