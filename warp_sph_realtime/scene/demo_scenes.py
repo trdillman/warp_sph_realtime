@@ -87,11 +87,32 @@ DEMO_HELPERS_COLLECTION = "WarpSPH_Demo_Helpers"
 
 
 def remove_blender_demo_helpers():
-    """Deletes the demo wireframe/collider helper objects (an authored scene does not use them)."""
+    """Deletes the demo wireframe/collider helper objects and their meshes (an authored scene does not use them)."""
     col = bpy.data.collections.get(DEMO_HELPERS_COLLECTION)
     if col is not None:
         for obj in list(col.objects):
+            mesh = obj.data
             bpy.data.objects.remove(obj, do_unlink=True)
+            if mesh is not None and mesh.users == 0:
+                bpy.data.meshes.remove(mesh)
+
+
+def _helper(col, name, build, location, display_type, scale=(1.0, 1.0, 1.0)):
+    """One helper object built with bmesh and bpy.data: no operator, so the user's selection, active object and
+    edit state are never touched."""
+    import bmesh  # Blender-only module
+
+    mesh = bpy.data.meshes.new(name)
+    bm = bmesh.new()
+    try:
+        build(bmesh.ops, bm)
+        bm.to_mesh(mesh)
+    finally:
+        bm.free()
+    obj = bpy.data.objects.new(name, mesh)
+    obj.location, obj.scale, obj.display_type = location, scale, display_type
+    col.objects.link(obj)
+    return obj
 
 
 def build_blender_demo_helpers(scene_type: str):
@@ -107,38 +128,21 @@ def build_blender_demo_helpers(scene_type: str):
 
     remove_blender_demo_helpers()  # clear previous demo helper meshes
 
-    # 1. Create Domain Wireframe Box (-2.5..2.5 X/Y, 0..5.0 Z)
-    bpy.ops.mesh.primitive_cube_add(size=1.0, location=(0.0, 0.0, 2.5))
-    domain_obj = bpy.context.active_object
-    if domain_obj is not None:
-        domain_obj.name = "WarpSPH_Domain_Bounds"
-        domain_obj.scale = (5.0, 5.0, 5.0)
-        domain_obj.display_type = 'WIRE'
-        for c in list(domain_obj.users_collection):
-            c.objects.unlink(domain_obj)
-        col.objects.link(domain_obj)
+    # 1. Domain wireframe box (-2.5..2.5 X/Y, 0..5.0 Z)
+    _helper(col, "WarpSPH_Domain_Bounds", lambda ops, bm: ops.create_cube(bm, size=1.0), (0.0, 0.0, 2.5), 'WIRE',
+            scale=(5.0, 5.0, 5.0))
 
-    # 2. Scene 1: Create Central Obstacle Sphere + 4 Vertical Pillars
+    # 2. Scene 1: central obstacle sphere + 4 vertical pillars (the primitive operators' default resolution)
     if scene_type == "DOUBLE_DAM_PILLARS":
-        bpy.ops.mesh.primitive_uv_sphere_add(radius=0.55, location=(0.0, 0.0, 0.55))
-        sph = bpy.context.active_object
-        if sph is not None:
-            sph.name = "WarpSPH_Center_Collider"
-            sph.display_type = 'SOLID'
-            for c in list(sph.users_collection):
-                c.objects.unlink(sph)
-            col.objects.link(sph)
-
+        _helper(col, "WarpSPH_Center_Collider",
+                lambda ops, bm: ops.create_uvsphere(bm, u_segments=32, v_segments=16, radius=0.55),
+                (0.0, 0.0, 0.55), 'SOLID')
         pillar_offsets = [(-0.85, -0.55), (-0.85, 0.55), (0.85, -0.55), (0.85, 0.55)]
         for idx, (px, py) in enumerate(pillar_offsets):
-            bpy.ops.mesh.primitive_cylinder_add(radius=0.18, depth=2.2, location=(px, py, 1.1))
-            pil = bpy.context.active_object
-            if pil is not None:
-                pil.name = f"WarpSPH_Pillar_{idx+1}"
-                pil.display_type = 'SOLID'
-                for c in list(pil.users_collection):
-                    c.objects.unlink(pil)
-                col.objects.link(pil)
+            _helper(col, f"WarpSPH_Pillar_{idx+1}",
+                    lambda ops, bm: ops.create_cone(bm, cap_ends=True, segments=32, radius1=0.18, radius2=0.18,
+                                                    depth=2.2),
+                    (px, py, 1.1), 'SOLID')
 
 
 def launch_demo_scene_init(solver, scene_type: str):
