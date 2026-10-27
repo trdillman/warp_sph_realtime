@@ -165,7 +165,9 @@ Bound each owner-thread tick to at most two producer queries and two Vulkan quer
 per slot, with no polling loop, sleeps or retry. A predeclared 500 ms pending-work deadline
 stops publication and quarantines uncertain ownership; it never authorizes reuse. Shutdown
 has a 100 ms overall polling budget, zero-timeout queries, and no new submissions except
-the final retirement fence. Timeout/error is failed cleanup, never fallback or success.
+the final retirement fence. (Shipped revision: both limits are now a 5 s stall deadline
+past the 2 s Windows TDR watchdog. A slow but healthy step skips publication and holds
+the last frame; the no-reuse-without-success and no-infinite-wait rules are unchanged.) Timeout/error is failed cleanup, never fallback or success.
 These are experiment limits, not latency acceptance or a hard wall-clock guarantee for
 driver calls. Do not use GPU_finish, device-idle or infinite fence waits to satisfy them.
 

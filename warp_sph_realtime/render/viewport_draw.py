@@ -1,4 +1,5 @@
 import ctypes
+import logging
 from functools import wraps
 
 import bpy
@@ -592,10 +593,10 @@ class SSFRViewportRenderer:
         gl = _GLInterop
         if not gl._initialized:
             return
-        self._pending_destroy = True
         ctx = gl.current_context()
         if ctx in self._ctx_resources:
             self.destroy_context(ctx)
+        self._pending_destroy = bool(self._ctx_resources)  # other contexts free theirs on their next draw
 
     def process_pending_cleanup(self):
         """Processes deferred destruction of GL resources within the active viewport draw context."""
@@ -612,10 +613,50 @@ class SSFRViewportRenderer:
 
 
 _SSFR_RENDERER = SSFRViewportRenderer()
+_LOG = logging.getLogger(__name__)
+_CLEANUP_HANDLE = None  # POST_VIEW handler that frees SSFR resources in their own draw context
+
+
+def _tag_view3d_redraw():
+    try:
+        for window in bpy.context.window_manager.windows:
+            for area in window.screen.areas:
+                if area.type == 'VIEW_3D':
+                    area.tag_redraw()
+    except (AttributeError, ReferenceError):
+        pass  # no window manager (background, file load): the next viewport draw drains it
+
+
+def _remove_cleanup_handler():
+    """One-shot timer: a draw handler is never removed from inside its own callback."""
+    global _CLEANUP_HANDLE
+    handle, _CLEANUP_HANDLE = _CLEANUP_HANDLE, None
+    if handle is not None:
+        bpy.types.SpaceView3D.draw_handler_remove(handle, 'WINDOW')
+    return None
+
+
+def _drain_pending_cleanup():
+    """POST_VIEW: finish a Stop's SSFR teardown in the viewport context that owns the objects."""
+    done = True
+    try:
+        _SSFR_RENDERER.process_pending_cleanup()
+        done = not _SSFR_RENDERER._pending_destroy
+    except Exception:
+        _LOG.exception("WarpSPH SSFR resource cleanup failed; leaving them to their GL context")
+    if done and not bpy.app.timers.is_registered(_remove_cleanup_handler):
+        bpy.app.timers.register(_remove_cleanup_handler, first_interval=0.0)
 
 
 def cleanup_viewport_renderer():
+    """Stop/unregister: free SSFR GL objects. Stop runs in the operator/timer GL context, but the
+    FBOs/VAOs (per-context) and their attached textures belong to the viewport draw context, and the
+    run's draw handler is removed by then, so a dedicated POST_VIEW handler frees them there."""
+    global _CLEANUP_HANDLE
     _SSFR_RENDERER.destroy()
+    if _SSFR_RENDERER._pending_destroy and _CLEANUP_HANDLE is None:
+        _CLEANUP_HANDLE = bpy.types.SpaceView3D.draw_handler_add(_drain_pending_cleanup, (), 'WINDOW', 'POST_VIEW')
+        _tag_view3d_redraw()
 
 
 @_preserve_gl_state

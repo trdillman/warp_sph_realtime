@@ -74,6 +74,8 @@ of staying on the GPU. It is a fallback, always labelled, and slower. Typical re
   until Blender restarts.
 * `OpenGL interop unavailable: ...`, for example when `CUDA 12 runtime cudart64_12.dll not found; install CUDA 12
   runtime for GPU/OpenGL interop.` (Linux: `libcudart.so.12`).
+  When only another CUDA 12 version is installed the reason lists each copy found and its version
+  (`... no CUDA runtime matched: <path>: reports 12040 ...`); install the CUDA 12.9 runtime.
 
 The simulation itself is identical; only the display path differs.
 

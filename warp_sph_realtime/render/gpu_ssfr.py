@@ -246,7 +246,7 @@ class SSFRRenderer:
         self._targets: _Targets | None = None
 
     def _shader(self, name: str, vertex_in: str, samplers: tuple, push: tuple, flat: bool,
-                vertex: str, fragment: str, depth_write: bool):
+                vertex: str, fragment: str, depth_write: bool) -> tuple:
         gpu = self._gpu
         info = gpu.types.GPUShaderCreateInfo()
         info.vertex_in(0, 'VEC2', vertex_in)
@@ -265,21 +265,27 @@ class SSFRRenderer:
         info.vertex_source(vertex)
         info.fragment_source(fragment)
         shader = gpu.shader.create_from_info(info)
-        self._shaders[name] = shader
         attrs = {vertex_in: CORNERS if vertex_in == 'corner' else FULLSCREEN}
-        self._batches[name] = self._batch_factory(shader, 'TRIS', attrs)
+        return shader, self._batch_factory(shader, 'TRIS', attrs)
 
     def _build(self):
+        """All four passes or none: a failed compile leaves nothing half-built, so the next draw
+        retries and raises the real shader error again instead of a KeyError for a missing pass."""
         sprite_push = (('MAT4', 'u_proj'), ('VEC4', 'u_view0'), ('VEC4', 'u_view1'), ('VEC4', 'u_view2'),
                        ('VEC4', 'u_params'))  # 128 bytes
-        self._shader('depth', 'corner', ('positions',), sprite_push, True, SPRITE_VERTEX, DEPTH_FRAGMENT, True)
-        self._shader('thickness', 'corner', ('positions',), sprite_push, True, SPRITE_VERTEX,
-                     THICKNESS_FRAGMENT, False)
-        self._shader('filter', 'pos', ('src',), (('VEC4', 'u_params'),), False, FULLSCREEN_VERTEX,
-                     FILTER_FRAGMENT, False)
-        self._shader('composite', 'pos', ('depth_tex', 'thick_tex'),
-                     (('MAT4', 'u_proj'), ('VEC4', 'u_absorb'), ('VEC4', 'u_base'), ('VEC4', 'u_focal')),
-                     False, FULLSCREEN_VERTEX, COMPOSITE_FRAGMENT, True)
+        built = {
+            'depth': self._shader('depth', 'corner', ('positions',), sprite_push, True, SPRITE_VERTEX,
+                                  DEPTH_FRAGMENT, True),
+            'thickness': self._shader('thickness', 'corner', ('positions',), sprite_push, True, SPRITE_VERTEX,
+                                      THICKNESS_FRAGMENT, False),
+            'filter': self._shader('filter', 'pos', ('src',), (('VEC4', 'u_params'),), False, FULLSCREEN_VERTEX,
+                                   FILTER_FRAGMENT, False),
+            'composite': self._shader('composite', 'pos', ('depth_tex', 'thick_tex'),
+                                      (('MAT4', 'u_proj'), ('VEC4', 'u_absorb'), ('VEC4', 'u_base'),
+                                       ('VEC4', 'u_focal')), False, FULLSCREEN_VERTEX, COMPOSITE_FRAGMENT, True),
+        }
+        self._shaders = {name: shader for name, (shader, _) in built.items()}
+        self._batches = {name: batch for name, (_, batch) in built.items()}
 
     def _ensure_targets(self, width: int, height: int) -> _Targets:
         if self._targets is not None and self._targets.size != (width, height):
