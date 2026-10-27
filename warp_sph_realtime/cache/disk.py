@@ -85,6 +85,29 @@ def free_bytes(directory: str | os.PathLike) -> int | None:
         return None
 
 
+def _sync(handle) -> None:
+    """Flush ``handle`` to the device before it is renamed into place."""
+    handle.flush()
+    os.fsync(handle.fileno())
+
+
+_ZIP_HEAD = b"PK\x03\x04"
+_ZIP_END = b"PK\x05\x06"  # end-of-central-directory record: the last 22 bytes of an .npz (no comment)
+_ZIP_END_SIZE = 22
+
+
+def _looks_whole(path: Path) -> bool:
+    """Cheap structural check of one frame file (reads 26 bytes): a zip that starts and ends as one."""
+    try:
+        with open(path, "rb") as handle:
+            if handle.read(4) != _ZIP_HEAD:
+                return False
+            handle.seek(-_ZIP_END_SIZE, os.SEEK_END)
+            return handle.read(4) == _ZIP_END
+    except OSError:  # missing, unreadable, or shorter than a zip trailer
+        return False
+
+
 def _safe_name(name: str) -> str:
     cleaned = re.sub(r"[^A-Za-z0-9._-]+", "_", name).strip("._")
     return cleaned or "scene"
@@ -152,7 +175,9 @@ class DiskCache:
             return
         document = {"format": FORMAT_VERSION, "start": int(start), "signature": signature}
         tmp = self.manifest_path.with_name(MANIFEST_NAME + ".tmp")
-        tmp.write_text(json.dumps(document, indent=2), encoding="utf-8")
+        with open(tmp, "w", encoding="utf-8") as handle:
+            handle.write(json.dumps(document, indent=2))
+            _sync(handle)
         os.replace(tmp, self.manifest_path)
 
     # -- frames ---------------------------------------------------------------------------------------
@@ -174,6 +199,7 @@ class DiskCache:
                          position=np.ascontiguousarray(position, dtype=np.float32),
                          velocity=np.ascontiguousarray(velocity, dtype=np.float32),
                          id=np.ascontiguousarray(ids, dtype=np.int32))
+                _sync(handle)  # the rename must never land before the data (power loss)
             size = tmp.stat().st_size
             os.replace(tmp, target)
         except OSError as exc:
@@ -248,6 +274,15 @@ class DiskCache:
         while last + 1 in present:
             last += 1
         return start, last
+
+    def first_damaged(self) -> int | None:
+        """The first frame of ``cached_range`` whose file is not a whole ``.npz`` (truncated or overwritten), or None.
+
+        Reads a few bytes per frame, not the arrays, so it stays cheap on very large caches."""
+        span = self.cached_range()
+        if span is None:
+            return None
+        return next((f for f in range(span[0], span[1] + 1) if not _looks_whole(self.path(f))), None)
 
     def cached_count(self) -> int:
         rng = self.cached_range()

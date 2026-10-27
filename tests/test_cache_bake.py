@@ -6,6 +6,7 @@ import tempfile
 import threading
 import time
 import unittest
+import unittest.mock
 from pathlib import Path
 
 import numpy as np
@@ -280,6 +281,34 @@ class TestBakeJob(BakeTestCase):
         self.assert_whole_prefix(1, 10)
         self.assertEqual(self.disk.path(3).stat().st_mtime_ns, stale_marker)  # earlier frames untouched
 
+    def test_resume_drops_a_damaged_frame_in_the_middle_and_everything_after_it(self):
+        self.run_to_end(self.new_job(1, 10))
+        path = self.disk.path(5)
+        path.write_bytes(path.read_bytes()[:100])  # truncated (power loss before the data reached the disk)
+        job = self.new_job(1, 10, resume=True)
+        self.assertEqual((job.plan.next_frame, job.plan.discarded), (5, 6))
+        self.run_to_end(job)
+        self.assert_whole_prefix(1, 10)
+
+    def test_frame_and_manifest_writes_are_synced_before_the_rename(self):
+        from warp_sph_realtime.cache import disk as disk_module
+        events = []
+        real_fsync, real_replace = disk_module.os.fsync, disk_module.os.replace
+
+        def fsync(fd):
+            events.append("fsync")
+            real_fsync(fd)
+
+        def replace(src, dst):
+            events.append("replace")
+            real_replace(src, dst)
+
+        with unittest.mock.patch.object(disk_module.os, "fsync", fsync), \
+                unittest.mock.patch.object(disk_module.os, "replace", replace):
+            self.disk.begin(1, SIGNATURE)
+            self.disk.write_frame(1, *state_at(0))
+        self.assertEqual(events, ["fsync", "replace", "fsync", "replace"])
+
     def test_fresh_bake_replaces_the_old_cache(self):
         self.run_to_end(self.new_job(1, 10))
         job = self.new_job(1, 4)  # fresh: the old 10-frame cache is gone
@@ -344,6 +373,32 @@ class TestFrameStore(BakeTestCase):
             self.assertIsNotNone(slot)
             store.submit(slot, frame, COUNT)
         self.assertIsNone(store.acquire())
+
+    def test_idle_raises_when_the_last_write_fails_after_pump_checked(self):
+        """The writer can fail the final frame between pump's error check and the pending count reaching 0."""
+        checked = threading.Event()
+
+        def failing(frame, *arrays):
+            checked.wait(10.0)  # fail only after pump has checked for errors
+            raise CacheError("disk full")
+
+        self.disk.write_frame = failing  # type: ignore[method-assign]
+        store = FrameStore(self.disk, FakeRing(slots=1))
+        self.addCleanup(store.close)
+        slot = store.acquire()
+        store.submit(slot, 1, COUNT)
+        real_pump = store.pump
+
+        def pump_then_writer_fails():
+            real_pump()  # hands the slot to the writer; no error yet
+            checked.set()
+            deadline = time.monotonic() + 10.0
+            while store.pending() and time.monotonic() < deadline:
+                time.sleep(0.001)
+
+        store.pump = pump_then_writer_fails  # type: ignore[method-assign]
+        with self.assertRaises(CacheError):
+            store.idle()
 
     def test_slots_are_recycled_after_the_write(self):
         store = FrameStore(self.disk, FakeRing(slots=1))
