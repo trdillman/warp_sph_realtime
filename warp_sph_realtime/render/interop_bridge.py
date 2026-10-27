@@ -473,6 +473,9 @@ class ZeroCopyGLBuffer52:
             ctypes.byref(self.cuda_resource), self.vbo.value, 0
         )
         if err != 0:
+            # The caller never receives this object, so nothing else would ever delete the VBO.
+            _GLInterop.glDeleteBuffers(1, ctypes.byref(self.vbo))
+            self.vbo = ctypes.c_uint(0)
             raise RuntimeError(f"cudaGraphicsGLRegisterBuffer failed with CUDA error {err}")
 
     def map_to_warp(self) -> wp.array:

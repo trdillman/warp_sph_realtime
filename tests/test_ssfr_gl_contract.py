@@ -298,3 +298,26 @@ class MappedVboScope(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError, 'cudaGraphicsUnmapResources failed with CUDA error 700'):
                 with buffer.mapped():
                     pass
+
+
+class VboRegistrationFailure(unittest.TestCase):
+    def test_failed_cuda_registration_deletes_the_vbo(self):
+        # Regression: the constructor raised after glGenBuffers, and no caller could delete the VBO.
+        gl = v._ig._GLInterop
+        live = set()
+
+        def gen(count, out):
+            ctypes.cast(out, ctypes.POINTER(ctypes.c_uint))[0] = 77
+            live.add(77)
+
+        def delete(count, names):
+            live.discard(ctypes.cast(names, ctypes.POINTER(ctypes.c_uint))[0])
+        cudart = Mock()
+        cudart.cudaGraphicsGLRegisterBuffer.return_value = 999
+        with patch.object(v._ig, 'gpu', SimpleNamespace(platform=SimpleNamespace(backend_type_get=lambda: 'OPENGL'))), \
+                patch.multiple(gl, ensure_initialized=Mock(), validate_gl_cuda_device=Mock(), glGenBuffers=gen,
+                               glBindBuffer=Mock(), glBufferData=Mock(), glDeleteBuffers=delete, create=True), \
+                patch.object(gl, 'cudart', cudart, create=True):
+            with self.assertRaisesRegex(RuntimeError, 'cudaGraphicsGLRegisterBuffer failed with CUDA error 999'):
+                v._ig.ZeroCopyGLBuffer52(10)
+        self.assertEqual(live, set())
