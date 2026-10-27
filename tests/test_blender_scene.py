@@ -240,6 +240,8 @@ def test_emitter_defaults_and_unit_default():
     assert (e.velocity_mode, e.speed, e.rate) == ("NORMAL", 2.0, 0.0)
     assert desc.unit_scale == 1.0 and desc.collider_motion == ()
     assert unit_scale(NS(unit_settings=NS(scale_length=0.0))) == 1.0
+    assert unit_scale(NS(unit_settings=NS(system='METRIC', scale_length=0.01))) == pytest.approx(0.01)
+    assert unit_scale(NS(unit_settings=NS(system='NONE', scale_length=0.01))) == 1.0  # Blender ignores it too
 
 
 def animated(obj, kind):

@@ -124,8 +124,13 @@ def scene_warnings(scene) -> list[str]:
 
 
 def unit_scale(scene) -> float:
-    """Metres per Blender unit (Scene Properties > Units > Unit Scale); 1.0 when unset."""
+    """Metres per Blender unit (Scene Properties > Units > Unit Scale); 1.0 when unset.
+
+    With Unit System None Blender never applies Unit Scale (BKE_unit_value_scale; the field is greyed out), so
+    neither does the simulation: a stale value left from another unit system must not rescale the scene."""
     settings = getattr(scene, "unit_settings", None)
+    if getattr(settings, "system", None) == 'NONE':
+        return 1.0
     scale = float(getattr(settings, "scale_length", 1.0) or 1.0)
     return scale if scale > 0.0 else 1.0
 

@@ -64,7 +64,7 @@ spacings away and settles.
 ## Units and gravity
 
 The scene's **Unit Scale** (Scene Properties > Units) converts Blender units to metres, so a scene modelled in
-centimetres with Unit Scale 0.01 simulates at real size. Spacing and emitter speeds follow the scene's units.
+centimetres with Unit Scale 0.01 simulates at real size. Spacing and emitter speeds follow the scene's units. With Unit System None, Blender ignores Unit Scale and so does the simulation (1 unit = 1 m).
 Gravity is the scene's **Gravity** (Scene Properties > Gravity).
 
 ## Applying changes
