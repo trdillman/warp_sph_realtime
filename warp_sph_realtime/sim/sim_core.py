@@ -1,3 +1,4 @@
+import logging
 import math
 from dataclasses import dataclass
 
@@ -5,9 +6,11 @@ import numpy as np
 import warp as wp
 
 from ..scene.description import SceneDescription, rigid_key
-from .colliders import MeshSet, mesh_signed_distance
+from .colliders import MeshSet, mesh_deep_signed_distance, mesh_signed_distance
 
 wp.init()
+
+log = logging.getLogger(__name__)
 
 MAX_PARTICLES = 4_000_000
 
@@ -16,6 +19,9 @@ ARTIFICIAL_VISCOSITY_ALPHA = wp.constant(0.1)
 # The viscous force is explicit: each substep relaxes a particle's velocity toward its neighbours' by
 # (viscosity / mass) * dt. Above 1 that overshoots and above 2 it diverges, so the coefficient is capped
 # where the relaxation per substep reaches this fraction.
+# `viscosity` is per particle (kg/s), not a material constant: the relaxation rate viscosity / mass grows as
+# 1 / spacing^3, so the same value is thicker at finer spacing, and the cap (proportional to mass / dt) is
+# lower there. The cap is reported, not silent: rebuild_cuda_graph() logs a warning and the UI shows it.
 VISCOSITY_RELAXATION_LIMIT = 0.9
 
 @wp.func
@@ -62,11 +68,16 @@ def cubic_spline_grad(diff: wp.vec3, r: float, h: float) -> wp.vec3:
     return (diff / r) * grad_mag
 
 @wp.func
-def wall_accel(d: float, v_into: float, r0: float, sound_speed: float) -> float:
+def wall_accel(d: float, v_into: float, r0: float, sound_speed: float, dt: float) -> float:
     """Repulsive acceleration away from a wall at distance d (soft boundary layer of width r0).
 
     Stiffness scales with c^2 so the layer is as stiff as the fluid; the damping term only acts on
     motion into the wall, keeping hard position clamps as a rarely used last resort.
+
+    The damping is explicit: one step removes omega * overlap * dt of the approach speed, and
+    omega * dt = c / r0 * dt = 2 * cfl_factor, so above cfl 0.5 it would remove more than all of it and
+    flip the velocity. It is capped at stopping the approach in one step, which never binds at
+    cfl_factor <= 0.5 (the default is 0.4, bit-identical to the uncapped law).
     """
     if d >= r0:
         return 0.0
@@ -74,7 +85,7 @@ def wall_accel(d: float, v_into: float, r0: float, sound_speed: float) -> float:
     omega = sound_speed / r0
     a = 0.5 * sound_speed * sound_speed / r0 * overlap
     if v_into > 0.0:
-        a += omega * v_into * overlap
+        a += wp.min(omega * v_into * overlap, v_into / dt)
     return a
 
 
@@ -289,12 +300,12 @@ def k_wcsph_forces_and_copyback(
     # Soft domain walls (floor, ceiling, 4 sides) keep particles off the clamp planes.
     r0 = 0.5 * h
     acc += wp.vec3(
-        wall_accel(xi[0] - domain_min[0], -vi[0], r0, sound_speed)
-        - wall_accel(domain_max[0] - xi[0], vi[0], r0, sound_speed),
-        wall_accel(xi[1] - domain_min[1], -vi[1], r0, sound_speed)
-        - wall_accel(domain_max[1] - xi[1], vi[1], r0, sound_speed),
-        wall_accel(xi[2] - domain_min[2], -vi[2], r0, sound_speed)
-        - wall_accel(domain_max[2] - xi[2], vi[2], r0, sound_speed),
+        wall_accel(xi[0] - domain_min[0], -vi[0], r0, sound_speed, dt)
+        - wall_accel(domain_max[0] - xi[0], vi[0], r0, sound_speed, dt),
+        wall_accel(xi[1] - domain_min[1], -vi[1], r0, sound_speed, dt)
+        - wall_accel(domain_max[1] - xi[1], vi[1], r0, sound_speed, dt),
+        wall_accel(xi[2] - domain_min[2], -vi[2], r0, sound_speed, dt)
+        - wall_accel(domain_max[2] - xi[2], vi[2], r0, sound_speed, dt),
     )
 
     if enable_obstacles == 2:
@@ -391,6 +402,29 @@ def collider_distance(mesh_id: wp.uint64, xform: wp.transform, x: wp.vec3,
 
 
 @wp.func
+def collider_deep_distance(mesh_id: wp.uint64, xform: wp.transform, x: wp.vec3, d_near: float, radius: float,
+                           lower: wp.vec3, upper: wp.vec3) -> tuple[float, wp.vec3, wp.vec3]:
+    """Signed distance of a point that collider_distance found no face for within `radius` (d_near == radius).
+
+    Such a point is either clear of the collider or deeper inside it than `radius`; the near query cannot
+    tell, so a particle carried deep in within one substep (a fast collider, a large time step) would stay
+    trapped. Points inside the collider's local bounding box are re-queried without the radius limit; all
+    others keep d_near. Points with a face within `radius` never get here, so their result is unchanged.
+    """
+    d = d_near
+    n = wp.vec3(0.0, 0.0, 0.0)
+    cp = x
+    xl = wp.transform_point(wp.transform_inverse(xform), x)
+    if (xl[0] >= lower[0] and xl[0] <= upper[0] and xl[1] >= lower[1] and xl[1] <= upper[1]
+            and xl[2] >= lower[2] and xl[2] <= upper[2]):
+        d_l, n_l, cp_l = mesh_deep_signed_distance(mesh_id, xl, wp.length(upper - lower) + radius)
+        d = d_l
+        n = wp.transform_vector(xform, n_l)
+        cp = wp.transform_point(xform, cp_l)
+    return d, n, cp
+
+
+@wp.func
 def collider_velocity(lin: wp.vec3, ang: wp.vec3, xform: wp.transform, x: wp.vec3) -> wp.vec3:
     """Velocity of the collider's material point at x (rigid motion about its pivot)."""
     return lin + wp.cross(ang, x - wp.transform_get_translation(xform))
@@ -454,12 +488,12 @@ def k_scene_forces(
 
     r0 = 0.5 * h
     acc += wp.vec3(
-        wall_accel(xi[0] - domain_min[0], -vi[0], r0, sound_speed)
-        - wall_accel(domain_max[0] - xi[0], vi[0], r0, sound_speed),
-        wall_accel(xi[1] - domain_min[1], -vi[1], r0, sound_speed)
-        - wall_accel(domain_max[1] - xi[1], vi[1], r0, sound_speed),
-        wall_accel(xi[2] - domain_min[2], -vi[2], r0, sound_speed)
-        - wall_accel(domain_max[2] - xi[2], vi[2], r0, sound_speed),
+        wall_accel(xi[0] - domain_min[0], -vi[0], r0, sound_speed, dt)
+        - wall_accel(domain_max[0] - xi[0], vi[0], r0, sound_speed, dt),
+        wall_accel(xi[1] - domain_min[1], -vi[1], r0, sound_speed, dt)
+        - wall_accel(domain_max[1] - xi[1], vi[1], r0, sound_speed, dt),
+        wall_accel(xi[2] - domain_min[2], -vi[2], r0, sound_speed, dt)
+        - wall_accel(domain_max[2] - xi[2], vi[2], r0, sound_speed, dt),
     )
     v_next = vi + acc * dt
     vel_out[tid] = v_next
@@ -484,14 +518,16 @@ def k_scene_boundaries(
     collider_xform: wp.array[wp.transform],
     collider_lin: wp.array[wp.vec3],
     collider_ang: wp.array[wp.vec3],
+    collider_lower: wp.array[wp.vec3],
+    collider_upper: wp.array[wp.vec3],
     active: wp.array[wp.int32],
 ):
     """Rigid mesh colliders and the hard domain clamp, after k_scene_forces integrated the fluid.
 
     Colliders get the same soft wall law as the domain planes, driven by mesh signed distance within
     `collider_radius` of the substep's start position, plus a hard projection to the surface if a
-    particle still ends up inside. The soft law's acceleration a enters exactly as if it had been part
-    of the integration (v += a dt, x += a dt^2). Each collider is placed by `collider_xform` (identity
+    particle still ends up inside, also deeper than `collider_radius` (collider_deep_distance). The soft
+    law's acceleration a enters exactly as if it had been part of the integration (v += a dt, x += a dt^2). Each collider is placed by `collider_xform` (identity
     for static ones) and both laws act on the velocity relative to the collider's surface, so a moving
     collider pushes and drags the fluid. Transforms, collider velocities and the active particle count
     are device buffers, so the captured graph reads their current values.
@@ -512,13 +548,21 @@ def k_scene_boundaries(
         d, n, _cp = collider_distance(collider_ids[c], xform, xi, collider_radius)
         if d < r0:
             v_rel = vi - collider_velocity(collider_lin[c], collider_ang[c], xform, xi)
-            acc += n * wall_accel(d, -wp.dot(v_rel, n), r0, sound_speed)
+            acc += n * wall_accel(d, -wp.dot(v_rel, n), r0, sound_speed, dt)
     v_next = v_next + acc * dt
     x_next = x_next + acc * (dt * dt)
 
     for c in range(num_colliders):
         xform = collider_xform[c]
         d, n, cp = collider_distance(collider_ids[c], xform, x_next, collider_radius)
+        if d >= collider_radius:
+            # No face within the query radius. A particle that ended the previous substep outside can only
+            # be deeper than the radius now if it moved at least that far relative to the collider (at the
+            # default time step that takes ~30 m/s), so only such fast movers pay for the unbounded query.
+            v_c = collider_velocity(collider_lin[c], collider_ang[c], xform, x_next)
+            if wp.length(x_next - xi - v_c * dt) >= 0.5 * collider_radius:
+                d, n, cp = collider_deep_distance(collider_ids[c], xform, x_next, d, collider_radius,
+                                                  collider_lower[c], collider_upper[c])
         if d < 0.0:
             x_next = cp + n * (0.01 * h)
             vn = wp.dot(v_next - collider_velocity(collider_lin[c], collider_ang[c], xform, x_next), n)
@@ -742,11 +786,26 @@ class RealtimeWCSPHSolver:
         """
         return min(self.viscosity, VISCOSITY_RELAXATION_LIMIT * self.mass / self.dt)
 
+    @property
+    def viscosity_limited(self) -> bool:
+        """True when `effective_viscosity` is below the requested `viscosity` (the stability cap applies)."""
+        return self.effective_viscosity < self.viscosity
+
+    def _report_viscosity_cap(self):
+        key = (self.viscosity, self.effective_viscosity)
+        if self.viscosity_limited and key != getattr(self, "_viscosity_cap_reported", None):
+            log.warning("viscosity %g is limited to %g at particle spacing %g and time step %g s (explicit "
+                        "stability cap)", self.viscosity,
+                        self.effective_viscosity, 0.5 * self.h, self.dt)
+            self._viscosity_cap_reported = key
+
     def rebuild_cuda_graph(self):
         """Captures the coalesced Density + WCSPH Force + SDF Obstacle + Copy-back kernels into a CUDA Graph.
 
-        A no-op on the CPU device, where step() launches the kernels eagerly.
+        A no-op on the CPU device, where step() launches the kernels eagerly. Logs a warning (once per
+        setting) when `viscosity` is capped.
         """
+        self._report_viscosity_cap()
         if not wp.get_device(self.device).is_cuda:
             self.cuda_graph = None
             return
@@ -783,7 +842,8 @@ class RealtimeWCSPHSolver:
                     self.pos_sorted, self.vel_sorted, self.pos_sim, self.vel, self.h, self.rest_density,
                     self.stiffness, self.dt, self.domain_min, self.domain_max,
                     self.colliders.ids, self.colliders.count, self.collider_radius,
-                    self.collider_xform, self.collider_lin, self.collider_ang, self.active,
+                    self.collider_xform, self.collider_lin, self.collider_ang,
+                    self.colliders.lower, self.colliders.upper, self.active,
                 ],
                 device=self.device,
             )
