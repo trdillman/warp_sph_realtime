@@ -347,6 +347,35 @@ def fresh_bake_confirms_before_replacing_any_frame_files():
         cache_ui._cache_dir = real_dir
         tmp.cleanup()
 
+@case
+def export_warns_about_frames_that_held_an_older_frame():
+    from pathlib import Path
+    from warp_sph_realtime import cache_ui
+    adapter = cache_ui._adapter()
+    folder = Path('unused-cache-dir')
+    real = cache_ui._cache_dir, cache_ui.cache_status, cache_ui._blender_output
+    stale = {}
+    def export_sequence(context, filepath, fmt, mesh, frames):
+        adapter._failures.setdefault(str(folder), {}).update(stale)  # what the frame handler records
+        return Path(filepath)
+    cache_ui._cache_dir = lambda scene: folder
+    cache_ui.cache_status = lambda directory, max_age=1.0: ((1, 10), 0)
+    cache_ui._blender_output = lambda: NS(find_mesh_object=lambda scene: object(), export_sequence=export_sequence)
+    adapter._failures[str(folder)] = {4: 'old failure from scrubbing'}  # cleared before the export
+    try:
+        op = cache_ui.WM_OT_warp_sph_cache_export()
+        op.filepath, op.format = 'out.usdc', 'USD'
+        assert op.execute(make_context()) == {'FINISHED'} and op.reports[-1][0] == 'INFO', op.reports
+        stale.update({3: 'frame 3 is unreadable', 99: 'outside the export'})
+        op = cache_ui.WM_OT_warp_sph_cache_export()
+        op.filepath, op.format = 'out.usdc', 'USD'
+        assert op.execute(make_context()) == {'FINISHED'}
+        level, message = op.reports[-1]
+        assert level == 'WARNING' and '1 cached frame(s) could not be read (3)' in message, op.reports
+    finally:
+        cache_ui._cache_dir, cache_ui.cache_status, cache_ui._blender_output = real
+        adapter.clear_playback_failures(folder)
+
 ext.unregister()
 assert registered == [] and not hasattr(Object, 'warp_sph') and not hasattr(Scene, 'warp_sph')
 print('AUTHORING_OK')

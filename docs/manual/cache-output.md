@@ -36,7 +36,9 @@ and the keyframes of an animated collider are not recorded: start a fresh bake a
 
 **Show Cache as Point Cloud** adds an object that follows the timeline (frames outside the cached range show the
 nearest cached frame). It has `velocity`, `id` and `radius` point attributes and renders in Cycles as spheres of the
-particle radius. **Hide Cache** removes it (and the mesh preset object, which reads it).
+particle radius. **Hide Cache** removes it (and the mesh preset object, which reads it). A cached frame that cannot
+be read keeps the previous frame on screen: the panel shows an error for that frame, and an export that passed
+through such frames finishes with a warning naming them (re-bake them).
 
 ## Output
 
