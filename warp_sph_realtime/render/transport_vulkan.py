@@ -7,6 +7,11 @@ makes at most one CUDA event query or one zero-timeout Vulkan query per slot, ex
 publish polls its own pack event for up to PRODUCER_WAIT, and nothing else sleeps outside
 the bounded setup/shutdown budgets.
 
+A slow but healthy step only holds the last shown frame: pending work keeps its slot (no
+reuse without a successful zero-timeout query) and publication is skipped until it lands.
+Only work pending beyond STALL_DEADLINE - far past the Windows GPU watchdog (TDR, 2 s by
+default), after which a hung device reports an error instead - is treated as a stuck GPU.
+
 The timer submits each upload on its own (DRW scope, then GPU_fence_signal, which flushes
 only that copy), so a slot fence covers its upload rather than the next viewport frame.
 When the producer is slower than PRODUCER_WAIT or the scope route is unavailable (e.g. a
@@ -53,10 +58,13 @@ VK_TIMEOUT = 2
 # OPERATING_SYSTEM, INVALID_HANDLE, NOT_SUPPORTED. Everything else is fatal.
 RECOVERABLE_SETUP = frozenset({1, 2, 304, 400, 801})
 _POP_SAFE = RECOVERABLE_SETUP | {0, CUDA_NOT_READY}  # CUresults after which the CUDA context is still usable
-PENDING_DEADLINE = 0.5   # seconds a slot may stay WRITING/IN_FLIGHT before quarantine
-SETUP_BUDGET = 0.1       # self-test producer/consumer completion
+# Seconds a slot may stay WRITING/IN_FLIGHT before it counts as a stuck GPU and is quarantined.
+# Not a latency limit: a healthy step at high particle counts can take far longer than a
+# frame, and must degrade (hold the last frame) rather than force a restart.
+STALL_DEADLINE = 5.0
+SETUP_BUDGET = 0.1       # self-test producer/consumer completion (16 texels, nothing queued ahead)
 PRODUCER_WAIT = 0.002    # publish waits this long for its pack before leaving the upload to the draw
-CLOSE_BUDGET = 0.1       # whole shutdown polling budget
+CLOSE_BUDGET = STALL_DEADLINE  # shutdown polling: lets an in-flight slow step land, fails only if stuck
 SELF_TEST = (4, 4)       # 16 texels = 256-byte known-answer transfer gates activation
 VRAM_RESERVE = 512 << 20
 
@@ -352,8 +360,9 @@ class VulkanInteropTransport:
                 self._leave(slot, FREE)
             elif code != VK_TIMEOUT:
                 raise FatalTransportError(f'vkWaitSemaphores returned VkResult {code}')
-        if slot.state in (WRITING, IN_FLIGHT) and self._clock() - slot.started > PENDING_DEADLINE:
-            raise FatalTransportError(f'{slot.state} work pending beyond 500 ms; ownership quarantined')
+        if slot.state in (WRITING, IN_FLIGHT) and self._clock() - slot.started > STALL_DEADLINE:
+            raise FatalTransportError(
+                f'{slot.state} work stalled beyond {STALL_DEADLINE:g} s; GPU presumed stuck, ownership quarantined')
 
     def _enter(self, slot: _Slot, state: str):
         slot.state, slot.started = state, self._clock()
@@ -410,7 +419,7 @@ class VulkanInteropTransport:
             if done():
                 return True
             if self._clock() - start >= CLOSE_BUDGET:
-                raise FatalTransportError('shutdown exceeded 100 ms; ownership quarantined')
+                raise FatalTransportError(f'shutdown exceeded {CLOSE_BUDGET:g} s; ownership quarantined')
             self._sleep(0.001)
             return False
 

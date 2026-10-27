@@ -491,13 +491,39 @@ def test_vulkan_query_error_is_fatal():
         t.publish(positions(5))
 
 
-def test_pending_deadline_is_fatal():
+def test_stalled_work_is_fatal():
     t, native, clock = make(5)
     native.event_results = [600] * 10
     t.publish(positions(5))
-    clock.t += 0.6
-    with pytest.raises(tr.FatalTransportError, match='500 ms'):
+    clock.t += tv.STALL_DEADLINE + 0.1
+    with pytest.raises(tr.FatalTransportError, match='stalled'):
         t.publish(positions(5))
+
+
+def test_slow_healthy_step_holds_the_frame_instead_of_failing():
+    # Regression: a 0.5 s pending deadline made any step slower than 500 ms fatal (restart).
+    t, native, clock = make(5)
+    t.publish(positions(5))                       # frame 0 shown
+    assert draw(t, native).frame == 0
+    native.event_results = [600] * 50
+    assert t.publish(positions(5, 1.0))           # frame 1: a slow step, still being written
+    for _ in range(20):                           # 2 s of timer ticks while the GPU works
+        clock.t += 0.1
+        assert not t.can_publish()                # skip publication, keep the slot owned
+        assert draw(t, native).frame == 0         # hold the last shown frame
+    native.event_results = []                     # the step lands
+    assert t.can_publish() and t.capabilities().ready and not t.fatal_reason
+    assert draw(t, native).frame == 1
+
+
+def test_close_waits_for_a_slow_step_instead_of_failing():
+    t, native, clock = make(5)
+    t.publish(positions(5))
+    draw(t, native)
+    native.event_results = [600] * 5
+    assert t.publish(positions(5))
+    native.event_results = [600] * 800           # ~0.8 s more of GPU work at 1 ms per poll
+    assert t.close() == tr.COMPLETED and native.live() == 0
 
 
 def test_event_record_error_is_fatal():
@@ -549,7 +575,7 @@ def test_close_timeout_fails_and_retains():
     t, native, _ = make(5)
     t.publish(positions(5))
     draw(t, native)
-    native.fence_results = [2] * 1000
+    native.fence_results = [2] * 100_000  # stuck GPU: never completes within the budget
     assert t.close() == tr.FAILED
     assert native.live() > 0 and t in tv._QUARANTINE and native.active == WINDOW_CTX
 
@@ -583,7 +609,7 @@ def test_scope_restoration_failure_keeps_original_error():
     t, native, _ = make(5)
     t.publish(positions(5))
     draw(t, native)
-    native.fence_results = [2] * 1000
+    native.fence_results = [2] * 100_000  # stuck GPU: never completes within the budget
     native.restore_ok = False
     assert t.close() == tr.FAILED
     assert 'restoration failed' in t.fatal_reason and 'while handling FatalTransportError' in t.fatal_reason
@@ -646,16 +672,17 @@ def test_readback_zero_count():
 # -- review regressions ---------------------------------------------------------------------
 def test_queued_work_deadline_restarts_when_predecessor_completes():
     t, native, clock = make(5)
+    d = tv.STALL_DEADLINE
     native.event_results = [600, 600, 600, 0, 600, 600, 600]
     t.publish(positions(5))            # A at t=0
-    clock.t = 0.3
+    clock.t = 0.6 * d
     assert t.publish(positions(5))     # A pending; B queued behind it
-    clock.t = 0.45
-    t.can_publish()                    # A completes (and uploads); B's deadline restarts at 0.45
-    clock.t = 0.8
-    assert not t.can_publish()         # B pending 0.35 s: in flight, not overdue despite 0.5 s since record
-    clock.t = 1.0
-    with pytest.raises(tr.FatalTransportError, match='500 ms'):
+    clock.t = 0.9 * d
+    t.can_publish()                    # A completes (and uploads); B's deadline restarts at 0.9 d
+    clock.t = 1.6 * d
+    assert not t.can_publish()         # B pending 0.7 d: in flight, not overdue despite 1.0 d since record
+    clock.t = 2.0 * d
+    with pytest.raises(tr.FatalTransportError, match='stalled'):
         t.can_publish()
 
 
