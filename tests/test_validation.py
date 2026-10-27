@@ -25,9 +25,16 @@ from warp_sph_realtime.sim.validation import (
 needs_cuda = pytest.mark.skipif(not wp.is_cuda_available(), reason="CUDA required")
 
 # Measured and bounded in docs/VALIDATION.md.
-MAX_ENERGY_GROWTH = 0.01  # fraction of the initial energy (measured: none)
+MAX_ENERGY_GROWTH = 0.002  # fraction of the initial energy (measured: none, CPU and GPU)
 BULK_DENSITY_ERROR = 0.01  # mean |rho/rho0 - 1| away from boundaries (measured <= 0.33 %)
 ALL_DENSITY_ERROR = 0.02  # mean over every particle including the kernel-deficient surface (measured <= 0.92 %)
+# Final / initial energy. A dissipative run ends below 1, but too low means the solver over-damps.
+# Measured (2026-10-27, Warp 1.17): dam break 0.808 (n = 12, CPU and GPU), 0.860 (n = 24, GPU);
+# rest 0.887 (CPU, 10 cells), 0.924 (GPU, 16 cells).
+DAM_BREAK_FINAL_ENERGY = (0.70, 0.92)
+REST_FINAL_ENERGY = (0.80, 0.97)
+# Kinetic / initial energy at the end of the rest run (measured 1.1e-4 CPU, 4.7e-5 GPU).
+REST_KINETIC = 1e-3
 
 
 @pytest.fixture(scope="module")
@@ -40,13 +47,15 @@ def cpu_rest():
     return run_rest(cells=10, seconds=0.5, device="cpu")
 
 
-def check_conservation(run):
+def check_conservation(run, final_energy):
     report = conservation_report(run)
     assert report["particles_final"] == report["particles_initial"]
     assert report["finite"]
     assert report["max_distance_outside_domain"] <= 1e-6
     assert report["max_energy_growth_fraction"] <= MAX_ENERGY_GROWTH
-    assert report["final_energy_fraction"] < 1.0, "a dissipative WCSPH run must end below its initial energy"
+    low, high = final_energy
+    assert low <= report["final_energy_fraction"] <= high, \
+        f"final energy fraction {report['final_energy_fraction']:.3f} outside the measured band [{low}, {high}]"
     return report
 
 
@@ -86,7 +95,7 @@ def test_solver_cpu_device_runs_eagerly_without_a_graph():
 
 
 def test_dam_break_conservation_and_energy_cpu(cpu_dam_break):
-    report = check_conservation(cpu_dam_break)
+    report = check_conservation(cpu_dam_break, DAM_BREAK_FINAL_ENERGY)
     assert report["particles_final"] == cpu_dam_break.num_particles == 12 * 4 * 24
 
 
@@ -101,19 +110,19 @@ def test_dam_break_front_matches_martin_moyce_cpu(cpu_dam_break):
 
 
 def test_rest_settling_cpu(cpu_rest):
-    check_conservation(cpu_rest)
+    check_conservation(cpu_rest, REST_FINAL_ENERGY)
     report = rest_density_report(cpu_rest)
     assert report["bulk_particles"] >= 300
     assert report["mean_abs_density_error_bulk"] <= BULK_DENSITY_ERROR
     assert report["mean_abs_density_error_all"] <= ALL_DENSITY_ERROR
-    assert cpu_rest.kinetic[-1] < 0.01 * cpu_rest.energy[0], "the block did not come to rest"
+    assert cpu_rest.kinetic[-1] < REST_KINETIC * cpu_rest.energy[0], "the block did not come to rest"
 
 
 @needs_cuda
 def test_dam_break_front_matches_martin_moyce_gpu():
     """n = 24 particles across the column. Measured: mean error +0.01, rms 0.053, max |error| 6.3 % of Z."""
     run = run_dam_break(DamBreakConfig(cells_across=24, thickness_cells=4, device="cuda:0"))
-    check_conservation(run)
+    check_conservation(run, DAM_BREAK_FINAL_ENERGY)
     result = compare_front(run.T, run.Z)
     assert result["points"] == len(MARTIN_MOYCE_T)
     assert result["max_abs_relative_error"] <= 0.10
@@ -130,8 +139,8 @@ def test_cpu_and_gpu_follow_the_same_front(cpu_dam_break):
 @needs_cuda
 def test_rest_settling_gpu():
     run = run_rest(cells=16, seconds=1.0, device="cuda:0")
-    check_conservation(run)
+    check_conservation(run, REST_FINAL_ENERGY)
     report = rest_density_report(run)
     assert report["mean_abs_density_error_bulk"] <= BULK_DENSITY_ERROR
     assert report["mean_abs_density_error_all"] <= ALL_DENSITY_ERROR
-    assert run.kinetic[-1] < 0.01 * run.energy[0]
+    assert run.kinetic[-1] < REST_KINETIC * run.energy[0]
