@@ -62,9 +62,14 @@ class FrameStore:
             return self._outstanding
 
     def idle(self) -> bool:
-        """True when everything submitted has been written."""
+        """True when everything submitted has been written. Raises CacheError if a write failed.
+
+        The error is checked again after ``pending``: the writer can fail the last frame between ``pump``'s
+        check and the count reaching 0, and that frame must not be reported as written."""
         self.pump()
-        return self.pending() == 0
+        done = self.pending() == 0
+        self._raise_error()  # the writer sets the error before it decrements the count
+        return done
 
     def close(self, timeout: float = 60.0) -> None:
         """Wait for submitted frames to reach disk (bounded by ``timeout``), then stop the writer.

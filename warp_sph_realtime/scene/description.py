@@ -7,6 +7,7 @@ rejected with a specific message rather than approximated.
 
 from __future__ import annotations
 
+import hashlib
 import math
 from dataclasses import dataclass
 
@@ -250,6 +251,32 @@ class SceneDescription:
         for name in ("unit_scale", "start_frame", "fps"):
             object.__setattr__(self, name, float(getattr(self, name)))
         self.validate()
+
+    def boundary_fingerprint(self) -> str:
+        """Hex digest of what shapes the motion after the initial state: domain box, colliders (start-frame
+        shape and which ones move) and emitters. A resumed bake must not mix caches across a change to these.
+
+        Fluid volumes are left out (a resume restores the cached state, not the fill). Animated colliders
+        contribute name and topology only: their poses come from the Blender animation each frame and are not
+        part of the description."""
+        digest = hashlib.sha256()
+
+        def put(*values):
+            for value in values:
+                digest.update(np.ascontiguousarray(value).tobytes() if isinstance(value, np.ndarray)
+                              else repr(value).encode())
+
+        put("domain", self.domain_min, self.domain_max)
+        moving = {motion.collider: motion.name for motion in self.collider_motion}
+        for index, mesh in enumerate(self.colliders):
+            if index in moving:  # its start shape depends on the frame the run started at: topology and name only
+                put("moving collider", moving[index], mesh.vertices.shape, mesh.triangles)
+            else:
+                put("collider", mesh.vertices.shape, mesh.vertices, mesh.triangles)
+        for e in self.emitters:
+            put("emitter", e.mesh.vertices.shape, e.mesh.vertices, e.mesh.triangles, e.velocity_mode, e.speed,
+                e.vector, e.rate, e.frame_start, e.frame_end)
+        return digest.hexdigest()
 
     def validate(self) -> None:
         lo, hi = np.array(self.domain_min), np.array(self.domain_max)

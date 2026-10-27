@@ -240,6 +240,8 @@ def test_emitter_defaults_and_unit_default():
     assert (e.velocity_mode, e.speed, e.rate) == ("NORMAL", 2.0, 0.0)
     assert desc.unit_scale == 1.0 and desc.collider_motion == ()
     assert unit_scale(NS(unit_settings=NS(scale_length=0.0))) == 1.0
+    assert unit_scale(NS(unit_settings=NS(system='METRIC', scale_length=0.01))) == pytest.approx(0.01)
+    assert unit_scale(NS(unit_settings=NS(system='NONE', scale_length=0.01))) == 1.0  # Blender ignores it too
 
 
 def animated(obj, kind):
@@ -247,6 +249,9 @@ def animated(obj, kind):
         obj.animation_data = NS(action=object(), drivers=[])
     elif kind == "driver":
         obj.animation_data = NS(action=None, drivers=[object()])
+    elif kind == "nla":  # action pushed down to an NLA strip: no active action
+        obj.animation_data = NS(action=None, drivers=[], nla_tracks=[NS(mute=True, strips=[object()]),
+                                                                     NS(mute=False, strips=[object()])])
     elif kind == "constraint":
         obj.constraints = [object()]
     elif kind == "parent":
@@ -254,7 +259,7 @@ def animated(obj, kind):
     return obj
 
 
-@pytest.mark.parametrize("kind", ["action", "driver", "constraint", "parent"])
+@pytest.mark.parametrize("kind", ["action", "driver", "nla", "constraint", "parent"])
 def test_animated_colliders_get_a_motion(kind):
     still = FakeObject("Still", box_mesh((-0.1, -0.1, -0.1), (0.1, 0.1, 0.1)), "COLLIDER", translation(-0.3, 0, 1.0))
     paddle = animated(FakeObject("Paddle", box_mesh((-0.1, -0.1, -0.1), (0.1, 0.1, 0.1)), "COLLIDER",
@@ -267,6 +272,14 @@ def test_animated_colliders_get_a_motion(kind):
     assert (m.collider, m.name) == ([c.name for c in desc.colliders].index("Paddle"), "Paddle")
     assert m.pivot == pytest.approx((0.6, 0.0, 2.0))  # metres
     np.testing.assert_allclose(m.start_linear, np.eye(3))
+
+
+def test_muted_or_empty_nla_tracks_are_still():
+    from warp_sph_realtime.scene.blender_scene import _is_animated
+    obj = NS(animation_data=NS(action=None, drivers=[], nla_tracks=[NS(mute=True, strips=[object()]),
+                                                                    NS(mute=False, strips=[])]),
+             constraints=[], parent=None)
+    assert not _is_animated(obj)
 
 
 def test_scene_warnings_accept_an_emitter_instead_of_fluid():

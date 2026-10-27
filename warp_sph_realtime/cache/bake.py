@@ -36,6 +36,9 @@ def solver_signature(solver, steps: int, fps: float, scene: str, demo: str) -> d
     unit = float(getattr(solver, "unit_scale", 1.0))
     if unit != 1.0:  # preserve PR #17's position/meshing unit contract
         signature["unit_scale"] = unit
+    boundaries = getattr(solver, "boundary_fingerprint", None)  # authored scenes: colliders, emitters, domain
+    if isinstance(boundaries, str):
+        signature["boundaries"] = boundaries
     return signature
 
 
@@ -75,7 +78,8 @@ def plan_bake(disk: DiskCache, signature: dict, first: int, last: int, *, resume
 
     Fresh (``resume`` False, or nothing to resume): the cache is cleared and a new manifest written.
     Resume: the manifest must match ``signature`` (CacheMismatchError otherwise); capturing continues after the
-    last intact frame, whose state is returned in ``restore``. A last frame that cannot be read (power loss) is
+    last intact frame, whose state is returned in ``restore``. Every cached frame gets a cheap structural check
+    (``DiskCache.first_damaged``) and the last one a full read; a damaged frame and everything after it are
     dropped first. ``particles`` (optional) must equal the cached frame's particle count.
     """
     if last < first:
@@ -83,6 +87,9 @@ def plan_bake(disk: DiskCache, signature: dict, first: int, last: int, *, resume
     if resume and disk.manifest() is not None:
         disk.begin(first, signature)
         discarded = 0
+        damaged = disk.first_damaged()  # cheap check of every frame; later frames depend on a damaged one
+        if damaged is not None:
+            discarded += disk.invalidate_from(damaged)
         while True:
             span = disk.cached_range()
             if span is None:

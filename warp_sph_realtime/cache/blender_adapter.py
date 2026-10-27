@@ -30,6 +30,7 @@ OBJECT_NAME = "WarpSPH Cache"
 _loaded: dict[int, tuple] = {}  # point cloud pointer -> (dir, frame, file mtime, count, radius) last applied
 _emission: dict[str, object] = {}  # cache directory -> age.EmissionIndex
 _reported: set[str] = set()     # distinct handler failures already logged
+_failures: dict[str, dict[int, str]] = {}  # cache directory -> scene frame -> why it was not shown
 
 
 def cache_dir(scene) -> Path:
@@ -147,14 +148,38 @@ def show_frame(scene, frame_number: int) -> bool:
     return True
 
 
+def playback_failures(directory) -> dict[int, str]:
+    """Scene frames whose cache the handler could not show (frame -> reason): the point cloud held an older frame.
+
+    The panel shows them and export reports them; a frame shown successfully later is removed."""
+    return dict(_failures.get(str(directory), {}))
+
+
+def clear_playback_failures(directory) -> None:
+    _failures.pop(str(directory), None)
+
+
 def on_frame_change_post(scene, depsgraph=None):
-    """frame_change_post: keep the playback point cloud on the current frame. Never raises into Blender."""
+    """frame_change_post: keep the playback point cloud on the current frame. Never raises into Blender.
+
+    A frame that cannot be shown leaves the previous one in place; it is logged once and kept in
+    ``playback_failures`` so the UI and export can tell the user."""
+    directory = None
     try:
         if find_playback_object(scene) is None:
             return
+        directory = str(cache_dir(scene))
         show_frame(scene, scene.frame_current)
+        failed = _failures.get(directory)
+        if failed:
+            failed.pop(int(scene.frame_current), None)
     except Exception as exc:
         message = f"{type(exc).__name__}: {exc}"
+        if directory is not None:
+            try:
+                _failures.setdefault(directory, {})[int(scene.frame_current)] = str(exc)
+            except Exception:
+                pass  # no usable frame number: logged below
         if message not in _reported:
             _reported.add(message)
             _LOG.warning("WarpSPH cache playback: %s (logged once)", message)
@@ -182,3 +207,4 @@ def unregister() -> None:
     _loaded.clear()
     _emission.clear()
     _reported.clear()
+    _failures.clear()

@@ -140,6 +140,27 @@ ba.on_frame_change_post(None)                                                # g
 assert len(records) == 2
 print("handler_ok")
 
+# an unreadable frame holds the previous one: recorded for the panel and export, cleared once it shows again
+assert ba.playback_failures(folder) == {1: "no cached frames in " + str(folder)}  # from the handler check above
+ba.clear_playback_failures(folder)
+disk.begin(10, {"particles": 5})
+for n in (10, 11): write(n)
+scene.frame_current = 10
+ba.on_frame_change_post(scene)
+shown = loaded(cloud)["position"]["vector"].tobytes()
+good = disk.path(11).read_bytes()
+disk.path(11).write_bytes(b"PK\x03\x04 truncated")
+scene.frame_current = 11
+ba.on_frame_change_post(scene)
+assert loaded(cloud)["position"]["vector"].tobytes() == shown                # held, not cleared
+failures = ba.playback_failures(folder)
+assert list(failures) == [11] and "unreadable" in failures[11], failures
+disk.path(11).write_bytes(good)
+os.utime(disk.path(11), ns=(time.time_ns() + 2 * 10**9, time.time_ns() + 2 * 10**9))
+ba.on_frame_change_post(scene)
+assert ba.playback_failures(folder) == {}
+print("held_frame_ok")
+
 handlers = bpy.app.handlers.frame_change_post
 ba.register(); ba.register()
 assert handlers == [ba.on_frame_change_post] and ba.on_frame_change_post._bpy_persistent
@@ -157,7 +178,7 @@ class PlaybackAdapterTest(unittest.TestCase):
         result = subprocess.run([sys.executable, '-'], input=SCRIPT, cwd=str(ROOT),
                                 capture_output=True, text=True, timeout=120)
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-        for marker in ('exact_frame_ok', 'age_ok', 'clamp_and_change_ok', 'range_ok', 'resize_ok', 'handler_ok', 'register_ok',
+        for marker in ('exact_frame_ok', 'age_ok', 'clamp_and_change_ok', 'range_ok', 'resize_ok', 'handler_ok', 'held_frame_ok', 'register_ok',
                        'PLAYBACK_OK'):
             self.assertIn(marker, result.stdout)
 

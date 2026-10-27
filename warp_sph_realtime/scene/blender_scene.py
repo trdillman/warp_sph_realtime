@@ -124,18 +124,31 @@ def scene_warnings(scene) -> list[str]:
 
 
 def unit_scale(scene) -> float:
-    """Metres per Blender unit (Scene Properties > Units > Unit Scale); 1.0 when unset."""
+    """Metres per Blender unit (Scene Properties > Units > Unit Scale); 1.0 when unset.
+
+    With Unit System None Blender never applies Unit Scale (BKE_unit_value_scale; the field is greyed out), so
+    neither does the simulation: a stale value left from another unit system must not rescale the scene."""
     settings = getattr(scene, "unit_settings", None)
+    if getattr(settings, "system", None) == 'NONE':
+        return 1.0
     scale = float(getattr(settings, "scale_length", 1.0) or 1.0)
     return scale if scale > 0.0 else 1.0
 
 
+def _plays_nla(anim) -> bool:
+    """An unmuted NLA track with a strip: animation without an active action (pushed down / stashed into NLA)."""
+    return any(not getattr(track, "mute", False) and len(getattr(track, "strips", ()))
+               for track in getattr(anim, "nla_tracks", ()))
+
+
 def _is_animated(obj) -> bool:
-    """True if the object's world transform can change over time: keyframes or drivers, constraints, or
-    an animated parent. Shape changes (armatures, shape keys) are not looked at; they are not followed."""
+    """True if the object's world transform can change over time: keyframes (active action or NLA strips) or
+    drivers, constraints, or an animated parent. Shape changes (armatures, shape keys) are not looked at; they
+    are not followed."""
     while obj is not None:
         anim = getattr(obj, "animation_data", None)
-        if anim is not None and (getattr(anim, "action", None) is not None or len(getattr(anim, "drivers", ()))):
+        if anim is not None and (getattr(anim, "action", None) is not None or len(getattr(anim, "drivers", ()))
+                                 or _plays_nla(anim)):
             return True
         if len(getattr(obj, "constraints", ())):
             return True
