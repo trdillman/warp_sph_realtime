@@ -923,7 +923,21 @@ def _recover_interrupted_promotion(destination: Path) -> bool:
     # The install is consistent now; what is left in the journal is garbage.
     with contextlib.suppress(OSError):
         _discard(work)
-    shutil.rmtree(work, ignore_errors=True)  # the rename fails while a leftover is locked
+    if work.exists():
+        # The rename fails while a leftover is locked. Delete COMMITTED last, so a half-deleted
+        # journal is never mistaken for an uncommitted one (which would roll back a good install).
+        for child in list(work.iterdir()):
+            if child.name == _COMMITTED:
+                continue
+            if child.is_dir() and not child.is_symlink():
+                shutil.rmtree(child, ignore_errors=True)
+            else:
+                with contextlib.suppress(OSError):
+                    child.unlink()
+        if all(child.name == _COMMITTED for child in work.iterdir()):
+            with contextlib.suppress(OSError):
+                (work / _COMMITTED).unlink(missing_ok=True)
+                work.rmdir()
     return True
 
 def _extract_wheel(
@@ -1037,6 +1051,8 @@ def plan_install(
     (blocked, already installed, offline, wrong source) and an ``InstallPlan``
     for ``run_plan`` otherwise. ``local_wheel`` selects the offline path.
     """
+    if install_running():  # its journal is live; recovery below would roll it back
+        return InstallResult(success=False, message="A Warp install is already running; wait for it to finish.")
     source = active_source()
     if source.is_folder:
         return InstallResult(

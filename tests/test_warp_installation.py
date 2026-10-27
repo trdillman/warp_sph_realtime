@@ -1,6 +1,7 @@
 """Isolation, restart, tamper, and cleanup tests requiring no CUDA/Blender."""
 from __future__ import annotations
 
+import contextlib
 import hashlib
 import io
 import json
@@ -315,6 +316,39 @@ class ManagedWarpTest(unittest.TestCase):
         result = installer.install_warp()  # the next press restores the previous install first
         self.assertTrue(result.already_installed, result.message)
         self.assertEqual(self._snapshot(), before)
+
+    def test_committed_journal_with_locked_leftover_never_rolls_back_good_install(self):
+        good = self._install_marked()
+        work = self.owned / ".warpsph-promote"
+        (work / "backup" / "warp").mkdir(parents=True)
+        (work / "backup" / "warp" / "locked.dll").write_bytes(b"old")
+        for marker in ("BACKED_UP", "COMMITTED"):
+            (work / marker).touch()
+        def rmtree(path, ignore_errors=False, **_kwargs):  # best-effort delete; the locked DLL survives
+            for p in [*sorted(Path(path).rglob("*"), reverse=True), Path(path)]:
+                with contextlib.suppress(OSError):
+                    if p.is_dir():
+                        p.rmdir()  # fails while not empty, like Windows
+                    elif p.name != "locked.dll":
+                        p.unlink()
+
+        def discard(_path):  # renaming a directory with a locked file inside fails
+            raise PermissionError("simulated locked DLL")
+        with mock.patch.object(installer.shutil, "rmtree", side_effect=rmtree), \
+                mock.patch.object(installer, "_discard", side_effect=discard):
+            for _ in range(2):
+                self.assertTrue(installer._recover_interrupted_promotion(self.owned))
+        self.assertTrue((work / "COMMITTED").exists())
+        installer._recover_interrupted_promotion(self.owned)  # the lock is gone: journal cleared
+        self.assertEqual(self._snapshot(), good)
+
+    def test_plan_install_refuses_while_an_install_runs(self):
+        installer.begin_install_activity()
+        self.addCleanup(installer.end_install_activity)
+        result = installer.plan_install()
+        self.assertIsInstance(result, installer.InstallResult)
+        self.assertFalse(result.success)
+        self.assertIn("already running", result.message)
 
     def test_crash_mid_promotion_is_repaired_by_next_install_or_start(self):
         for existing in (False, True):
