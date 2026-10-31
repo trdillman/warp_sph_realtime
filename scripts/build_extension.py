@@ -3,7 +3,8 @@
 Usage:
     python scripts/build_extension.py [--blender PATH] [--install] [--tag vX.Y.Z]
 
-``--tag`` (used by the release workflow) refuses to build unless the tag equals ``v`` plus the manifest version.
+``--tag`` (used by the release workflow) refuses to build unless the tag equals ``v`` plus the manifest version
+and the repository has a LICENSE file.
 
 Blender is located from --blender, then the BLENDER environment variable, then PATH.
 """
@@ -41,6 +42,21 @@ def check_tag(tag: str, source_dir: Path = SOURCE_DIR) -> None:
     expected = f"v{manifest_version(source_dir)}"
     if tag.removeprefix("refs/tags/") != expected:
         sys.exit(f"Tag {tag!r} does not match blender_manifest.toml version: expected {expected!r}.")
+
+
+LICENSE_NAMES = ("LICENSE", "LICENSE.md", "LICENSE.txt", "COPYING")
+
+
+def check_license(repo_root: Path = REPO_ROOT) -> None:
+    """Exit unless the repository carries a licence file: the manifest declares a licence, so a release must ship it."""
+    if not any((repo_root / name).is_file() for name in LICENSE_NAMES):
+        sys.exit("Release refused: no LICENSE file at the repository root (docs/RELEASE_PLAN.md decision D2).")
+
+
+def check_archive_license(names: list[str]) -> None:
+    """Exit unless the built zip carries a licence file; Blender packages SOURCE_DIR, not the repository root."""
+    if not any(name in LICENSE_NAMES for name in names):
+        sys.exit("Release refused: the built zip has no LICENSE file (add it inside warp_sph_realtime/).")
 
 
 def exclude_patterns(source_dir: Path = SOURCE_DIR) -> list[str]:
@@ -95,6 +111,7 @@ def main() -> None:
 
     if args.tag:
         check_tag(args.tag)
+        check_license()
     blender = find_blender(args.blender)
     DIST_DIR.mkdir(exist_ok=True)
     run_blender(blender, "validate", str(SOURCE_DIR))
@@ -104,10 +121,13 @@ def main() -> None:
     if not package.is_file():
         sys.exit(f"Build finished but {package.name} was not produced in dist/.")
     with zipfile.ZipFile(package) as archive:
-        leaked = [n for n in archive.namelist() if n.startswith("experimental/")]
+        names = archive.namelist()
+        leaked = [n for n in names if n.startswith("experimental/")]
         packaged = tomllib.loads(archive.read("blender_manifest.toml").decode("utf-8"))["version"]
     if leaked:
         sys.exit(f"Built zip must not ship experimental/ modules, found: {leaked[:3]}")
+    if args.tag:
+        check_archive_license(names)
     if packaged != manifest_version():
         sys.exit(f"Packaged manifest version {packaged!r} differs from the source manifest.")
     print(f"Built {package} sha256={hashlib.sha256(package.read_bytes()).hexdigest()}")
