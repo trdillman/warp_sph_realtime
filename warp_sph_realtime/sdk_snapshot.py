@@ -11,6 +11,7 @@ import importlib.util
 import json
 import sys
 import threading
+import uuid
 import weakref
 from math import isfinite
 from pathlib import Path
@@ -73,6 +74,16 @@ def eligibility(session, scene):
     if session.step_once or getattr(session, '_output_pending', False):
         return 'Wait for the requested simulation frame to finish'
     return ''
+
+
+def _source_id(session):
+    source = getattr(session, '_sdk_snapshot_source', None)
+    if source is None:
+        # Scene UID alone survives addon disable/enable. A newly constructed
+        # session must not reuse that old session's (epoch, particle ID) tuples.
+        source = f'warpsph:{session.scene_uid}:{uuid.uuid4().hex}'
+        session._sdk_snapshot_source = source
+    return source
 
 
 def _gpu_read(session, operation):
@@ -173,7 +184,7 @@ def capture_paused(session, scene, *, wp_module, max_readback_bytes=DEFAULT_CAPT
     same = (previous is not None and previous[0]() is solver and previous[1] == token
             and time_s >= previous[3] and steps >= previous[4])
     epoch = previous[2] if same else (0 if previous is None else previous[2] + 1)
-    stamp = FrameStamp(f'warpsph:{session.scene_uid}', epoch, steps, time_s, 0)
+    stamp = FrameStamp(_source_id(session), epoch, steps, time_s, 0)
     values['radius'] = np.full(count, radius, dtype='<f4')
     values['color'] = np.tile(np.asarray(color, dtype='<f4'), (count, 1))
     arrays = tuple(HostArray(name, 'uint64' if name == 'id' else 'float32', value.shape,
@@ -278,7 +289,7 @@ def snapshot_to_native(session, scene, *, wp_module, object_name='WarpSPH Native
     if existing is not None:
         if not replace_existing:
             raise ValueError('Snapshot object already exists; choose a new name or explicitly update it')
-        validate_target_owner(existing, f'warpsph:{session.scene_uid}')
+        validate_target_owner(existing, _source_id(session))
     payload = capture_paused(session, scene, wp_module=wp_module, max_readback_bytes=max_readback_bytes)
     from blender_vulkan_interop.output.contracts import SnapshotTarget
     from blender_vulkan_interop.output.geometry_nodes import create_particle_instancer

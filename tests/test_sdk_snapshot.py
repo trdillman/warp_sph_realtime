@@ -176,3 +176,16 @@ def test_cuda_readback_failure_stops_session_instead_of_allowing_resume(where):
     finally:
         if where == 'array':
             Array.__getitem__ = original
+
+
+def test_disposed_and_recreated_session_uses_new_identity_namespace():
+    m = api()
+    scene, session, wp, _ = setup()
+    first = m.capture_paused(session, scene, wp_module=wp)
+    _, replacement, _, _ = setup()
+    replacement.scene = scene
+    second = m.capture_paused(replacement, scene, wp_module=wp)
+    assert first.stamp.source_id != second.stamp.source_id, 'new session recycled old particle identity namespace'
+    assert first.stamp.epoch == second.stamp.epoch == 0
+    again = m.capture_paused(session, scene, wp_module=wp)
+    assert again.stamp.source_id == first.stamp.source_id
