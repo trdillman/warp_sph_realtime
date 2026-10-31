@@ -63,3 +63,11 @@ def test_release_requires_a_license_file(tmp_path):
         build_extension.check_license(tmp_path)
     (tmp_path / "LICENSE").write_text("terms")
     build_extension.check_license(tmp_path)  # no exit
+
+
+def test_release_requires_the_license_inside_the_zip():
+    import pytest
+
+    with pytest.raises(SystemExit, match="built zip"):
+        build_extension.check_archive_license(["blender_manifest.toml", "THIRD_PARTY_NOTICES.md"])
+    build_extension.check_archive_license(["blender_manifest.toml", "LICENSE"])  # no exit
