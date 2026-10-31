@@ -37,7 +37,7 @@ ignore = ["UP018"]
 [tool.pyright]
 include = ["warp_sph_realtime", "tests", "scripts"]
 # Live-Blender GPU probe scripts (run via `blender --python`), not headless test modules.
-exclude = ["**/__pycache__", "tests/run_ssfr_gui.py", "tests/runtime_ssfr_*.py"]
+exclude = ["**/__pycache__", "tests/run_ssfr_gui.py", "tests/runtime_ssfr_*.py", "tests/runtime_sdk_*.py"]
 extraPaths = ["."]
 pythonVersion = "3.13"
 # Suppressions below are false positives from third-party stubs, not project bugs

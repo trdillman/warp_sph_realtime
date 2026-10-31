@@ -191,7 +191,8 @@ class SimSession:
                 runtime.draw_particles_viewport(self.gl_buf, self.running)
                 return
             scene = bpy.context.scene
-            if not self.running or not scene.warp_sph.show_particles:
+            snapshot_pending = getattr(session, 'snapshot_status', '') == 'QUEUED'
+            if not self.running or (not scene.warp_sph.show_particles and not snapshot_pending):
                 return
             session.draw(settings_from_scene(scene, session.backend))
         except FatalTransportError as exc:
@@ -268,7 +269,9 @@ class SimSession:
         every output is sized from the solver's fill count. ``keep_output`` (Reset) keeps the current
         output when the new solver has the same particle count: no transport or renderer is rebuilt."""
         backend = gpu_backend()
-        uses_vbo = backend == 'OPENGL' and not self.gl_uses_texture(scene)
+        shared_sdk = (getattr(self.session, 'is_shared_sdk', False) if self.session is not None
+                      else bool(getattr(scene.warp_sph, 'use_shared_sdk', False)))
+        uses_vbo = not shared_sdk and backend == 'OPENGL' and not self.gl_uses_texture(scene)
         solver = None
         if keep_output and (self.gl_buf if uses_vbo else self.session) is not None:
             solver = self._new_solver(scene, num_p, demo_type, depsgraph)
@@ -298,8 +301,12 @@ class SimSession:
                 solver = self._new_solver(scene, num_p, demo_type, depsgraph)
             window = window or bpy.context.window
             try:
-                session = transport_session.open_session(
-                    backend, solver.num_particles, window.as_pointer(), interop_unavailable=self.interop_unavailable)
+                if shared_sdk:
+                    from .interop_bridge import open_session as open_sdk_session
+                    session = open_sdk_session(solver, scene, window.as_pointer())
+                else:
+                    session = transport_session.open_session(
+                        backend, solver.num_particles, window.as_pointer(), interop_unavailable=self.interop_unavailable)
             except FatalTransportError:
                 _QUARANTINE.append(solver)
                 raise
@@ -360,6 +367,8 @@ class SimSession:
         session = self.session
         if session is None or session.count != count:
             return False
+        if getattr(session, 'is_shared_sdk', False) and not session.try_bind_solver(solver):
+            return False
         try:
             self._output_pending = not session.tick(solver.copy_positions)
         except FatalTransportError:
@@ -373,6 +382,8 @@ class SimSession:
         """The run was just built from ``scene`` as it is now: nothing is pending, and this is its start frame."""
         self.start_frame = int(getattr(scene, "frame_current", 1))
         self.tracker = live_edits.ChangeTracker(scene, custom=self.active_demo == CUSTOM_SCENE)
+        if getattr(self.session, 'is_shared_sdk', False):
+            self.session.note_scene_applied()
         names = list(getattr(self.solver, "animated_collider_names", ()) or ()) if self.active_demo == CUSTOM_SCENE else []
         if names:
             by_name = {obj.name: obj for obj in scene.objects}
@@ -513,6 +524,9 @@ class SimSession:
         self.last_error = ""
         self.draw_errors.clear()
         try:
+            if getattr(self.scene.warp_sph, 'use_shared_sdk', False):
+                from .sdk_dependency import validate_environment
+                validate_environment()  # identity/backend admission before allocating the real solver
             activate()
             scene = self.scene
             settings = scene.warp_sph
@@ -565,6 +579,9 @@ class SimSession:
             self.stop(context)
             return False
 
+        if getattr(self.session, 'is_shared_sdk', False):
+            self.session.scene = self.scene
+            self.session.service_snapshot()  # native mutation on timer, never inside draw callback
         if self.tracker is not None:
             self.tracker.refresh(self.scene)  # re-reads the scene only after Blender reported a change
         if self.bake is not None:  # a bake owns the solver: live edits apply when it ends
@@ -592,6 +609,8 @@ class SimSession:
                 self.solver.rebuild_cuda_graph()
                 if gravity is not None:
                     self.tracker.accept("gravity")
+                if getattr(self.session, "is_shared_sdk", False):
+                    self.session.note_scene_applied()
             except Exception as exc:
                 if self.session is not None:  # as a failed step (session.tick): CUDA state unknown
                     self.mark_fatal(f"CUDA graph rebuild failed; CUDA state unknown: {exc}")
@@ -627,6 +646,8 @@ class SimSession:
         try:
             if self.active_demo == CUSTOM_SCENE:  # animated colliders: one transform read per frame
                 self._sync_colliders(solver)
+                if getattr(self.session, 'is_shared_sdk', False):
+                    self.session.note_scene_applied()
             if self.session is not None:
                 # No host sync: the adapter orders publication on the solver stream and
                 # skips the step (backpressure) while a step is in flight or both slots are busy.
@@ -691,6 +712,9 @@ class SimSession:
 
         if not self.running or self.solver is None or runtime.wp is None:
             report({'ERROR'}, "Start the simulation before baking")
+            return False
+        if getattr(self.session, 'is_shared_sdk', False):
+            report({'ERROR'}, "Shared SDK Output cache baking is not qualified. Stop and select the existing output route to bake.")
             return False
         if self.bake is not None:
             report({'ERROR'}, "A bake is already running")

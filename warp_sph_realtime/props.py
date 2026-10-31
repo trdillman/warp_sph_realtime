@@ -48,6 +48,11 @@ STIFFNESS_UNIT = 1000.0  # the stiffness setting is in thousands, so one UI clic
 
 
 class WARPSPH_SceneSettings(bpy.types.PropertyGroup):
+    use_shared_sdk: BoolProperty(
+        name="Shared SDK Output (Experimental)", default=False,
+        description="Use the exact pinned Vulkan SDK for stable-ID rich frames and native Geometry Nodes snapshots; selected at Start")
+    sdk_snapshot_name: StringProperty(name="Snapshot Object", default="WarpSPH SDK Snapshot")
+    sdk_snapshot_owner: StringProperty(default="", options={'HIDDEN'})
     scene_source: EnumProperty(name="Scene Source", items=SCENE_SOURCE_ITEMS, default="DEMO", update=note_edit)
     particle_spacing: FloatProperty(
         name="Particle Spacing",
