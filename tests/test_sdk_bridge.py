@@ -110,6 +110,9 @@ class Bindings:
     def fatal_reason(self):
         return self.fatal
 
+    def drain(self, native):
+        return True
+
     def free_renderer(self):
         self.freed += 1
 

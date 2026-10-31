@@ -7,10 +7,32 @@ implicit fallback. Native snapshot readback is explicit and outside normal ticks
 
 from __future__ import annotations
 
+import importlib
 import time
 import uuid
 
 from .render.transport import COMPLETED, FAILED, Capabilities, FatalTransportError, Frame, process_state
+
+
+def _drain_pinned_native(native, *, budget, clock=time.monotonic, sleep=time.sleep):
+    """Observe every pending slot before close; never manufacture completion.
+
+    The current exact-pinned private SDK closes immediately on outstanding work.
+    Its publisher readiness predicate covers producer, upload, draw and live-lease
+    ownership. Calling it before owner revocation preserves the native context.
+    This adaptation is deliberately tied to the payload lock, not a public SDK API.
+    """
+    if budget < 0:
+        raise ValueError("close drain budget must be nonnegative")
+    publisher = native._publisher
+    deadline = clock() + budget
+    while True:
+        ready = [publisher._available(slot) for slot in publisher._slots]
+        if all(ready):
+            return True
+        if clock() >= deadline:
+            return False
+        sleep(min(0.001, max(0.0, deadline - clock())))
 
 
 class InteropBridge:
@@ -195,14 +217,29 @@ class InteropBridge:
         if self._owner is None:
             self.close_result = COMPLETED
             return self.close_result
+        started = time.perf_counter()
+        if not self.fatal_reason:
+            try:
+                if not self._bindings.drain(self._native):
+                    self._bindings.poison("shared SDK GPU work did not complete within shutdown budget", self)
+            except Exception as exc:
+                self._bindings.poison(f"shared SDK shutdown completion query failed: {exc}", self)
+        self.metrics["close_drain_s"] = time.perf_counter() - started
         try:
             status = self._owner.close()
+            if self.fatal_reason:
+                status = FAILED
         except Exception as exc:
             self._bindings.poison(f"shared SDK close raised: {exc}", self)
             status = FAILED
+        if status == COMPLETED:
+            try:
+                self._bindings.free_renderer()
+            except Exception as exc:
+                self._bindings.poison(f"shared SDK renderer cleanup failed: {exc}", self)
+                status = FAILED
         self.close_result = status
         if status == COMPLETED:
-            self._bindings.free_renderer()
             self.positions = None
             self._arrays.clear()
             self.solver = None
@@ -216,6 +253,22 @@ class _SDKBindings:
         from .sdk_dependency import validate_environment
 
         validate_environment()
+        # The dependency is optional and exact-byte checked above. Keep discovery
+        # dynamic so the normal add-on and developer checks do not require it.
+        self._sdk = {
+            name: importlib.import_module("blender_vulkan_interop." + name)
+            for name in (
+                "frames",
+                "lifecycle",
+                "_impl.particle_frames",
+                "adapters.scene_updates",
+                "_impl.transport",
+                "output.snapshots",
+                "output.contracts",
+                "output.geometry_nodes",
+                "output.particles",
+            )
+        }
         import bpy
         import warp as wp
 
@@ -230,9 +283,10 @@ class _SDKBindings:
         self.renderer = ViewportRenderer()
 
     def create(self, capacity):
-        from blender_vulkan_interop._impl.particle_frames import _create_candidate
-        from blender_vulkan_interop.frames import ChannelSpec, FrameSchema, TransportConfig
-        from blender_vulkan_interop.lifecycle import LifecycleOwner
+        frames = self._sdk["frames"]
+        ChannelSpec, FrameSchema, TransportConfig = frames.ChannelSpec, frames.FrameSchema, frames.TransportConfig
+        LifecycleOwner = self._sdk["lifecycle"].LifecycleOwner
+        _create_candidate = self._sdk["_impl.particle_frames"]._create_candidate
 
         wp = self.wp
         owner = LifecycleOwner.for_current_window()
@@ -281,33 +335,31 @@ class _SDKBindings:
         return {**arrays, "velocity": solver.vel, "density": solver.density_sorted}
 
     def frame(self, source, epoch, number, revision, solver, channels):
-        from blender_vulkan_interop.frames import FrameInput, FrameStamp, SpatialMetadata
+        frames = self._sdk["frames"]
+        FrameInput, FrameStamp, SpatialMetadata = frames.FrameInput, frames.FrameStamp, frames.SpatialMetadata
 
         stamp = FrameStamp(source, epoch, number, float(solver.sim_time), revision)
         return FrameInput(
             stamp, SpatialMetadata((0.0, 0.0, 0.0), float(solver.unit_scale)), solver.active_count, channels
         )
 
-    @staticmethod
-    def apply_receipt(revision, status, reason):
-        from blender_vulkan_interop.adapters.scene_updates import SceneApplyReceipt
+    def apply_receipt(self, revision, status, reason):
+        return self._sdk["adapters.scene_updates"].SceneApplyReceipt(revision, status, reason)
 
-        return SceneApplyReceipt(revision, status, reason)
+    def fatal_reason(self):
+        return process_state().restart_required or self._sdk["_impl.transport"].process_state().restart_required
 
-    @staticmethod
-    def fatal_reason():
-        from blender_vulkan_interop._impl.transport import process_state as sdk_state
-
-        return process_state().restart_required or sdk_state().restart_required
-
-    @staticmethod
-    def poison(reason, owner):
-        from blender_vulkan_interop._impl.transport import process_state as sdk_state
-
-        for state in (process_state(), sdk_state()):
+    def poison(self, reason, owner):
+        for state in (process_state(), self._sdk["_impl.transport"].process_state()):
             state.restart_required = state.restart_required or reason
             if owner not in state.quarantine:
                 state.quarantine.append(owner)
+
+    @staticmethod
+    def drain(native):
+        from .render.transport_vulkan import CLOSE_BUDGET
+
+        return _drain_pinned_native(native, budget=CLOSE_BUDGET)
 
     def free_renderer(self):
         self.renderer.free()
@@ -354,7 +406,7 @@ class _SDKBindings:
             if view.stamp.epoch == bridge._epoch:
                 bridge._shown = view.stamp.frame_id
         if bridge.snapshot_status == "QUEUED" and view.stamp == bridge._snapshot_stamp:
-            from blender_vulkan_interop.output.snapshots import ParticleSnapshotSource
+            ParticleSnapshotSource = self._sdk["output.snapshots"].ParticleSnapshotSource
 
             snapshot_lease = ParticleSnapshotSource(bridge._native, self.consumer).pin(bridge._snapshot_stamp)
             start = time.perf_counter()
@@ -370,12 +422,13 @@ class _SDKBindings:
                 bridge.metrics["snapshot_readback_s"] += time.perf_counter() - start
         return drawn
 
-    @staticmethod
-    def commit_snapshot(payload, request, scene):
+    def commit_snapshot(self, payload, request, scene):
         import bpy
-        from blender_vulkan_interop.output.contracts import SnapshotResult, SnapshotTarget
-        from blender_vulkan_interop.output.geometry_nodes import create_particle_instancer
-        from blender_vulkan_interop.output.particles import ParticleConverter
+
+        contracts = self._sdk["output.contracts"]
+        SnapshotResult, SnapshotTarget = contracts.SnapshotResult, contracts.SnapshotTarget
+        create_particle_instancer = self._sdk["output.geometry_nodes"].create_particle_instancer
+        ParticleConverter = self._sdk["output.particles"].ParticleConverter
 
         if bpy.context.scene is not scene:
             raise ValueError("snapshot scene changed before native commit")
