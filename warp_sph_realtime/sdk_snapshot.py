@@ -183,7 +183,11 @@ def capture_paused(session, scene, *, wp_module, max_readback_bytes=DEFAULT_CAPT
     previous = getattr(session, '_sdk_snapshot_generation', None)
     same = (previous is not None and previous[0]() is solver and previous[1] == token
             and time_s >= previous[3] and steps >= previous[4])
-    epoch = previous[2] if same else (0 if previous is None else previous[2] + 1)
+    if same:
+        assert previous is not None
+        epoch = previous[2]
+    else:
+        epoch = 0 if previous is None else previous[2] + 1
     stamp = FrameStamp(_source_id(session), epoch, steps, time_s, 0)
     values['radius'] = np.full(count, radius, dtype='<f4')
     values['color'] = np.tile(np.asarray(color, dtype='<f4'), (count, 1))
