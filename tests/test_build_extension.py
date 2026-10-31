@@ -49,6 +49,13 @@ def test_no_runtime_module_imports_experimental():
             assert not any("experimental" in name.split(".") for name in names), (path, node.lineno)
 
 
+def test_licence_files_are_shipped():
+    files = build_extension.shipped_files()
+    assert "LICENSE" in files and "THIRD_PARTY_NOTICES.md" in files
+    manifest = build_extension.tomllib.loads((ROOT / "warp_sph_realtime" / "blender_manifest.toml").read_text())
+    assert manifest["license"] == ["SPDX:GPL-3.0-or-later"]
+
+
 def test_release_requires_a_license_file(tmp_path):
     import pytest
 
