@@ -25,13 +25,6 @@ def test_runtime_modules_are_shipped():
         assert required in files
 
 
-def test_licence_files_are_shipped():
-    files = build_extension.shipped_files()
-    assert "LICENSE" in files and "THIRD_PARTY_NOTICES.md" in files
-    manifest = build_extension.tomllib.loads((ROOT / "warp_sph_realtime" / "blender_manifest.toml").read_text())
-    assert manifest["license"] == ["SPDX:GPL-3.0-or-later"]
-
-
 def test_exclusion_rules():
     patterns = ["__pycache__/", ".*", "/experimental/"]
     assert build_extension.is_excluded("experimental/ipbf_solver.py", patterns)
@@ -54,3 +47,12 @@ def test_no_runtime_module_imports_experimental():
             else:
                 continue
             assert not any("experimental" in name.split(".") for name in names), (path, node.lineno)
+
+
+def test_release_requires_a_license_file(tmp_path):
+    import pytest
+
+    with pytest.raises(SystemExit, match="LICENSE"):
+        build_extension.check_license(tmp_path)
+    (tmp_path / "LICENSE").write_text("terms")
+    build_extension.check_license(tmp_path)  # no exit

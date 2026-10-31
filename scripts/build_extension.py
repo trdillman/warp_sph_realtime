@@ -3,7 +3,8 @@
 Usage:
     python scripts/build_extension.py [--blender PATH] [--install] [--tag vX.Y.Z]
 
-``--tag`` (used by the release workflow) refuses to build unless the tag equals ``v`` plus the manifest version.
+``--tag`` (used by the release workflow) refuses to build unless the tag equals ``v`` plus the manifest version
+and the repository has a LICENSE file.
 
 Blender is located from --blender, then the BLENDER environment variable, then PATH.
 """
@@ -41,6 +42,12 @@ def check_tag(tag: str, source_dir: Path = SOURCE_DIR) -> None:
     expected = f"v{manifest_version(source_dir)}"
     if tag.removeprefix("refs/tags/") != expected:
         sys.exit(f"Tag {tag!r} does not match blender_manifest.toml version: expected {expected!r}.")
+
+
+def check_license(repo_root: Path = REPO_ROOT) -> None:
+    """Exit unless the repository carries a licence file: the manifest declares a licence, so a release must ship it."""
+    if not any((repo_root / name).is_file() for name in ("LICENSE", "LICENSE.md", "LICENSE.txt", "COPYING")):
+        sys.exit("Release refused: no LICENSE file at the repository root (docs/RELEASE_PLAN.md decision D2).")
 
 
 def exclude_patterns(source_dir: Path = SOURCE_DIR) -> list[str]:
@@ -95,6 +102,7 @@ def main() -> None:
 
     if args.tag:
         check_tag(args.tag)
+        check_license()
     blender = find_blender(args.blender)
     DIST_DIR.mkdir(exist_ok=True)
     run_blender(blender, "validate", str(SOURCE_DIR))
