@@ -1,0 +1,125 @@
+{
+  "date": "2026-10-31",
+  "status": "real_WarpSPH_adoption_vertical_slice_native_verified",
+  "source_payload_commit": "411ce892fc1713c287aedcd4feecc19fd6961ba2",
+  "branch": "interop/warpsph-adoption-20261031",
+  "consumer_base": "52a383aa45ba14acfba0e5c2c7c86a91f1498181",
+  "consumer_zip_sha256": "cd0b648ffb70d55cb50c73122338d850525c388875a9c86f75ade5991a72096a",
+  "consumer_payload_files": 55,
+  "sdk_wheel_sha256": "24a4e65a290a4f95e9cba7ee54e31f3cecd066c17e2897c8e6cf4ddf8e7e7bda",
+  "sdk_payload_unchanged": true,
+  "physics_scene_cache_files_unchanged": 21,
+  "native_environment": {
+    "blender": "5.2.0 LTS",
+    "build": "fbe6228777e7",
+    "warp": "1.17.0",
+    "backend": "VULKAN",
+    "gpu": "RTX4080SUPER",
+    "device": "cuda:0"
+  },
+  "real_solver_particle_count": 100000,
+  "steps_before_snapshot": 25,
+  "actual_operator_checks": 21,
+  "reset_epoch": 1,
+  "native_attributes_verified_against_solver": [
+    "position",
+    "velocity",
+    "density",
+    "stable_pid_widened_uint64"
+  ],
+  "artist_attributes": [
+    "radius",
+    "color"
+  ],
+  "GN_exact_solver_ids": [
+    51080,
+    28024,
+    49978
+  ],
+  "collider_AB": {
+    "particles": 288,
+    "steps_each": 300,
+    "simulated_seconds_each": 0.7649463042747279,
+    "plate_present_min_signed_distance_m": 0.03241413831710813,
+    "plate_removed_min_signed_distance_m": -0.09921738505363467
+  },
+  "emitter_AB": {
+    "initial_particles": 200,
+    "capacity": 1200,
+    "steps_each": 40,
+    "simulated_seconds_each": 0.10199284056996223,
+    "rate80_final_count": 208,
+    "rate160_final_count": 216,
+    "spatial_sort_preserved_ids": true,
+    "native_snapshot_logical_count_not_capacity": true
+  },
+  "actual_running_SSFR_disable": "passed",
+  "actual_running_POINTS_file_load": "passed",
+  "pending_GPU_work_file_load": {
+    "ready_before": [
+      true,
+      false
+    ],
+    "ready_after": [
+      true,
+      true
+    ],
+    "completed": true,
+    "queued_real_solver_steps": 64,
+    "drain_seconds": 0.029992600000696257
+  },
+  "standalone_snapshot": {
+    "particles": 100000,
+    "all_native_array_hashes_preserved": true,
+    "runtime_modules_absent": {
+      "warp": true,
+      "blender_vulkan_interop": true,
+      "bl_ext.user_default.warp_sph_realtime": true
+    },
+    "artist_demo": "C:\\Users\\Tyler\\Downloads\\WarpSPH-Actual-Solver-GN-Snapshot-2026-10-31.blend"
+  },
+  "host_suite": {
+    "passed": 636,
+    "skipped": 64,
+    "subtests_passed": 72,
+    "skip_reason": "GPU-dependent tests not executed in CPU source suite; native evidence is recorded separately"
+  },
+  "ruff": "passed",
+  "pyright": "passed",
+  "external_review": "unavailable401; author self-review only",
+  "cache_bake_shared_mode": "explicitly_unqualified_and_rejected_use_existing_output_route",
+  "default_renderer_unchanged": true,
+  "public_sdk_v2_enabled": false,
+  "full_ADOPT_01_complete": false,
+  "real_time_performance_certified": false,
+  "astro_adoption": false,
+  "production_installed": false,
+  "merged_to_main": false,
+  "pushed": false,
+  "cleanup": {
+    "status": "passed",
+    "owned_blender_pids": [
+      21860,
+      53524,
+      22256,
+      58044
+    ],
+    "all_owned_process_identities_exited": true,
+    "port19977_free": true,
+    "gpu_lease": {
+      "status": "released",
+      "pid": 55516
+    },
+    "production_profile_changed": false,
+    "unrelated_worktrees_or_jobs_modified": false,
+    "quarantined_test_process_exited_without_fatal_reset": 53524,
+    "finished_utc": "2026-10-31T23:23:18.576009+00:00"
+  },
+  "raw_evidence_sha256": "282293209cc2c1442d5124d0eb134ced94c41b76661ebb8d7463981dd9d5d61c",
+  "raw_evidence_member_count": 81,
+  "final_source_verification_exits": {
+    "ruff-checkpoint.log": 0,
+    "pyright-checkpoint.log": 0,
+    "source-checkpoint.log": 0
+  }
+}
