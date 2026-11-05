@@ -48,9 +48,11 @@ actual.step_count=0
 assert actual.reset(ctx,lambda *a:None)
 assert shared[0].binds and shared[0].solver is actual.solver,'reset left bridge bound to stale solver arrays'
 assert shared[0].revisions>0
-messages=[]
-assert not actual.begin_bake(ctx,lambda kind,msg:messages.append(msg),first=1,last=4,resume=False)
-assert any('Shared SDK' in msg for msg in messages),'experimental cache limitation not explicit'
+from warp_sph_realtime import native_output
+requests=[]
+native_output.begin_bake=lambda owner,context,report,**kw:requests.append((owner,kw)) or True
+assert actual.begin_bake(ctx,lambda *a:None,first=1,last=4,resume=False)
+assert requests==[(actual,{'first':1,'last':4,'resume':False})],'shared native animation route not used'
 actual.stop(ctx);assert shared[0].close_result=='completed'
 ctx=reset();ctx.scene.warp_sph.use_shared_sdk=True
 before=len(shared)

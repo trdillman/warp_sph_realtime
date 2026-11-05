@@ -183,7 +183,8 @@ class SimSession:
 
     def draw(self):
         """SpaceView3D POST_VIEW callback; never raises into Blender."""
-        session = self.session
+        job = getattr(self, 'native_bake', None)
+        session = job.bridge if job is not None else self.session
         try:
             if session is None:
                 # Legacy OpenGL path: the SSFR/sphere passes restore GL state in a finally block
@@ -453,7 +454,7 @@ class SimSession:
         if not self.running or self.solver is None:
             report({'ERROR'}, "Start the simulation before Reset")
             return False
-        if self.bake is not None:
+        if self.bake is not None or getattr(self, 'native_bake', None) is not None:
             report({'ERROR'}, "Cancel the bake before Reset")
             return False
         t0 = time.perf_counter()
@@ -581,7 +582,12 @@ class SimSession:
 
         if getattr(self.session, 'is_shared_sdk', False):
             self.session.scene = self.scene
-            self.session.service_snapshot()  # native mutation on timer, never inside draw callback
+            from . import native_output
+            if getattr(bpy.app, 'is_job_running', lambda kind: False)('RENDER'):
+                return True
+            native_output.service(self)  # main-thread native mutation, never inside draw
+            if getattr(self, 'native_bake', None) is not None:
+                return self.native_bake.tick(context, report)
         if self.tracker is not None:
             self.tracker.refresh(self.scene)  # re-reads the scene only after Blender reported a change
         if self.bake is not None:  # a bake owns the solver: live edits apply when it ends
@@ -714,8 +720,8 @@ class SimSession:
             report({'ERROR'}, "Start the simulation before baking")
             return False
         if getattr(self.session, 'is_shared_sdk', False):
-            report({'ERROR'}, "Shared SDK Output cache baking is not qualified. Stop and select the existing output route to bake.")
-            return False
+            from .native_output import begin_bake
+            return begin_bake(self, context, report, first=first, last=last, resume=resume)
         if self.bake is not None:
             report({'ERROR'}, "A bake is already running")
             return False
@@ -776,6 +782,8 @@ class SimSession:
 
     def cancel_bake(self):
         """Stop capturing; frames already queued are still written, so the cache stays a whole prefix."""
+        if getattr(self, 'native_bake', None) is not None:
+            self.native_bake.cancelled = True
         if self.bake is not None:
             self.bake.cancel()
 
@@ -858,6 +866,8 @@ class SimSession:
         self.paused = False
         self.step_once = False
         self.token += 1
+        from . import native_output
+        native_output.stop(self)
         self._discard_bake()
         self.tracker = None
         if active() is None:

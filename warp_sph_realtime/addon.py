@@ -220,6 +220,10 @@ class WM_OT_warp_sph_pause(bpy.types.Operator):
 
     def execute(self, context):
         session = _session(context)
+        job = getattr(session, 'native_bake', None)
+        if job is not None:
+            job.paused = not job.paused
+            return {'FINISHED'}
         session.paused = not session.paused
         return {'FINISHED'}
 
@@ -235,6 +239,9 @@ class WM_OT_warp_sph_step_frame(bpy.types.Operator):
 
     def execute(self, context):
         session = _session(context)
+        if getattr(session, 'native_bake', None) is not None:
+            self.report({'ERROR'}, 'Resume or cancel native animation baking before manual single-stepping')
+            return {'CANCELLED'}
         session.paused = True
         session.step_once = True
         return {'FINISHED'}
@@ -615,7 +622,7 @@ class VIEW3D_PT_warp_sph(bpy.types.Panel):
         col_speed.prop(settings, "time_step_scale", slider=True)
         if session.solver:
             col_speed.label(
-                text=f"dt = {session.solver.dt * 1000:.3f} ms  |  sim speed â‰ˆ "
+                text=f"dt = {session.solver.dt * 1000:.3f} ms  |  sim speed ÃƒÂ¢Ã¢â‚¬Â°Ã‹â€  "
                      f"{session.solver.dt * session.solver.substeps * session.fps_avg:.2f}x real time"
             )
 

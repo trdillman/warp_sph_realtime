@@ -107,7 +107,7 @@ class TestBlenderIntegrationAndDemos(unittest.TestCase):
         settings = props.WARPSPH_SceneSettings.__annotations__
         cache_props = ["cache_dir", "bake_start", "bake_end", "bake_steps"]  # P2.2: new, nothing to migrate
         physics_props = ["viscosity"]  # P2.5: new (the old flat properties never had one), nothing to migrate
-        sdk_props = ["use_shared_sdk", "sdk_snapshot_name", "sdk_snapshot_owner"]
+        sdk_props = ["use_shared_sdk", "sdk_snapshot_name", "sdk_snapshot_owner", "sdk_live_geometry", "sdk_live_rate", "sdk_live_name", "sdk_live_hide_preview", "sdk_native_budget_mb", "sdk_animation_dir", "sdk_animation_name", "sdk_native_status"]
         self.assertEqual(sorted(settings), sorted([*expected_props, *cache_props, *physics_props, *sdk_props, "max_particles"]))
         self.assertFalse(settings["use_shared_sdk"]["default"])
         self.assertEqual(sorted(props.LEGACY_NAMES), sorted(expected_props))  # every old flat setting migrates

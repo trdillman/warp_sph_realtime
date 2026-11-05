@@ -189,6 +189,11 @@ class InteropBridge:
         self._snapshot_payload = None
         self.snapshot_status, self.snapshot_message = "QUEUED", "Waiting for the exact displayed solver frame"
 
+    def cancel_snapshot(self, reason):
+        if self.snapshot_status in ('QUEUED', 'CAPTURED'):
+            self.snapshot_status, self.snapshot_message = 'CANCELLED', reason
+            self._snapshot_request = self._snapshot_payload = self._snapshot_stamp = None
+
     def service_snapshot(self):
         """Timer-only native mutation after draw-context readback has completed."""
         if self.snapshot_status != "CAPTURED":
@@ -402,7 +407,9 @@ class _SDKBindings:
                     view.stamp.frame_id,
                 )
             )
-            drawn = self.renderer.draw(frame, settings) if bridge.scene.warp_sph.show_particles else False
+            native_only = (getattr(bridge.scene.warp_sph, 'sdk_live_geometry', False)
+                           and getattr(bridge.scene.warp_sph, 'sdk_live_hide_preview', True))
+            drawn = self.renderer.draw(frame, settings) if bridge.scene.warp_sph.show_particles and not native_only else False
             if view.stamp.epoch == bridge._epoch:
                 bridge._shown = view.stamp.frame_id
         if bridge.snapshot_status == "QUEUED" and view.stamp == bridge._snapshot_stamp:
@@ -411,7 +418,7 @@ class _SDKBindings:
             snapshot_lease = ParticleSnapshotSource(bridge._native, self.consumer).pin(bridge._snapshot_stamp)
             start = time.perf_counter()
             try:
-                bridge._snapshot_payload = snapshot_lease.readback(max_bytes=268435456)
+                bridge._snapshot_payload = snapshot_lease.readback(max_bytes=bridge._snapshot_request.get('max_bytes',268435456))
                 bridge.snapshot_status = "CAPTURED"
                 bridge.snapshot_message = "GPU snapshot captured; awaiting native commit"
             except ValueError as exc:
@@ -432,6 +439,9 @@ class _SDKBindings:
 
         if bpy.context.scene is not scene:
             raise ValueError("snapshot scene changed before native commit")
+        if request.get('kind') == 'ANIMATION':
+            from .native_output import commit_request
+            return commit_request(payload, request, scene, self)
         target_name = request["name"]
         collection_name = request["collection"]
         owner_key = scene.warp_sph.sdk_snapshot_owner
@@ -440,10 +450,15 @@ class _SDKBindings:
         existing = bpy.data.objects.get(target_name)
         if existing is not None and existing.get("warpsph_sdk_scene") != owner_key:
             raise ValueError("snapshot target is not owned by this WarpSPH scene")
-        target = SnapshotTarget(target_name, collection_name, replace_existing=existing is not None)
+        target = SnapshotTarget(target_name, collection_name, replace_existing=existing is not None,
+                                max_native_bytes=request.get('max_native_bytes',1073741824))
         converter = ParticleConverter()
-        if converter.estimate(payload, target).native_bytes > target.max_native_bytes:
-            raise ValueError("native snapshot exceeds memory budget")
+        estimated = converter.estimate(payload, target).native_bytes
+        if request.get('kind') == 'LIVE':
+            # Generated icosphere graph estimate; arbitrary artist graphs may cost more.
+            estimated += payload.counts['active_count'] * 4096
+        if estimated > target.max_native_bytes:
+            raise ValueError("native snapshot/GN estimate exceeds memory budget")
         staged = converter.prepare(payload, target)
         group = obj = None
         try:

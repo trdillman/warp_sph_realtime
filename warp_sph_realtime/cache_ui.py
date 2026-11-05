@@ -97,9 +97,11 @@ class WM_OT_warp_sph_bake(bpy.types.Operator):
 
     @classmethod
     def poll(cls, context):
-        return _session(context).bake is None
+        return _session(context).bake is None and getattr(_session(context), 'native_bake', None) is None
 
     def invoke(self, context, event):
+        if getattr(context.scene.warp_sph, "use_shared_sdk", False):
+            return self.execute(context)
         if not self.resume:
             # Count frame files, not the manifest's range: a fresh bake deletes every frame file, also when the
             # manifest is missing or unreadable.
@@ -137,7 +139,7 @@ class WM_OT_warp_sph_bake_cancel(bpy.types.Operator):
 
     @classmethod
     def poll(cls, context):
-        return _session(context).bake is not None
+        return _session(context).bake is not None or getattr(_session(context), 'native_bake', None) is not None
 
     def execute(self, context):
         _session(context).cancel_bake()
@@ -152,7 +154,7 @@ class WM_OT_warp_sph_cache_invalidate(bpy.types.Operator):
 
     @classmethod
     def poll(cls, context):
-        return _session(context).bake is None
+        return _session(context).bake is None and getattr(_session(context), 'native_bake', None) is None
 
     def execute(self, context):
         disk = _disk().DiskCache(_cache_dir(context.scene))
@@ -173,7 +175,7 @@ class WM_OT_warp_sph_cache_clear(bpy.types.Operator):
 
     @classmethod
     def poll(cls, context):
-        return _session(context).bake is None
+        return _session(context).bake is None and getattr(_session(context), 'native_bake', None) is None
 
     def invoke(self, context, event):
         return context.window_manager.invoke_confirm(self, event, message="Delete all cached frames of this scene?")
@@ -272,7 +274,7 @@ class WM_OT_warp_sph_cache_export(bpy.types.Operator):
 
     @classmethod
     def poll(cls, context):
-        return _session(context).bake is None
+        return _session(context).bake is None and getattr(_session(context), 'native_bake', None) is None
 
     def invoke(self, context, event):
         if not self.filepath:
