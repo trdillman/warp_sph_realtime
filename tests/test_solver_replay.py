@@ -43,7 +43,7 @@ class Stream:
     def wait_stream(self, other):
         self.waited.append(other)
 
-    def synchronize(self):
+    def _complete(self):
         self.synced += 1
         if self.fail:
             raise RuntimeError('CUDA stream failed')
@@ -134,6 +134,9 @@ class Warp:
     def empty(self, n, dtype, device):
         self.operations.append('empty')
         return Array(np.empty((n, 3), dtype=np.float32))
+
+    def synchronize_stream(self, stream):
+        stream._complete()
 
     def get_stream(self, device):
         return self.stream

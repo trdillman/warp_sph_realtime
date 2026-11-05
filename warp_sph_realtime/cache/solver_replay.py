@@ -122,7 +122,7 @@ class SolverReplay:
                 clone.grid.reserve(source.num_particles)
                 obj.output = wp.empty(source.num_particles, dtype=wp.vec3, device=source.device)
             # Snapshot copying must finish before the live owner may resume.
-            obj._stream.synchronize()
+            wp.synchronize_stream(obj._stream)
             return obj
         except Exception:
             # Any partially submitted copy must finish before dropping references.
@@ -194,7 +194,7 @@ class SolverReplay:
     def synchronize(self):
         self._check()
         try:
-            self._stream.synchronize()
+            self.wp.synchronize_stream(self._stream)
         except Exception as exc:
             raise self._poison(exc) from exc
 
@@ -208,7 +208,7 @@ class SolverReplay:
             return self._closed
         try:
             if self._stream is not None:
-                self._stream.synchronize()
+                self.wp.synchronize_stream(self._stream)
         except Exception as exc:
             self._poison(exc)
             self._closed = 'quarantined'
