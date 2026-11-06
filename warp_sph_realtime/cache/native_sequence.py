@@ -124,6 +124,7 @@ class SequenceWriter:
         if type(fps) not in (int, float) or not math.isfinite(fps) or fps <= 0:
             raise ValueError("positive finite fps required")
         _int(max_frame_bytes, "frame budget")
+        checked_signature = json.loads(json.dumps(signature, allow_nan=False))
         self.directory = Path(directory).resolve()
         if self.directory.exists() and any(self.directory.iterdir()):
             raise ValueError("animation directory must be empty; existing files are never replaced")
@@ -138,7 +139,7 @@ class SequenceWriter:
             "first": first,
             "last": last,
             "fps": float(fps),
-            "signature": json.loads(json.dumps(signature, allow_nan=False)),
+            "signature": checked_signature,
             "status": "RECORDING",
             "frames": [],
             "units": "metres;velocity=m/s",
