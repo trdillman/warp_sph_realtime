@@ -82,7 +82,7 @@ def run(output_dir, oracle_manifest):
         assert os.getpid() != manifest["creator_pid"]
         assert gpu.platform.backend_type_get() == "VULKAN" and bpy.app.build_hash.decode() == "fbe6228777e7"
         assert importlib.util.find_spec("blender_vulkan_interop") is None and importlib.util.find_spec("warp") is None
-        assert not any("warp_sph_realtime" in name for name in bpy.context.preferences.addons)
+        assert not any("warp_sph_realtime" in addon.module for addon in bpy.context.preferences.addons)
         assert not Path(manifest["original_cache_path"]).exists(), (
             "original cache must be physically hidden for standalone proof"
         )
