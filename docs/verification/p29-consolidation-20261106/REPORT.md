@@ -81,6 +81,9 @@ user site; RTX 4080 SUPER, driver 621.14. This differs from Blender's bundled Py
 The full suite preceded the final test-only mapping assertion; the affected test file was
 then rerun. No solver kernel changed. GPU hardware presence and headless tests do not establish
 live viewport, packaged-extension or performance acceptance.
+Saved logs have whitespace-only cleanup for Git; raw affected logs remain with the private
+preservation records. Remote inspection found only `origin/main`; three stale local
+remote-tracking refs were pruned after their history had been preserved.
 
 ## Acceptance still required for this combined candidate
 
