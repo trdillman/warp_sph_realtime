@@ -39,7 +39,9 @@ shared[0].request_snapshot=lambda request:requests.append(request)
 actual.step_count=1
 ctx.scene.warp_sph.sdk_snapshot_name='fixture snapshot'
 ctx.scene.warp_sph.sdk_snapshot_owner='ownerA'
+ctx.scene.warp_sph.sdk_native_budget_mb=2
 assert sdk_ui.WM_OT_warp_sph_sdk_snapshot().execute(ctx)=={'FINISHED'}
+assert requests[0]['max_bytes']==requests[0]['max_native_bytes']==2*1024*1024
 ctx.scene.warp_sph.sdk_snapshot_owner='ownerB'
 assert sdk_ui.WM_OT_warp_sph_sdk_snapshot().execute(ctx)=={'FINISHED'}
 assert requests[0]['collection']!=requests[1]['collection'],'two scenes share the same native output collection name'

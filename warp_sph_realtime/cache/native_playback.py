@@ -94,6 +94,8 @@ def attach(scene, directory, name, create_graph, *, max_bytes=1024 * 1024 * 1024
     if not isinstance(name, str) or not name.strip():
         raise ValueError("give the native animation object a name")
     reader = SequenceReader(directory)
+    for item in reader.document["frames"]:
+        _check_frame_budget(item["payload_bytes"], item["count"], max_bytes)
     first, last = reader.validate_all()
     owner = scene.warp_sph.sdk_snapshot_owner
     obj = bpy.data.objects.get(name)
@@ -103,8 +105,7 @@ def attach(scene, directory, name, create_graph, *, max_bytes=1024 * 1024 * 1024
             raise ValueError("animation target is not owned by the active WarpSPH scene")
         _object_identity(obj)
     frame = reader.read(reader.clamp(scene.frame_current))
-    if frame.nbytes * 3 + frame.count * 4096 > max_bytes:
-        raise ValueError("animation player/GN estimate exceeds native memory budget")
+    _check_frame_budget(frame.nbytes, frame.count, max_bytes)
     mesh = mesh_from_frame(frame, scene, name + " Frame")
     previous = None if created else obj.data
     group = None
@@ -119,6 +120,7 @@ def attach(scene, directory, name, create_graph, *, max_bytes=1024 * 1024 * 1024
         obj["warpsph_sdk_scene"] = owner
         obj[_MARKER] = str(Path(directory).resolve())
         obj[_MARKER + "_enabled"] = True
+        obj[_MARKER + "_max_bytes"] = max_bytes
         obj.hide_render = False
         obj.hide_set(False)
         obj["warpsph_native_frame"] = reader.clamp(scene.frame_current)
@@ -155,6 +157,11 @@ def attach(scene, directory, name, create_graph, *, max_bytes=1024 * 1024 * 1024
         raise
 
 
+def _check_frame_budget(payload_bytes, count, max_bytes):
+    if max_bytes <= 0 or payload_bytes * 3 + count * 4096 > max_bytes:
+        raise ValueError("animation player/GN estimate exceeds native memory budget")
+
+
 def update_scene(scene, depsgraph=None):
     from .native_sequence import SequenceReader
 
@@ -170,12 +177,17 @@ def update_scene(scene, depsgraph=None):
             span = reader.span
             assert span is not None
             item = reader.document["frames"][number - span[0]]
+            max_bytes = min(int(obj.get(_MARKER + "_max_bytes", 1024 * 1024 * 1024)),
+                            int(scene.warp_sph.sdk_native_budget_mb) * 1024 * 1024)
+            _check_frame_budget(item["payload_bytes"], item["count"], max_bytes)
             path = reader.directory / item["file"]
             # Include mtime and size so edits/corruption invalidate already shown frames.
-            state = (str(reader.directory), number, path.stat().st_mtime_ns, path.stat().st_size, _scale(scene))
+            state = (str(reader.directory), number, path.stat().st_mtime_ns, path.stat().st_size,
+                     _scale(scene), max_bytes)
             if _LOADED.get(obj.as_pointer()) == state:
                 continue
             frame = reader.read(number)
+            _check_frame_budget(frame.nbytes, frame.count, max_bytes)
             apply_native_frame(obj, frame, scene)
             obj["warpsph_native_frame"] = number
             obj["warpsph_native_error"] = ""

@@ -122,3 +122,81 @@ def test_live_throttle_uses_epoch_and_does_not_queue_duplicates():
     assert gate.due(("source", 0, 2), 10, 1.11, False)
     assert not gate.due(("source", 0, 2), 10, 1.11, True)
     assert gate.due(("source", 1, 1), 10, 2.0, False)
+
+
+def test_frame_parse_uses_the_same_verified_bytes(tmp_path, monkeypatch):
+    m = api()
+    writer = m.SequenceWriter(tmp_path / 'a', first=1, last=1, fps=24, signature={})
+    writer.append(1, frame())
+    writer.close('COMPLETE')
+    reader = m.SequenceReader(tmp_path / 'a')
+    path = tmp_path / 'a' / 'frame_000001.npz'
+    original = m.hashlib.sha256
+
+    def replace_after_hash(data):
+        digest = original(data)
+        path.write_bytes(b'changed after validation')
+        return digest
+
+    monkeypatch.setattr(m.hashlib, 'sha256', replace_after_hash)
+    got = reader.read(1)
+    np.testing.assert_array_equal(got.fields['id'], frame().fields['id'])
+
+
+def test_frame_growth_read_is_bounded(tmp_path, monkeypatch):
+    import io
+    from pathlib import Path
+
+    m = api()
+    writer = m.SequenceWriter(tmp_path / 'a', first=1, last=1, fps=24, signature={})
+    writer.append(1, frame())
+    writer.close('COMPLETE')
+    reader = m.SequenceReader(tmp_path / 'a')
+    expected = reader.document['frames'][0]['bytes']
+    original = Path.open
+    reads = []
+
+    class GrowingFile(io.BytesIO):
+        def read(self, size=-1):
+            reads.append(size)
+            assert size == expected + 1
+            return b'x' * size
+
+    def open_frame(path, *args, **kwargs):
+        if path.suffix == '.npz':
+            return GrowingFile()
+        return original(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, 'open', open_frame)
+    with pytest.raises(ValueError, match='integrity'):
+        reader.read(1)
+    assert reads == [expected + 1]
+
+
+def test_declared_array_size_rejected_before_numpy_allocation(tmp_path, monkeypatch):
+    import io
+    import zipfile
+
+    m = api()
+    writer = m.SequenceWriter(tmp_path / 'a', first=1, last=1, fps=24, signature={})
+    writer.append(1, frame())
+    writer.close('COMPLETE')
+    reader = m.SequenceReader(tmp_path / 'a', max_frame_bytes=8192)
+    path = tmp_path / 'a' / 'frame_000001.npz'
+    header = io.BytesIO()
+    np.lib.format.write_array_header_1_0(
+        header, dict(descr='|u1', fortran_order=False, shape=(2**40,)))
+    forged = io.BytesIO()
+    with zipfile.ZipFile(path) as source, zipfile.ZipFile(forged, 'w') as target:
+        for name in source.namelist():
+            target.writestr(name, header.getvalue() if name == 'metadata.npy' else source.read(name))
+    data = forged.getvalue()
+    path.write_bytes(data)
+    reader.document['frames'][0].update(bytes=len(data), sha256=m.hashlib.sha256(data).hexdigest())
+
+    def forbidden(*args, **kwargs):
+        raise AssertionError('untrusted NPY reached allocation')
+
+    monkeypatch.setattr(np, 'load', forbidden)
+    with pytest.raises(ValueError, match='declaration'):
+        reader.read(1)

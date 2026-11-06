@@ -39,7 +39,9 @@ class WM_OT_warp_sph_sdk_snapshot(bpy.types.Operator):
             settings.sdk_snapshot_owner = uuid.uuid4().hex
         try:
             session.session.request_snapshot(
-                {"name": settings.sdk_snapshot_name, "collection": "WarpSPH SDK Output " + settings.sdk_snapshot_owner}
+                {"name": settings.sdk_snapshot_name, "collection": "WarpSPH SDK Output " + settings.sdk_snapshot_owner,
+                 "max_bytes": int(settings.sdk_native_budget_mb) * 1024 * 1024,
+                 "max_native_bytes": int(settings.sdk_native_budget_mb) * 1024 * 1024}
             )
         except Exception as exc:
             self.report({"ERROR"}, str(exc))
@@ -103,7 +105,8 @@ class WM_OT_warp_sph_sdk_load_animation(bpy.types.Operator):
                 ).create_particle_instancer(obj)
 
             native_playback.attach(
-                context.scene, bpy.path.abspath(settings.sdk_animation_dir), settings.sdk_animation_name, create_graph
+                context.scene, bpy.path.abspath(settings.sdk_animation_dir), settings.sdk_animation_name, create_graph,
+                max_bytes=int(settings.sdk_native_budget_mb) * 1024 * 1024
             )
             settings.sdk_native_status = "Native animation loaded. Scrub the timeline; Render Lock Interface enabled."
         except Exception as exc:

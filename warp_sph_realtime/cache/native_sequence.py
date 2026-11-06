@@ -8,6 +8,7 @@ an atomic committed-prefix manifest. No pickle, implicit frame skipping or overw
 from __future__ import annotations
 
 import hashlib
+import io
 import json
 import math
 import os
@@ -219,9 +220,12 @@ class SequenceReader:
         _int(max_frame_bytes, "frame budget")
         self.max_frame_bytes = max_frame_bytes
         path = self.directory / "sequence.json"
-        if path.stat().st_size > 16 * 1024 * 1024:
+        limit = 16 * 1024 * 1024
+        with path.open('rb') as stream:
+            data = stream.read(limit + 1)
+        if len(data) > limit:
             raise ValueError("animation manifest exceeds budget")
-        self.document = json.loads(path.read_text(encoding="utf-8"))
+        self.document = json.loads(data.decode('utf-8'))
         d = self.document
         if d.get("format") != _FORMAT or d.get("units") != "metres;velocity=m/s":
             raise ValueError("unsupported native animation format")
@@ -268,12 +272,41 @@ class SequenceReader:
             raise ValueError("animation frame exceeds readback budget")
         path = self.directory / item["file"]
         try:
-            if path.stat().st_size != item["bytes"] or hashlib.sha256(path.read_bytes()).hexdigest() != item["sha256"]:
+            with path.open("rb") as stream:
+                data = stream.read(item["bytes"] + 1)
+            if len(data) != item["bytes"] or hashlib.sha256(data).hexdigest() != item["sha256"]:
                 raise ValueError("animation frame integrity/hash mismatch")
-            with zipfile.ZipFile(path) as archive:
-                if sum(info.file_size for info in archive.infolist()) > self.max_frame_bytes + 8192:
+            with zipfile.ZipFile(io.BytesIO(data)) as archive:
+                infos = archive.infolist()
+                expected = {name + '.npy' for name in (*_REQUIRED, 'metadata')}
+                if len(infos) != len(expected) or {info.filename for info in infos} != expected:
+                    raise ValueError('unexpected or duplicate animation fields')
+                if sum(info.file_size for info in infos) > self.max_frame_bytes + 8192:
                     raise ValueError("expanded animation frame exceeds budget")
-            with np.load(path, allow_pickle=False) as archive:
+                # NumPy allocates from the NPY header before discovering truncated
+                # data. Validate declarations before any array deserialization.
+                for info in infos:
+                    name = info.filename[:-4]
+                    with archive.open(info) as member:
+                        version = np.lib.format.read_magic(member)
+                        readers = {(1, 0): np.lib.format.read_array_header_1_0,
+                                   (2, 0): np.lib.format.read_array_header_2_0}
+                        if version not in readers:
+                            raise ValueError('unsupported animation array format')
+                        shape, fortran, dtype = readers[version](member, max_header_size=8192)
+                        if name == 'metadata':
+                            valid = (dtype == np.dtype('uint8') and len(shape) == 1
+                                     and 0 <= shape[0] <= 8192)
+                        else:
+                            wanted_dtype, width = _REQUIRED[name]
+                            wanted_shape = ((item['count'], width) if width > 1 else (item['count'],))
+                            valid = dtype == wanted_dtype and shape == wanted_shape
+                        if not valid or fortran:
+                            raise ValueError('invalid animation array declaration')
+                        size = math.prod(shape) * dtype.itemsize
+                        if size > self.max_frame_bytes or member.tell() + size != info.file_size:
+                            raise ValueError('animation array size/budget mismatch')
+            with np.load(io.BytesIO(data), allow_pickle=False) as archive:
                 if set(archive.files) != set(_REQUIRED) | {"metadata"}:
                     raise ValueError("unexpected animation fields")
                 metadata = archive["metadata"]

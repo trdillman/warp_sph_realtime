@@ -454,9 +454,9 @@ class _SDKBindings:
                                 max_native_bytes=request.get('max_native_bytes',1073741824))
         converter = ParticleConverter()
         estimated = converter.estimate(payload, target).native_bytes
-        if request.get('kind') == 'LIVE':
-            # Generated icosphere graph estimate; arbitrary artist graphs may cost more.
-            estimated += payload.counts['active_count'] * 4096
+        # Every snapshot creates/retains the generated instancer, including manual captures.
+        # Arbitrary artist graphs may cost more than this generated-graph estimate.
+        estimated += payload.counts['active_count'] * 4096
         if estimated > target.max_native_bytes:
             raise ValueError("native snapshot/GN estimate exceeds memory budget")
         staged = converter.prepare(payload, target)
