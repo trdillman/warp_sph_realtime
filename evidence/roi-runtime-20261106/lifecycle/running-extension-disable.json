@@ -1,0 +1,16 @@
+{
+  "pid": 75984,
+  "solver_count": 100000,
+  "solver_steps": 694,
+  "real_draws": 693,
+  "render_mode": "SSFR_LIQUID",
+  "extension_disabled": true,
+  "bridge_close": "completed",
+  "session_close": "completed",
+  "timer_removed": true,
+  "draw_removed": true,
+  "solver_released": true,
+  "sdk_fatal": "",
+  "close_drain_s": 0.0018086000018229242,
+  "status": "passed"
+}

@@ -1,0 +1,11 @@
+{
+  "pid": 55624,
+  "file": "C:\\Users\\Tyler\\.codex\\worktrees\\live-animation-integration\\warp_sph_realtime\\evidence\\roi-runtime-20261106\\animation\\Live-GN-Fluid-Animation.blend",
+  "mcp_enabled": true,
+  "mcp_preferences": true,
+  "mcp_file": "C:\\Users\\Tyler\\.codex\\blender-mcp\\sessions\\f65d519be58c4b6099216ecedd03d7ce\\resources\\scripts\\addons\\blender_mcp\\__init__.py",
+  "warp_absent": true,
+  "sdk_absent": true,
+  "consumer_absent": true,
+  "status_file_scene_execute_gate": "passed"
+}

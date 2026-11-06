@@ -1,0 +1,72 @@
+{
+  "pid": 55624,
+  "status": "passed",
+  "frames": [
+    {
+      "frame": 7,
+      "particles": 100000,
+      "vertices": 1200000,
+      "ids_exact": true,
+      "all_native_fields_match": true,
+      "positions_sha256": "71b390c327ef74664e86601b3b20563a9420b127b937936ae3b596331b579683"
+    },
+    {
+      "frame": 5,
+      "particles": 100000,
+      "vertices": 1200000,
+      "ids_exact": true,
+      "all_native_fields_match": true,
+      "positions_sha256": "7fad5a5172104442c385ef28d260ea7f00194f265e6ed3efef5ea2e93b1a75a5"
+    },
+    {
+      "frame": 3,
+      "particles": 100000,
+      "vertices": 1200000,
+      "ids_exact": true,
+      "all_native_fields_match": true,
+      "positions_sha256": "fbeddc45645a2bf7f90d87352cb21234a96473b9b9a97935377cf138385f8e22"
+    },
+    {
+      "frame": 1,
+      "particles": 100000,
+      "vertices": 1200000,
+      "ids_exact": true,
+      "all_native_fields_match": true,
+      "positions_sha256": "8250d68c8f827ff8a3d97ccd2d8e1eee67ab790d7889bbc20a56b3d7be9e36df"
+    },
+    {
+      "frame": 2,
+      "particles": 100000,
+      "vertices": 1200000,
+      "ids_exact": true,
+      "all_native_fields_match": true,
+      "positions_sha256": "4bcd5c44fa5dd1bb6ea75b65093fa50dfdb0e11947879c491c325368f8129196"
+    },
+    {
+      "frame": 4,
+      "particles": 100000,
+      "vertices": 1200000,
+      "ids_exact": true,
+      "all_native_fields_match": true,
+      "positions_sha256": "d6c51c3fa6bc76b4d34c0c8392cabb42dc3d1d4e39c78c3970ccc3cb3c493411"
+    },
+    {
+      "frame": 6,
+      "particles": 100000,
+      "vertices": 1200000,
+      "ids_exact": true,
+      "all_native_fields_match": true,
+      "positions_sha256": "266531c2973d8db2fcc2e2185a27b17ccbb84b785a7bb72853b7053ed47aa531"
+    },
+    {
+      "frame": 8,
+      "particles": 100000,
+      "vertices": 1200000,
+      "ids_exact": true,
+      "all_native_fields_match": true,
+      "positions_sha256": "419cf907858f89efd063f160d2775b35ef89f52f6ef9873247f31720867c2814"
+    }
+  ],
+  "SDK_Warp_consumer_absent": true,
+  "original_cache_absent": true
+}

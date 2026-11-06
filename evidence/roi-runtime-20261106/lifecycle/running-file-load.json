@@ -1,0 +1,13 @@
+{
+  "pid": 75984,
+  "bridge_close": "completed",
+  "session_close": "completed",
+  "timer_removed": true,
+  "draw_removed": true,
+  "solver_released": true,
+  "sdk_fatal": "",
+  "active_consumer": false,
+  "close_drain_s": 0.014811500001087552,
+  "loaded_file": "C:\\Users\\Tyler\\.codex\\worktrees\\live-animation-integration\\warp_sph_realtime\\evidence\\roi-runtime-20261106\\animation\\Live-GN-Fluid-Animation.blend",
+  "status": "passed"
+}

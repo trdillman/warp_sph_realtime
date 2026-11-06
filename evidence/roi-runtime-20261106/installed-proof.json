@@ -1,0 +1,16 @@
+{
+  "pid": 75984,
+  "module": "bl_ext.roi_extensions.warp_sph_realtime",
+  "module_file": "C:\\Users\\Tyler\\.codex\\blender-mcp\\sessions\\0d7062ff0b4c4e59bd6728c4a2b8b13d\\roi_extensions\\warp_sph_realtime\\__init__.py",
+  "enabled": [
+    true,
+    true
+  ],
+  "preference_member": true,
+  "backend": "VULKAN",
+  "build": "fbe6228777e7",
+  "archive_files_match": true,
+  "window_count": 1,
+  "scope": "installed archive in isolated local extension repository",
+  "gpu_lease": true
+}

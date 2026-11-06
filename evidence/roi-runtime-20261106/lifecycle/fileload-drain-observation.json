@@ -1,0 +1,14 @@
+{
+  "pid": 75984,
+  "ready_before": [
+    false,
+    true
+  ],
+  "ready_after": [
+    true,
+    true
+  ],
+  "completed": true,
+  "elapsed_s": 0.012247700000443729,
+  "method": "actual SDK readiness predicates, no forged completion"
+}

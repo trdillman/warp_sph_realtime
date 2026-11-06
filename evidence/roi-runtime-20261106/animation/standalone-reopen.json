@@ -1,0 +1,26 @@
+{
+  "status": "passed",
+  "pid": 55624,
+  "SDK_Warp_consumer_absent": true,
+  "native_GN_time_samples": {
+    "1": {
+      "vertices": 1200000,
+      "ids_sha": "6741f27dcfe57e51120a4bdb76a22ec28e0458be2f2b02cfa3d0003754929371",
+      "unique_ids": 100000,
+      "position_sha": "8250d68c8f827ff8a3d97ccd2d8e1eee67ab790d7889bbc20a56b3d7be9e36df"
+    },
+    "4": {
+      "vertices": 1200000,
+      "ids_sha": "0bad93ebe9541207281e7255cbec4d4655a2d2850649aa8c72e93bb5f2c9af02",
+      "unique_ids": 100000,
+      "position_sha": "d6c51c3fa6bc76b4d34c0c8392cabb42dc3d1d4e39c78c3970ccc3cb3c493411"
+    },
+    "8": {
+      "vertices": 1200000,
+      "ids_sha": "31bc4842aee66bbf1ffbb8fa8875158fea5eabead4abf28348e4c8c422313be8",
+      "unique_ids": 100000,
+      "position_sha": "419cf907858f89efd063f160d2775b35ef89f52f6ef9873247f31720867c2814"
+    }
+  },
+  "source_files_not_read_for_playback": true
+}

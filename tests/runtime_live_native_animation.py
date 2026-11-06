@@ -413,7 +413,7 @@ def verify_standalone(output):
     expected = json.loads((out / "standalone-expected.json").read_text())
     assert os.getpid() != expected["creator_pid"]
     assert importlib.util.find_spec("warp") is None and importlib.util.find_spec("blender_vulkan_interop") is None
-    assert not any("warp_sph_realtime" in name for name in bpy.context.preferences.addons)
+    assert not any("warp_sph_realtime" in name for name in bpy.context.preferences.addons.keys())
     obj = bpy.data.objects[expected["object"]]
     samples = {}
     for frame in [1, 4, 8]:

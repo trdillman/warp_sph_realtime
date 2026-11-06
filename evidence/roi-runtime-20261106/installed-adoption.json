@@ -1,0 +1,229 @@
+{
+  "status": "passed",
+  "pid": 75984,
+  "backend": "VULKAN",
+  "build": "fbe6228777e7",
+  "warp": "1.17.0",
+  "consumer_module": "bl_ext.roi_extensions.warp_sph_realtime",
+  "count": 100000,
+  "target_steps": 24,
+  "scope": "actual WarpSPH solver/modal output and explicit native snapshots; not full ADOPT-01/performance certification",
+  "checks": [
+    {
+      "name": "actual_start_operator",
+      "passed": true
+    },
+    {
+      "name": "shared_sdk_is_actual_render_session",
+      "passed": true
+    },
+    {
+      "name": "actual_pause_operator",
+      "passed": true
+    },
+    {
+      "name": "finite_real_solver_output",
+      "passed": true
+    },
+    {
+      "name": "solver_IDs_unique",
+      "passed": true
+    },
+    {
+      "name": "snapshot_operator",
+      "passed": true
+    },
+    {
+      "name": "snapshot_logical_count",
+      "passed": true
+    },
+    {
+      "name": "all_native_attributes_match_actual_solver",
+      "passed": true
+    },
+    {
+      "name": "snapshot_did_not_modify_solver",
+      "passed": true
+    },
+    {
+      "name": "GN_exact_solver_ID_51080",
+      "passed": true
+    },
+    {
+      "name": "GN_exact_solver_ID_28024",
+      "passed": true
+    },
+    {
+      "name": "GN_exact_solver_ID_49978",
+      "passed": true
+    },
+    {
+      "name": "actual_reset_operator",
+      "passed": true
+    },
+    {
+      "name": "reset_rebound_real_solver",
+      "passed": true
+    },
+    {
+      "name": "reset_new_identity_epoch",
+      "passed": true
+    },
+    {
+      "name": "reset_remains_paused",
+      "passed": true
+    },
+    {
+      "name": "actual_single_step_operator",
+      "passed": true
+    },
+    {
+      "name": "exactly_one_step_after_reset",
+      "passed": true
+    },
+    {
+      "name": "actual_stop_operator",
+      "passed": true
+    },
+    {
+      "name": "native_transport_closed",
+      "passed": true
+    },
+    {
+      "name": "runtime_callbacks_removed",
+      "passed": true
+    }
+  ],
+  "consumer_origin": "C:\\Users\\Tyler\\.codex\\blender-mcp\\sessions\\0d7062ff0b4c4e59bd6728c4a2b8b13d\\roi_extensions\\warp_sph_realtime\\__init__.py",
+  "solver_class": "bl_ext.roi_extensions.warp_sph_realtime.sim.sim_core.RealtimeWCSPHSolver",
+  "solver_capacity": 100000,
+  "sampled_step_progress": [
+    [
+      26636.4920972,
+      1
+    ],
+    [
+      26636.5918704,
+      2
+    ],
+    [
+      26636.6243892,
+      3
+    ],
+    [
+      26636.6557136,
+      4
+    ],
+    [
+      26636.6861271,
+      5
+    ],
+    [
+      26636.7121587,
+      6
+    ],
+    [
+      26636.7420818,
+      7
+    ],
+    [
+      26636.7690617,
+      8
+    ],
+    [
+      26636.7950673,
+      9
+    ],
+    [
+      26636.8200554,
+      10
+    ],
+    [
+      26636.8434138,
+      11
+    ],
+    [
+      26636.8699431,
+      12
+    ],
+    [
+      26636.895251,
+      13
+    ],
+    [
+      26636.9240541,
+      14
+    ],
+    [
+      26636.9500239,
+      15
+    ],
+    [
+      26636.9733593,
+      16
+    ],
+    [
+      26636.9963524,
+      17
+    ],
+    [
+      26637.0205368,
+      18
+    ],
+    [
+      26637.0446775,
+      19
+    ],
+    [
+      26637.0682583,
+      20
+    ],
+    [
+      26637.0947488,
+      21
+    ],
+    [
+      26637.1201151,
+      22
+    ],
+    [
+      26637.1455352,
+      23
+    ],
+    [
+      26637.1693311,
+      24
+    ]
+  ],
+  "solver_steps_before_pause": 24,
+  "sim_time_before_pause": 0.07910529075731555,
+  "transport_metrics_before_readback": {
+    "published": 25,
+    "solver_submit_s": 0.04533649999575573,
+    "pack_publish_s": 1.0244863999978406,
+    "draws": 23,
+    "snapshot_readback_s": 0.0,
+    "snapshot_commit_s": 0.0
+  },
+  "solver_array_sha256": {
+    "position": "9302e546bcb3149573b1a66cc6e693eaeec418a5ebe39b7db1e93b33cd5b0f51",
+    "velocity": "a43acb4186311735522c50e5bf378dc22d1e9c14ab3b5bcf456105609aa1257d",
+    "density": "9d055e1fb80fbc2863c2f82557527971679bca5200f9729e320c472e38ed3fe8",
+    "id": "1bdfcdd7f7913a84d324803baf9e166f850686506677f7471862d3d2d7b187e4"
+  },
+  "native_object": "WarpSPH SDK Snapshot 54",
+  "node_group": "Interop Particle Instances",
+  "after_reset_epoch": 1,
+  "after_reset_sim_time": 0.003296053781554816,
+  "final_transport_metrics": {
+    "published": 27,
+    "solver_submit_s": 0.0469797000005201,
+    "pack_publish_s": 1.0318858999962686,
+    "draws": 26,
+    "snapshot_readback_s": 0.009893700000247918,
+    "snapshot_commit_s": 0.08193279999977676
+  },
+  "elapsed_seconds": 41.095048099999985,
+  "saved_snapshot_is_pre_reset_frame": true,
+  "saved_blend": "C:\\Users\\Tyler\\.codex\\worktrees\\live-animation-integration\\warp_sph_realtime\\evidence\\roi-runtime-20261106\\WarpSPH-Real-Solver-SDK-Snapshot.blend"
+}
