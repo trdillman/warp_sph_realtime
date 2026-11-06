@@ -1,4 +1,4 @@
-# AGENTS.md â€” AI Coding Agent Guidelines for `warp_sph_realtime`
+# AGENTS.md — AI Coding Agent Guidelines for `warp_sph_realtime`
 
 <!-- BEGIN PROJECT_TRACKER_EVIDENCE_POLICY -->
 ## Project tracker and durable evidence
@@ -85,35 +85,35 @@ All paths are relative to the `warp_sph_realtime/` package folder. Use relative 
 (Blender loads the package as `bl_ext.<repo>.warp_sph_realtime`). Keep `bpy` imports out of
 `sim/` and `experimental/` so they stay importable headless.
 
-* `blender_manifest.toml` â€” Extension metadata & permissions.
-* `__init__.py` â€” `register()` / `unregister()` only; lazily imports `addon`.
-* `addon.py` â€” Thin UI: Blender `Operator`, `Panel` (main and Advanced) and the modal timer, which call the scene's `SimSession`. Imports Warp and CUDA-dependent modules only inside `_activate_runtime()`.
-* `props.py` â€” `scene.warp_sph` settings `PropertyGroup` (stiffness stored in thousands; use `stiffness_pa()`; particle spacing stored in scene length units, use `spacing_metres()`; viscosity in kg/s), the one-time migration of the old flat `scene.warp_sph_*` properties (`load_post`, and a timer after register because `bpy.data` is restricted there), and the GPU memory estimate.
-* `physics_presets.py` â€” Water / Viscous / Stylised values for stiffness, time step, viscosity and sub-steps (pure data, no `bpy`); the `wm.warp_sph_physics_preset` operator in `addon.py` applies them. A new preset must be run on both demos and a CUDA-graph scene (`tests/test_physics_presets.py`).
-* `sim_session.py` â€” `SimSession` (one per scene): all runtime state and the start/tick/stop/dispose lifecycle; reads Warp bindings from `sim_session.runtime`, which only `addon._activate_runtime()` fills. Also drives a bake in timer chunks (`begin_bake`, `tick`).
-* `cache_ui.py` â€” Record / Bake Cache sub-panel and operators (thin UI over `SimSession.begin_bake` and `cache/`), including Output: Add Mesh Preset and Export USD / Alembic.
-* `cache/` â€” Frame cache (record, bake, playback): `disk.py`, `gpu.py`, `frame_store.py`, `bake.py`, `age.py` (particle age from first-seen frames), `output.py` (meshing defaults, export planning) are `bpy`-free and never import Warp (it is passed in); only `blender_adapter.py` and `blender_output.py` (Geometry Nodes meshing preset, USD / Alembic export) import `bpy`. Recording may read back (explicit user action, pinned async copy); never add readback to a live transport.
-* `warp_installer.py` / `warp_runtime.py` / `warp_wheels.lock.json` â€” SHA-256-locked Warp wheel install into extension user storage and the runtime gate. Kept at the package root because storage is keyed by `__package__`.
-* `render/interop_bridge.py` â€” `ctypes` OpenGL VAO/VBO creation and `cudaGraphicsGLRegisterBuffer` mapping; cudart/GL seam (`GLTextureNative`) for the texture adapter.
-* `render/transport_gl.py` â€” GLInterop texture adapter (`cudaGraphicsGLRegisterImage`, GPU copy, no CPU readback) behind the P0.11 transport seam.
-* `render/viewport_draw.py` â€” Blender `gpu.shader` draw callbacks and SSFR passes.
-* `render/ssfr_shaders.py` â€” SSFR GLSL sources and CPU reference math.
-* `sim/sim_core.py` â€” Primary `RealtimeWCSPHSolver`, cubic spline kernels, SoA reordering, and CUDA Graph capture. `pos_sim` / `vel` are rewritten in sorted order every step: use `pid` (stable particle id, reordered by `k_reorder_soa_id` over the active count; `k_emit` writes fresh ids for the slots it activates from a host-side counter) for identity.
-* `scene/demo_scenes.py` â€” GPU particle initializers, `launch_demo_scene_init` and the Blender wireframe/collider helper meshes for Demo 1 & Demo 2. The demos run through the scene path: `scene/demo_description.py` gives their domain, gravity and obstacles (pillars and sphere as one closed collider mesh).
-* `sim/validation.py` â€” Headless physics validation (dam-break front vs Martin & Moyce, conservation, energy, rest density) on any Warp device; see `docs/VALIDATION.md`.
-* `sim/colliders.py` â€” Mesh colliders: one `wp.Mesh` per collider, stored relative to its pivot and placed by a per-step rigid transform (device buffer, never rebuilt); pseudo-normal signed distance with deep "inside" answers confirmed by the winding number; mesh ids passed to kernels as a uint64 array.
-* `scene/description.py` â€” Pure-NumPy `SceneDescription`/`MeshData`/`EmitterData`/`ColliderMotion`, validation and rigid keys (no bpy, no Warp).
-* `scene/emitters.py` â€” Emitter nozzle lattice (pure NumPy); `scene/fill.py` filters nozzles against the domain walls and colliders on the GPU.
-* `scene/fill.py` â€” Lattice particle fill of fluid volumes (`fill_particles`); `RealtimeWCSPHSolver.from_scene` builds a solver from a description.
-* `scene/blender_scene.py` â€” Duck-typed Blender adapter (`description_from_blender`, unit scale and gravity, `sync_collider_keyframes`: one world-matrix read per frame for animated colliders); never imported by `sim/`.
-* `scene/scene_config.py` â€” Physical regime presets (`WATER`, `MILK`, `SHOCKWAVE`) and domain bounding box extraction.
-* `experimental/ipbf_solver.py` â€” Implicit Position-Based Fluids (IPBF) variational prediction and local $3 \times 3$ Hessian/Jacobi iteration kernels.
-* `experimental/collider_sdf.py` â€” Analytical and SDF collider kernels.
-* `experimental/whitewater.py` â€” Secondary spray ($n_f \le 5$), foam ($5 < n_f < 15$), and bubble ($n_f \ge 15$) classification and advection.
-* `experimental/neighbor_rt.py` â€” Abstraction layer for `wp.HashGrid` and future OptiX BVH RT-core search.
-* `experimental/neural_fno.py` â€” Zero-copy `wp.to_torch` DLPack bridge for 3D Fourier Neural Operators (`neuraloperator` / `FC_PINO`).
-* `experimental/particle_upsample.py` â€” Free-surface particle detection for dynamic splitting.
-* `experimental/mesher_io.py` â€” Disk export and `SplashSurf` CLI reconstruction wrapper.
+* `blender_manifest.toml` — Extension metadata & permissions.
+* `__init__.py` — `register()` / `unregister()` only; lazily imports `addon`.
+* `addon.py` — Thin UI: Blender `Operator`, `Panel` (main and Advanced) and the modal timer, which call the scene's `SimSession`. Imports Warp and CUDA-dependent modules only inside `_activate_runtime()`.
+* `props.py` — `scene.warp_sph` settings `PropertyGroup` (stiffness stored in thousands; use `stiffness_pa()`; particle spacing stored in scene length units, use `spacing_metres()`; viscosity in kg/s), the one-time migration of the old flat `scene.warp_sph_*` properties (`load_post`, and a timer after register because `bpy.data` is restricted there), and the GPU memory estimate.
+* `physics_presets.py` — Water / Viscous / Stylised values for stiffness, time step, viscosity and sub-steps (pure data, no `bpy`); the `wm.warp_sph_physics_preset` operator in `addon.py` applies them. A new preset must be run on both demos and a CUDA-graph scene (`tests/test_physics_presets.py`).
+* `sim_session.py` — `SimSession` (one per scene): all runtime state and the start/tick/stop/dispose lifecycle; reads Warp bindings from `sim_session.runtime`, which only `addon._activate_runtime()` fills. Also drives a bake in timer chunks (`begin_bake`, `tick`).
+* `cache_ui.py` — Record / Bake Cache sub-panel and operators (thin UI over `SimSession.begin_bake` and `cache/`), including Output: Add Mesh Preset and Export USD / Alembic.
+* `cache/` — Frame cache (record, bake, playback): `disk.py`, `gpu.py`, `frame_store.py`, `bake.py`, `age.py` (particle age from first-seen frames), `output.py` (meshing defaults, export planning) are `bpy`-free and never import Warp (it is passed in); only `blender_adapter.py` and `blender_output.py` (Geometry Nodes meshing preset, USD / Alembic export) import `bpy`. Recording may read back (explicit user action, pinned async copy); never add readback to a live transport.
+* `warp_installer.py` / `warp_runtime.py` / `warp_wheels.lock.json` — SHA-256-locked Warp wheel install into extension user storage and the runtime gate. Kept at the package root because storage is keyed by `__package__`.
+* `render/interop_bridge.py` — `ctypes` OpenGL VAO/VBO creation and `cudaGraphicsGLRegisterBuffer` mapping; cudart/GL seam (`GLTextureNative`) for the texture adapter.
+* `render/transport_gl.py` — GLInterop texture adapter (`cudaGraphicsGLRegisterImage`, GPU copy, no CPU readback) behind the P0.11 transport seam.
+* `render/viewport_draw.py` — Blender `gpu.shader` draw callbacks and SSFR passes.
+* `render/ssfr_shaders.py` — SSFR GLSL sources and CPU reference math.
+* `sim/sim_core.py` — Primary `RealtimeWCSPHSolver`, cubic spline kernels, SoA reordering, and CUDA Graph capture. `pos_sim` / `vel` are rewritten in sorted order every step: use `pid` (stable particle id, reordered by `k_reorder_soa_id` over the active count; `k_emit` writes fresh ids for the slots it activates from a host-side counter) for identity.
+* `scene/demo_scenes.py` — GPU particle initializers, `launch_demo_scene_init` and the Blender wireframe/collider helper meshes for Demo 1 & Demo 2. The demos run through the scene path: `scene/demo_description.py` gives their domain, gravity and obstacles (pillars and sphere as one closed collider mesh).
+* `sim/validation.py` — Headless physics validation (dam-break front vs Martin & Moyce, conservation, energy, rest density) on any Warp device; see `docs/VALIDATION.md`.
+* `sim/colliders.py` — Mesh colliders: one `wp.Mesh` per collider, stored relative to its pivot and placed by a per-step rigid transform (device buffer, never rebuilt); pseudo-normal signed distance with deep "inside" answers confirmed by the winding number; mesh ids passed to kernels as a uint64 array.
+* `scene/description.py` — Pure-NumPy `SceneDescription`/`MeshData`/`EmitterData`/`ColliderMotion`, validation and rigid keys (no bpy, no Warp).
+* `scene/emitters.py` — Emitter nozzle lattice (pure NumPy); `scene/fill.py` filters nozzles against the domain walls and colliders on the GPU.
+* `scene/fill.py` — Lattice particle fill of fluid volumes (`fill_particles`); `RealtimeWCSPHSolver.from_scene` builds a solver from a description.
+* `scene/blender_scene.py` — Duck-typed Blender adapter (`description_from_blender`, unit scale and gravity, `sync_collider_keyframes`: one world-matrix read per frame for animated colliders); never imported by `sim/`.
+* `scene/scene_config.py` — Physical regime presets (`WATER`, `MILK`, `SHOCKWAVE`) and domain bounding box extraction.
+* `experimental/ipbf_solver.py` — Implicit Position-Based Fluids (IPBF) variational prediction and local $3 \times 3$ Hessian/Jacobi iteration kernels.
+* `experimental/collider_sdf.py` — Analytical and SDF collider kernels.
+* `experimental/whitewater.py` — Secondary spray ($n_f \le 5$), foam ($5 < n_f < 15$), and bubble ($n_f \ge 15$) classification and advection.
+* `experimental/neighbor_rt.py` — Abstraction layer for `wp.HashGrid` and future OptiX BVH RT-core search.
+* `experimental/neural_fno.py` — Zero-copy `wp.to_torch` DLPack bridge for 3D Fourier Neural Operators (`neuraloperator` / `FC_PINO`).
+* `experimental/particle_upsample.py` — Free-surface particle detection for dynamic splitting.
+* `experimental/mesher_io.py` — Disk export and `SplashSurf` CLI reconstruction wrapper.
 
 ---
 

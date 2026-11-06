@@ -1,0 +1,2 @@
+# Preserve receipt bytes and patch context exactly, including their line endings.
+* -text -whitespace

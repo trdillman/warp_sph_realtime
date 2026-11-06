@@ -1,0 +1,62 @@
+c:\Users\Tyler\projects\warpsph-live-animation-verified-20261106\warp_sph_realtime\addon.py
+  c:\Users\Tyler\projects\warpsph-live-animation-verified-20261106\warp_sph_realtime\addon.py:13:8 - warning: Import "bpy" could not be resolved from source (reportMissingModuleSource)
+  c:\Users\Tyler\projects\warpsph-live-animation-verified-20261106\warp_sph_realtime\addon.py:14:6 - warning: Import "bpy.props" could not be resolved from source (reportMissingModuleSource)
+c:\Users\Tyler\projects\warpsph-live-animation-verified-20261106\warp_sph_realtime\cache\blender_adapter.py
+  c:\Users\Tyler\projects\warpsph-live-animation-verified-20261106\warp_sph_realtime\cache\blender_adapter.py:20:8 - warning: Import "bpy" could not be resolved from source (reportMissingModuleSource)
+c:\Users\Tyler\projects\warpsph-live-animation-verified-20261106\warp_sph_realtime\cache\blender_output.py
+  c:\Users\Tyler\projects\warpsph-live-animation-verified-20261106\warp_sph_realtime\cache\blender_output.py:14:8 - warning: Import "bpy" could not be resolved from source (reportMissingModuleSource)
+c:\Users\Tyler\projects\warpsph-live-animation-verified-20261106\warp_sph_realtime\cache\native_playback.py
+  c:\Users\Tyler\projects\warpsph-live-animation-verified-20261106\warp_sph_realtime\cache\native_playback.py:13:8 - warning: Import "bpy" could not be resolved from source (reportMissingModuleSource)
+  c:\Users\Tyler\projects\warpsph-live-animation-verified-20261106\warp_sph_realtime\cache\native_playback.py:68:10 - warning: Import "mathutils" could not be resolved from source (reportMissingModuleSource)
+c:\Users\Tyler\projects\warpsph-live-animation-verified-20261106\warp_sph_realtime\cache_ui.py
+  c:\Users\Tyler\projects\warpsph-live-animation-verified-20261106\warp_sph_realtime\cache_ui.py:12:8 - warning: Import "bpy" could not be resolved from source (reportMissingModuleSource)
+c:\Users\Tyler\projects\warpsph-live-animation-verified-20261106\warp_sph_realtime\install_ui.py
+  c:\Users\Tyler\projects\warpsph-live-animation-verified-20261106\warp_sph_realtime\install_ui.py:22:8 - warning: Import "bpy" could not be resolved from source (reportMissingModuleSource)
+  c:\Users\Tyler\projects\warpsph-live-animation-verified-20261106\warp_sph_realtime\install_ui.py:23:6 - warning: Import "bpy.props" could not be resolved from source (reportMissingModuleSource)
+  c:\Users\Tyler\projects\warpsph-live-animation-verified-20261106\warp_sph_realtime\install_ui.py:162:16 - warning: Import "gpu" could not be resolved from source (reportMissingModuleSource)
+c:\Users\Tyler\projects\warpsph-live-animation-verified-20261106\warp_sph_realtime\interop_bridge.py
+  c:\Users\Tyler\projects\warpsph-live-animation-verified-20261106\warp_sph_realtime\interop_bridge.py:277:16 - warning: Import "bpy" could not be resolved from source (reportMissingModuleSource)
+  c:\Users\Tyler\projects\warpsph-live-animation-verified-20261106\warp_sph_realtime\interop_bridge.py:373:16 - warning: Import "bpy" could not be resolved from source (reportMissingModuleSource)
+  c:\Users\Tyler\projects\warpsph-live-animation-verified-20261106\warp_sph_realtime\interop_bridge.py:433:16 - warning: Import "bpy" could not be resolved from source (reportMissingModuleSource)
+c:\Users\Tyler\projects\warpsph-live-animation-verified-20261106\warp_sph_realtime\native_output.py
+  c:\Users\Tyler\projects\warpsph-live-animation-verified-20261106\warp_sph_realtime\native_output.py:56:12 - warning: Import "bpy" could not be resolved from source (reportMissingModuleSource)
+  c:\Users\Tyler\projects\warpsph-live-animation-verified-20261106\warp_sph_realtime\native_output.py:235:12 - warning: Import "bpy" could not be resolved from source (reportMissingModuleSource)
+c:\Users\Tyler\projects\warpsph-live-animation-verified-20261106\warp_sph_realtime\props.py
+  c:\Users\Tyler\projects\warpsph-live-animation-verified-20261106\warp_sph_realtime\props.py:11:8 - warning: Import "bpy" could not be resolved from source (reportMissingModuleSource)
+  c:\Users\Tyler\projects\warpsph-live-animation-verified-20261106\warp_sph_realtime\props.py:12:6 - warning: Import "bpy.props" could not be resolved from source (reportMissingModuleSource)
+c:\Users\Tyler\projects\warpsph-live-animation-verified-20261106\warp_sph_realtime\render\blender_symbols.py
+  c:\Users\Tyler\projects\warpsph-live-animation-verified-20261106\warp_sph_realtime\render\blender_symbols.py:401:16 - warning: Import "bpy" could not be resolved from source (reportMissingModuleSource)
+c:\Users\Tyler\projects\warpsph-live-animation-verified-20261106\warp_sph_realtime\render\gpu_points.py
+  c:\Users\Tyler\projects\warpsph-live-animation-verified-20261106\warp_sph_realtime\render\gpu_points.py:127:20 - warning: Import "gpu" could not be resolved from source (reportMissingModuleSource)
+  c:\Users\Tyler\projects\warpsph-live-animation-verified-20261106\warp_sph_realtime\render\gpu_points.py:130:18 - warning: Import "gpu_extras.batch" could not be resolved from source (reportMissingModuleSource)
+c:\Users\Tyler\projects\warpsph-live-animation-verified-20261106\warp_sph_realtime\render\gpu_ssfr.py
+  c:\Users\Tyler\projects\warpsph-live-animation-verified-20261106\warp_sph_realtime\render\gpu_ssfr.py:312:20 - warning: Import "gpu" could not be resolved from source (reportMissingModuleSource)
+  c:\Users\Tyler\projects\warpsph-live-animation-verified-20261106\warp_sph_realtime\render\gpu_ssfr.py:315:18 - warning: Import "gpu_extras.batch" could not be resolved from source (reportMissingModuleSource)
+c:\Users\Tyler\projects\warpsph-live-animation-verified-20261106\warp_sph_realtime\render\interop_bridge.py
+  c:\Users\Tyler\projects\warpsph-live-animation-verified-20261106\warp_sph_realtime\render\interop_bridge.py:8:8 - warning: Import "gpu" could not be resolved from source (reportMissingModuleSource)
+c:\Users\Tyler\projects\warpsph-live-animation-verified-20261106\warp_sph_realtime\render\transport_vulkan.py
+  c:\Users\Tyler\projects\warpsph-live-animation-verified-20261106\warp_sph_realtime\render\transport_vulkan.py:585:16 - warning: Import "bpy" could not be resolved from source (reportMissingModuleSource)
+  c:\Users\Tyler\projects\warpsph-live-animation-verified-20261106\warp_sph_realtime\render\transport_vulkan.py:586:16 - warning: Import "gpu" could not be resolved from source (reportMissingModuleSource)
+c:\Users\Tyler\projects\warpsph-live-animation-verified-20261106\warp_sph_realtime\render\viewport_draw.py
+  c:\Users\Tyler\projects\warpsph-live-animation-verified-20261106\warp_sph_realtime\render\viewport_draw.py:5:8 - warning: Import "bpy" could not be resolved from source (reportMissingModuleSource)
+  c:\Users\Tyler\projects\warpsph-live-animation-verified-20261106\warp_sph_realtime\render\viewport_draw.py:6:8 - warning: Import "gpu" could not be resolved from source (reportMissingModuleSource)
+c:\Users\Tyler\projects\warpsph-live-animation-verified-20261106\warp_sph_realtime\scene\demo_scenes.py
+  c:\Users\Tyler\projects\warpsph-live-animation-verified-20261106\warp_sph_realtime\scene\demo_scenes.py:1:8 - warning: Import "bpy" could not be resolved from source (reportMissingModuleSource)
+  c:\Users\Tyler\projects\warpsph-live-animation-verified-20261106\warp_sph_realtime\scene\demo_scenes.py:103:12 - warning: Import "bmesh" could not be resolved from source (reportMissingModuleSource)
+c:\Users\Tyler\projects\warpsph-live-animation-verified-20261106\warp_sph_realtime\sdk_dependency.py
+  c:\Users\Tyler\projects\warpsph-live-animation-verified-20261106\warp_sph_realtime\sdk_dependency.py:50:12 - warning: Import "bpy" could not be resolved from source (reportMissingModuleSource)
+  c:\Users\Tyler\projects\warpsph-live-animation-verified-20261106\warp_sph_realtime\sdk_dependency.py:51:12 - warning: Import "gpu" could not be resolved from source (reportMissingModuleSource)
+c:\Users\Tyler\projects\warpsph-live-animation-verified-20261106\warp_sph_realtime\sdk_ui.py
+  c:\Users\Tyler\projects\warpsph-live-animation-verified-20261106\warp_sph_realtime\sdk_ui.py:5:8 - warning: Import "bpy" could not be resolved from source (reportMissingModuleSource)
+c:\Users\Tyler\projects\warpsph-live-animation-verified-20261106\warp_sph_realtime\sim_session.py
+  c:\Users\Tyler\projects\warpsph-live-animation-verified-20261106\warp_sph_realtime\sim_session.py:18:8 - warning: Import "bpy" could not be resolved from source (reportMissingModuleSource)
+  c:\Users\Tyler\projects\warpsph-live-animation-verified-20261106\warp_sph_realtime\sim_session.py:65:12 - warning: Import "gpu" could not be resolved from source (reportMissingModuleSource)
+c:\Users\Tyler\projects\warpsph-live-animation-verified-20261106\warp_sph_realtime\warp_installer.py
+  c:\Users\Tyler\projects\warpsph-live-animation-verified-20261106\warp_sph_realtime\warp_installer.py:286:16 - warning: Import "bpy" could not be resolved from source (reportMissingModuleSource)
+  c:\Users\Tyler\projects\warpsph-live-animation-verified-20261106\warp_sph_realtime\warp_installer.py:312:16 - warning: Import "bpy" could not be resolved from source (reportMissingModuleSource)
+  c:\Users\Tyler\projects\warpsph-live-animation-verified-20261106\warp_sph_realtime\warp_installer.py:391:16 - warning: Import "bpy" could not be resolved from source (reportMissingModuleSource)
+  c:\Users\Tyler\projects\warpsph-live-animation-verified-20261106\warp_sph_realtime\warp_installer.py:668:16 - warning: Import "bpy" could not be resolved from source (reportMissingModuleSource)
+0 errors, 38 warnings, 0 informations
+WARNING: there is a new pyright version available (v1.1.408 -> v1.1.414).
+Please install the new version or set PYRIGHT_PYTHON_FORCE_VERSION to `latest`
+

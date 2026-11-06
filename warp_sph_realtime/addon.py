@@ -622,7 +622,7 @@ class VIEW3D_PT_warp_sph(bpy.types.Panel):
         col_speed.prop(settings, "time_step_scale", slider=True)
         if session.solver:
             col_speed.label(
-                text=f"dt = {session.solver.dt * 1000:.3f} ms  |  sim speed ÃƒÂ¢Ã¢â‚¬Â°Ã‹â€  "
+                text=f"dt = {session.solver.dt * 1000:.3f} ms  |  sim speed ≈ "
                      f"{session.solver.dt * session.solver.substeps * session.fps_avg:.2f}x real time"
             )
 
