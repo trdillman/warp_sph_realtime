@@ -1,5 +1,6 @@
 """Rich animation cache correctness, admission and atomic prefix tests."""
 
+from collections.abc import Mapping
 from importlib.util import find_spec
 
 import numpy as np
@@ -39,6 +40,7 @@ def test_roundtrip_keeps_uint64_attributes_empty_and_prefix(tmp_path):
     for index, n in enumerate((3, 0, 5), 7):
         got = reader.read(index)
         expected = frame(n, index)
+        assert isinstance(expected.fields, Mapping)
         for key in expected.fields:
             np.testing.assert_array_equal(got.fields[key], expected.fields[key])
     assert reader.clamp(0) == 7 and reader.clamp(99) == 9

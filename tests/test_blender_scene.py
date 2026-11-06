@@ -343,3 +343,25 @@ def test_sync_holds_the_last_pose_of_a_deleted_or_missing_collider():
         assert [m[0][0, 3] for _, m in solver.keys] == [2.0, 2.0]
     with pytest.raises(SceneValidationError, match="missing"):
         sync_collider_keyframes(scene, KeyedSolver([5], current=5), objects=[None], held={})
+
+
+def test_sync_holds_current_pose_instead_of_future_prefetch():
+    scene, held = FrameScene(1), {}
+    sync_collider_keyframes(scene, KeyedSolver([2, 3], current=2), objects=[scene.paddle], held=held)
+    assert held[0][0, 3] == 2.0
+    solver = KeyedSolver([4, 5], current=4)
+    sync_collider_keyframes(scene, solver, objects=[Deleted()], held=held)
+    assert [m[0][0, 3] for _, m in solver.keys] == [2.0, 2.0]
+
+
+def test_rejected_collider_sample_restores_timeline_and_held_pose():
+    class RejectingSolver(KeyedSolver):
+        def set_collider_keyframe(self, frame, matrices):
+            raise SceneValidationError("nonrigid animation")
+
+    scene = FrameScene(2)
+    held = {0: translation(2, 0, 0)}
+    with pytest.raises(SceneValidationError, match="nonrigid"):
+        sync_collider_keyframes(scene, RejectingSolver([3], current=2), objects=[scene.paddle], held=held)
+    assert scene.frame_current == 2
+    assert held[0][0, 3] == 2.0

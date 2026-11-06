@@ -1,0 +1,10 @@
+{
+  "base": "3445fab5316d55cabd3459c2fc058cb320945ee9",
+  "python": "3.14.3 (tags/v3.14.3:323c59a, Feb  3 2026, 16:04:56) [MSC v.1944 64 bit (AMD64)]",
+  "executable": "C:\\Python314\\python.exe",
+  "files": {
+    "warp_sph_realtime/scene/blender_scene.py": "8f7823adff58959983ccb3a548455dd08c094e0404f28ec7daa819603f4ecd02",
+    "tests/test_blender_scene.py": "7221fb5b42d05f545566cc4ac9a5fedc3f3c33a521e1a2a7f2968cf1798ef5dc",
+    "tests/test_native_sequence.py": "475da9bff5d7a14ba37b436f815f5f8a6837c16942cc22778d96eddc457ba2bf"
+  }
+}
