@@ -1,0 +1,4 @@
+c:\Users\Tyler\.codex\worktrees\live-animation-integration\warp_sph_realtime\tests\test_native_sequence.py
+  c:\Users\Tyler\.codex\worktrees\live-animation-integration\warp_sph_realtime\tests\test_native_sequence.py:42:20 - error: "object" is not iterable
+    "__iter__" method not defined (reportGeneralTypeIssues)
+1 error, 0 warnings, 0 informations

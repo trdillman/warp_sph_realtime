@@ -107,7 +107,9 @@ class TestBlenderIntegrationAndDemos(unittest.TestCase):
         settings = props.WARPSPH_SceneSettings.__annotations__
         cache_props = ["cache_dir", "bake_start", "bake_end", "bake_steps"]  # P2.2: new, nothing to migrate
         physics_props = ["viscosity"]  # P2.5: new (the old flat properties never had one), nothing to migrate
-        self.assertEqual(sorted(settings), sorted([*expected_props, *cache_props, *physics_props, "max_particles"]))
+        sdk_props = ["use_shared_sdk", "sdk_snapshot_name", "sdk_snapshot_owner", "sdk_live_geometry", "sdk_live_rate", "sdk_live_name", "sdk_live_hide_preview", "sdk_native_budget_mb", "sdk_animation_dir", "sdk_animation_name", "sdk_native_status"]
+        self.assertEqual(sorted(settings), sorted([*expected_props, *cache_props, *physics_props, *sdk_props, "max_particles"]))
+        self.assertFalse(settings["use_shared_sdk"]["default"])
         self.assertEqual(sorted(props.LEGACY_NAMES), sorted(expected_props))  # every old flat setting migrates
         self.assertFalse([n for n in vars(bpy_mock.types.Scene) if n.startswith("warp_sph_")])
         self.assertTrue(hasattr(bpy_mock.types.Object, "warp_sph"))
@@ -117,7 +119,8 @@ class TestBlenderIntegrationAndDemos(unittest.TestCase):
                    "OBJECT_PT_warp_sph", "VIEW3D_PT_warp_sph_advanced", "VIEW3D_PT_warp_sph_cache",
                    "WM_OT_warp_sph_bake", "WM_OT_warp_sph_bake_cancel", "WM_OT_warp_sph_cache_invalidate",
                    "WM_OT_warp_sph_cache_clear", "WM_OT_warp_sph_cache_playback", "WM_OT_warp_sph_cache_mesh",
-                   "WM_OT_warp_sph_cache_export", "WM_OT_warp_sph_physics_preset"):
+                   "WM_OT_warp_sph_cache_export", "WM_OT_warp_sph_physics_preset",
+                   "WM_OT_warp_sph_sdk_snapshot", "VIEW3D_PT_warp_sph_sdk_output"):
             self.assertIn(op, registered)
         # Small-range values need fine click steps (Blender step is in 1/100 units)
         radius = settings["particle_radius"]

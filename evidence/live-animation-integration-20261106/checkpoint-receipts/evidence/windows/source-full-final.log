@@ -1,0 +1,67 @@
+.ss.sss..s.s.................................................. [  8%]
+..............................................sssssss................... [ 18%]
+.................ssss.............................sss....... [ 26%]
+.....ss.s........s.s.......................................... [ 35%]
+............................................................. [ 43%]
+..............ssssss..s...........sssssssssssssss............sssss.s.... [ 53%]
+..................................................................................s.s.........................................s. [ 71%]
+s..................................................................... [ 80%]
+...............................s..................s.............sss..... [ 90%]
+............................s......................................                                                                   [100%]
+=========================== short test summary info ===========================
+SKIPPED [1] tests\test_blender52_cuda_gl.py:83: Set WARPSPH_BLENDER_EXE and WARPSPH_CERTIFIED_WHEEL
+SKIPPED [1] tests\test_blender52_isolated_install.py:45: Set WARPSPH_BLENDER_EXE to Blender 5.2
+SKIPPED [1] tests\test_blender_mock.py:224: CUDA required
+SKIPPED [1] tests\test_blender_mock.py:242: CUDA required
+SKIPPED [1] tests\test_blender_mock.py:258: CUDA required
+SKIPPED [1] tests\test_blender_mock.py:212: CUDA required
+SKIPPED [1] tests\test_blender_mock.py:202: CUDA required
+SKIPPED [1] tests\test_cache_cuda.py:181: CUDA required
+SKIPPED [1] tests\test_cache_cuda.py:139: CUDA required
+SKIPPED [1] tests\test_cache_cuda.py:101: CUDA required
+SKIPPED [1] tests\test_cache_cuda.py:148: CUDA required
+SKIPPED [1] tests\test_cache_cuda.py:128: CUDA required
+SKIPPED [1] tests\test_cache_cuda.py:64: CUDA required
+SKIPPED [1] tests\test_cache_cuda.py:79: CUDA required
+SKIPPED [4] tests\test_cache_gravity_cuda.py:47: CUDA required
+SKIPPED [1] tests\test_compliant_contact.py:14: CUDA required
+SKIPPED [1] tests\test_compliant_contact.py:40: CUDA required
+SKIPPED [1] tests\test_compliant_contact.py:45: CUDA required
+SKIPPED [1] tests\test_differentiable_pour.py:9: CUDA required
+SKIPPED [1] tests\test_differentiable_pour.py:19: CUDA required
+SKIPPED [1] tests\test_differentiable_pour.py:31: CUDA required
+SKIPPED [1] tests\test_emitter_ids.py:43: CUDA required
+SKIPPED [1] tests\test_emitter_ids.py:137: CUDA required
+SKIPPED [6] tests\test_physics_presets.py:112: CUDA required
+SKIPPED [1] tests\test_physics_presets.py:154: CUDA required
+SKIPPED [1] tests\test_scene_description.py:88: fill tests use the CUDA device like the solver
+SKIPPED [1] tests\test_scene_description.py:97: fill tests use the CUDA device like the solver
+SKIPPED [1] tests\test_scene_description.py:107: fill tests use the CUDA device like the solver
+SKIPPED [1] tests\test_scene_description.py:112: fill tests use the CUDA device like the solver
+SKIPPED [1] tests\test_scene_description.py:125: fill tests use the CUDA device like the solver
+SKIPPED [1] tests\test_scene_seam.py:48: CUDA required for the WCSPH solver
+SKIPPED [1] tests\test_scene_seam.py:71: CUDA required for the WCSPH solver
+SKIPPED [1] tests\test_scene_seam.py:77: CUDA required for the WCSPH solver
+SKIPPED [1] tests\test_scene_seam.py:88: CUDA required for the WCSPH solver
+SKIPPED [1] tests\test_scene_seam.py:108: CUDA required for the WCSPH solver
+SKIPPED [1] tests\test_scene_seam.py:133: CUDA required for the WCSPH solver
+SKIPPED [1] tests\test_scene_seam.py:156: CUDA required for the WCSPH solver
+SKIPPED [1] tests\test_scene_seam.py:179: CUDA required for the WCSPH solver
+SKIPPED [2] tests\test_scene_seam.py:210: CUDA required for the WCSPH solver
+SKIPPED [1] tests\test_scene_solver.py:32: CUDA required for the WCSPH solver
+SKIPPED [1] tests\test_scene_solver.py:42: CUDA required for the WCSPH solver
+SKIPPED [1] tests\test_scene_solver.py:63: CUDA required for the WCSPH solver
+SKIPPED [1] tests\test_scene_solver.py:76: CUDA required for the WCSPH solver
+SKIPPED [1] tests\test_scene_solver.py:92: CUDA required for the WCSPH solver
+SKIPPED [1] tests\test_scene_solver.py:98: CUDA required for the WCSPH solver
+SKIPPED [1] tests\test_sim_core.py:184: CUDA required for CUDA Graph equivalence test
+SKIPPED [1] tests\test_sim_core.py:211: CUDA required
+SKIPPED [1] tests\test_submodules.py:58: CUDA required for SDFColliderManager
+SKIPPED [1] tests\test_submodules.py:77: CUDA required for HashGrid whitewater test
+SKIPPED [1] tests\test_transport_vulkan.py:652: Readback stages through pinned host memory, which needs a CUDA driver
+SKIPPED [1] tests\test_transport_vulkan.py:833: Readback stages through pinned host memory, which needs a CUDA driver
+SKIPPED [1] tests\test_validation.py:121: CUDA required
+SKIPPED [1] tests\test_validation.py:132: CUDA required
+SKIPPED [1] tests\test_validation.py:139: CUDA required
+SKIPPED [1] tests\test_warp_selftest.py:66: Warp CUDA unavailable
+662 passed, 64 skipped, 72 subtests passed in 60.59s (0:01:00)

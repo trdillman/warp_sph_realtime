@@ -1,0 +1,13 @@
+{
+  "platform": "Linux-6.18.57-x86_64-with-glibc2.41",
+  "python": "3.13.5 (main, Jul 15 2026, 20:25:40) [GCC 14.2.0]",
+  "candidate_commit": "f0d60a5f8f71511e399a2c5fb18772e2482ab386",
+  "candidate_files_byte_identical": 13,
+  "repo_tests_passed": 24,
+  "added_linux_acceptance_tests_passed": 6,
+  "blender_available": false,
+  "warp_available": false,
+  "cuda_device_available": false,
+  "blender_provision_attempt": "download.blender.org DNS resolution failed; separate download tool failed",
+  "scope": "Linux host contracts, disk integrity, immutable arrays, extreme IDs, random seeking, cancellation prefix and scheduling; NOT Blender/CUDA/GPU qualification"
+}

@@ -1,0 +1,19 @@
+{
+  "source_commit": "f0d60a5f8f71511e399a2c5fb18772e2482ab386",
+  "transport_sha256": "c4af7ee7b6fb7bee68a7679c223c5bd7bbec493a272a3b736dbaa5a91eb8f9fe",
+  "files": {
+    "AGENTS.md": "09708d2b7db85f7c81319b4e77ffd2699d40436ac24e1aa57d8d0964544fe2af",
+    "pyproject.toml": "58996f59b769c37d2c7567d7b66ae0144800ad0c96f67ae6bd9c4e367ab1c99e",
+    "warp_sph_realtime/__init__.py": "447acf1b298714d842cdcb36600a0cadfb3aad82a81eca3c1fbe14a012112e45",
+    "warp_sph_realtime/native_output.py": "a561a2006f37cccb817d181f0c5b844a265dfa9feb6cee91e1605e35fd95c226",
+    "warp_sph_realtime/cache/__init__.py": "fd0fcb23a03389e887a2973a530e8368d2ffaf105a6677d4314c2768d5f09218",
+    "warp_sph_realtime/cache/native_sequence.py": "246175800a18dea1e6da8f222a17273e1e02b74d606b610775b11b91a0d75069",
+    "warp_sph_realtime/cache/native_playback.py": "c230e50d63f6c251abbae4e4bead9e679dd6fb2b1e16fc230b0286c639b0fc51",
+    "warp_sph_realtime/cache/solver_replay.py": "0261ea332aeae7ce87f708ec84a37c4e6ab7a90bd191fd5591e9c058114c85db",
+    "warp_sph_realtime/render/__init__.py": "fe1b25d6f4c24f22fc41980fc6ea3ffe64932ceaae7c22e571301552b790941a",
+    "warp_sph_realtime/render/transport.py": "c9308fbd7dc7692025e616711f47d34e21e73065935cf97d4490069abedbf099",
+    "tests/test_native_sequence.py": "b1747ab88f311dab47739078aac41154820d67e7bbc484d0f4355ad10e239808",
+    "tests/test_native_output.py": "4681514ecc57e506c060d35c22a339cee194494394baf531bf5d2627f2d3d4e4",
+    "tests/test_solver_replay.py": "0606bd2ae9a0d70614dfc429adb5ed809ab3c6cdcf48550cf6198903c11818af"
+  }
+}

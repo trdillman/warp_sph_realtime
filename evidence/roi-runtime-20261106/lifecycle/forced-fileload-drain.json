@@ -1,0 +1,15 @@
+{
+  "pid": 75984,
+  "ready_before": [
+    false,
+    true
+  ],
+  "ready_after": [
+    true,
+    true
+  ],
+  "completed": true,
+  "elapsed_s": 0.01361700000052224,
+  "real_solver_steps_queued": 64,
+  "scope": "diagnostic queued real WCSPH work, not performance cadence"
+}

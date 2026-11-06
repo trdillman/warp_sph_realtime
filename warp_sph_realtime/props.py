@@ -48,6 +48,23 @@ STIFFNESS_UNIT = 1000.0  # the stiffness setting is in thousands, so one UI clic
 
 
 class WARPSPH_SceneSettings(bpy.types.PropertyGroup):
+    use_shared_sdk: BoolProperty(
+        name="Shared SDK Output (Experimental)", default=False,
+        description="Use the exact pinned Vulkan SDK for stable-ID rich frames and native Geometry Nodes snapshots; selected at Start")
+    sdk_snapshot_name: StringProperty(name="Snapshot Object", default="WarpSPH SDK Snapshot")
+    sdk_snapshot_owner: StringProperty(default="", options={'HIDDEN'})
+    sdk_live_geometry: BoolProperty(name="Live Geometry Nodes", default=False,
+        description="Update native point attributes and GN while running; explicit GPU readback, not zero-copy")
+    sdk_live_rate: FloatProperty(name="Native Updates / Second", default=12.0, min=0.1, max=60.0,
+        description="Target native-output cadence; simulation and GN complexity can make it slower")
+    sdk_live_name: StringProperty(name="Live Object", default="WarpSPH Live Geometry")
+    sdk_live_hide_preview: BoolProperty(name="Hide GPU Preview While Live GN", default=True)
+    sdk_native_budget_mb: IntProperty(name="Native Memory Budget (MiB)", default=1024, min=16, max=16384)
+    sdk_animation_dir: StringProperty(name="Native Animation Folder", subtype='DIR_PATH', default="",
+        description="New empty folder for exact rich frames; existing recordings are never overwritten")
+    sdk_animation_name: StringProperty(name="Animation Object", default="WarpSPH Native Animation")
+    sdk_native_status: StringProperty(default="", options={'SKIP_SAVE'})
+
     scene_source: EnumProperty(name="Scene Source", items=SCENE_SOURCE_ITEMS, default="DEMO", update=note_edit)
     particle_spacing: FloatProperty(
         name="Particle Spacing",

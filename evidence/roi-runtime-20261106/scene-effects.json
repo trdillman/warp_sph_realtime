@@ -1,0 +1,3567 @@
+{
+  "status": "passed",
+  "pid": 75984,
+  "scope": "actual authored collider and emitter influence using unchanged WarpSPH physics; diagnostic readbacks only",
+  "cases": {
+    "collider_present": {
+      "initial_count": 288,
+      "capacity": 288,
+      "min_plate_distance": 0.03241413831710813,
+      "max_survivor_step_distance": 0.0,
+      "count_history": [
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288
+      ],
+      "spatial_reordering_observed": true,
+      "steps": 300,
+      "sim_time": 0.7649463042747279,
+      "final_count": 288,
+      "scene_revision": 301,
+      "epoch": 0
+    },
+    "collider_absent": {
+      "initial_count": 288,
+      "capacity": 288,
+      "min_plate_distance": -0.09921738505363467,
+      "max_survivor_step_distance": 0.0,
+      "count_history": [
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288,
+        288
+      ],
+      "spatial_reordering_observed": true,
+      "steps": 300,
+      "sim_time": 0.7649463042747279,
+      "final_count": 288,
+      "scene_revision": 603,
+      "epoch": 1
+    },
+    "emitter_low": {
+      "initial_count": 200,
+      "capacity": 1200,
+      "min_plate_distance": null,
+      "max_survivor_step_distance": 0.006040453910827637,
+      "count_history": [
+        200,
+        200,
+        200,
+        200,
+        200,
+        200,
+        201,
+        201,
+        201,
+        201,
+        201,
+        202,
+        202,
+        202,
+        202,
+        202,
+        203,
+        203,
+        203,
+        203,
+        203,
+        204,
+        204,
+        204,
+        204,
+        204,
+        205,
+        205,
+        205,
+        205,
+        206,
+        206,
+        206,
+        206,
+        206,
+        207,
+        207,
+        207,
+        207,
+        207,
+        208
+      ],
+      "spatial_reordering_observed": true,
+      "steps": 40,
+      "sim_time": 0.10199284056996223,
+      "final_count": 208,
+      "scene_revision": 41,
+      "epoch": 0
+    },
+    "emitter_high": {
+      "initial_count": 200,
+      "capacity": 1200,
+      "min_plate_distance": null,
+      "max_survivor_step_distance": 0.006197869777679443,
+      "count_history": [
+        200,
+        200,
+        200,
+        201,
+        201,
+        201,
+        202,
+        202,
+        203,
+        203,
+        203,
+        204,
+        204,
+        205,
+        205,
+        205,
+        206,
+        206,
+        207,
+        207,
+        207,
+        208,
+        208,
+        209,
+        209,
+        209,
+        210,
+        210,
+        211,
+        211,
+        212,
+        212,
+        212,
+        213,
+        213,
+        214,
+        214,
+        214,
+        215,
+        215,
+        216
+      ],
+      "spatial_reordering_observed": true,
+      "steps": 40,
+      "sim_time": 0.10199284056996223,
+      "final_count": 216,
+      "scene_revision": 83,
+      "epoch": 1
+    }
+  },
+  "checks": [
+    {
+      "name": "collider_present_start",
+      "passed": true
+    },
+    {
+      "name": "collider_present_pause",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_1",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_2",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_3",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_4",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_5",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_6",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_7",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_8",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_9",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_10",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_11",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_12",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_13",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_14",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_15",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_16",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_17",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_18",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_19",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_20",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_21",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_22",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_23",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_24",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_25",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_26",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_27",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_28",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_29",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_30",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_31",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_32",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_33",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_34",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_35",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_36",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_37",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_38",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_39",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_40",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_41",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_42",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_43",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_44",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_45",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_46",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_47",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_48",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_49",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_50",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_51",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_52",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_53",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_54",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_55",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_56",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_57",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_58",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_59",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_60",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_61",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_62",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_63",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_64",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_65",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_66",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_67",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_68",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_69",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_70",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_71",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_72",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_73",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_74",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_75",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_76",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_77",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_78",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_79",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_80",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_81",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_82",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_83",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_84",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_85",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_86",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_87",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_88",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_89",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_90",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_91",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_92",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_93",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_94",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_95",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_96",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_97",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_98",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_99",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_100",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_101",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_102",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_103",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_104",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_105",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_106",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_107",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_108",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_109",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_110",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_111",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_112",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_113",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_114",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_115",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_116",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_117",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_118",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_119",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_120",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_121",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_122",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_123",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_124",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_125",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_126",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_127",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_128",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_129",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_130",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_131",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_132",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_133",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_134",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_135",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_136",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_137",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_138",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_139",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_140",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_141",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_142",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_143",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_144",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_145",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_146",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_147",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_148",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_149",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_150",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_151",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_152",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_153",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_154",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_155",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_156",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_157",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_158",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_159",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_160",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_161",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_162",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_163",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_164",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_165",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_166",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_167",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_168",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_169",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_170",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_171",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_172",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_173",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_174",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_175",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_176",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_177",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_178",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_179",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_180",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_181",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_182",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_183",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_184",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_185",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_186",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_187",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_188",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_189",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_190",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_191",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_192",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_193",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_194",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_195",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_196",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_197",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_198",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_199",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_200",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_201",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_202",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_203",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_204",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_205",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_206",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_207",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_208",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_209",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_210",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_211",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_212",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_213",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_214",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_215",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_216",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_217",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_218",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_219",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_220",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_221",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_222",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_223",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_224",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_225",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_226",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_227",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_228",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_229",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_230",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_231",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_232",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_233",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_234",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_235",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_236",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_237",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_238",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_239",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_240",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_241",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_242",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_243",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_244",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_245",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_246",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_247",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_248",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_249",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_250",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_251",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_252",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_253",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_254",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_255",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_256",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_257",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_258",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_259",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_260",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_261",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_262",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_263",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_264",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_265",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_266",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_267",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_268",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_269",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_270",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_271",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_272",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_273",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_274",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_275",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_276",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_277",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_278",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_279",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_280",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_281",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_282",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_283",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_284",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_285",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_286",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_287",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_288",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_289",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_290",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_291",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_292",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_293",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_294",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_295",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_296",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_297",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_298",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_299",
+      "passed": true
+    },
+    {
+      "name": "collider_present_single_step_300",
+      "passed": true
+    },
+    {
+      "name": "actual_contact_reached",
+      "passed": true
+    },
+    {
+      "name": "collider_prevents_penetration",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_reset",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_new_epoch",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_1",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_2",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_3",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_4",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_5",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_6",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_7",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_8",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_9",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_10",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_11",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_12",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_13",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_14",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_15",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_16",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_17",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_18",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_19",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_20",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_21",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_22",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_23",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_24",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_25",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_26",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_27",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_28",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_29",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_30",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_31",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_32",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_33",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_34",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_35",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_36",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_37",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_38",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_39",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_40",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_41",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_42",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_43",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_44",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_45",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_46",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_47",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_48",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_49",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_50",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_51",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_52",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_53",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_54",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_55",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_56",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_57",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_58",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_59",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_60",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_61",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_62",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_63",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_64",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_65",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_66",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_67",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_68",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_69",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_70",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_71",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_72",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_73",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_74",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_75",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_76",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_77",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_78",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_79",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_80",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_81",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_82",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_83",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_84",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_85",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_86",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_87",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_88",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_89",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_90",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_91",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_92",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_93",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_94",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_95",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_96",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_97",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_98",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_99",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_100",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_101",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_102",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_103",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_104",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_105",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_106",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_107",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_108",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_109",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_110",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_111",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_112",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_113",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_114",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_115",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_116",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_117",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_118",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_119",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_120",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_121",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_122",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_123",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_124",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_125",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_126",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_127",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_128",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_129",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_130",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_131",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_132",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_133",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_134",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_135",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_136",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_137",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_138",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_139",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_140",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_141",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_142",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_143",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_144",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_145",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_146",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_147",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_148",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_149",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_150",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_151",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_152",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_153",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_154",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_155",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_156",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_157",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_158",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_159",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_160",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_161",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_162",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_163",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_164",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_165",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_166",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_167",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_168",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_169",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_170",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_171",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_172",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_173",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_174",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_175",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_176",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_177",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_178",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_179",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_180",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_181",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_182",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_183",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_184",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_185",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_186",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_187",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_188",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_189",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_190",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_191",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_192",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_193",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_194",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_195",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_196",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_197",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_198",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_199",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_200",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_201",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_202",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_203",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_204",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_205",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_206",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_207",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_208",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_209",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_210",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_211",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_212",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_213",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_214",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_215",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_216",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_217",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_218",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_219",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_220",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_221",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_222",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_223",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_224",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_225",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_226",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_227",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_228",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_229",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_230",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_231",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_232",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_233",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_234",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_235",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_236",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_237",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_238",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_239",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_240",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_241",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_242",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_243",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_244",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_245",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_246",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_247",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_248",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_249",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_250",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_251",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_252",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_253",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_254",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_255",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_256",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_257",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_258",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_259",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_260",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_261",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_262",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_263",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_264",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_265",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_266",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_267",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_268",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_269",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_270",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_271",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_272",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_273",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_274",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_275",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_276",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_277",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_278",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_279",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_280",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_281",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_282",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_283",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_284",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_285",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_286",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_287",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_288",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_289",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_290",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_291",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_292",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_293",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_294",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_295",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_296",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_297",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_298",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_299",
+      "passed": true
+    },
+    {
+      "name": "collider_absent_single_step_300",
+      "passed": true
+    },
+    {
+      "name": "removed_collider_changes_physical_path",
+      "passed": true
+    },
+    {
+      "name": "A_B_same_time_and_population",
+      "passed": true
+    },
+    {
+      "name": "collider_stop_operator",
+      "passed": true
+    },
+    {
+      "name": "collider_sdk_close",
+      "passed": true
+    },
+    {
+      "name": "emitter_low_start",
+      "passed": true
+    },
+    {
+      "name": "emitter_low_pause",
+      "passed": true
+    },
+    {
+      "name": "emitter_low_single_step_1",
+      "passed": true
+    },
+    {
+      "name": "emitter_low_single_step_2",
+      "passed": true
+    },
+    {
+      "name": "emitter_low_single_step_3",
+      "passed": true
+    },
+    {
+      "name": "emitter_low_single_step_4",
+      "passed": true
+    },
+    {
+      "name": "emitter_low_single_step_5",
+      "passed": true
+    },
+    {
+      "name": "emitter_low_single_step_6",
+      "passed": true
+    },
+    {
+      "name": "emitter_low_single_step_7",
+      "passed": true
+    },
+    {
+      "name": "emitter_low_single_step_8",
+      "passed": true
+    },
+    {
+      "name": "emitter_low_single_step_9",
+      "passed": true
+    },
+    {
+      "name": "emitter_low_single_step_10",
+      "passed": true
+    },
+    {
+      "name": "emitter_low_single_step_11",
+      "passed": true
+    },
+    {
+      "name": "emitter_low_single_step_12",
+      "passed": true
+    },
+    {
+      "name": "emitter_low_single_step_13",
+      "passed": true
+    },
+    {
+      "name": "emitter_low_single_step_14",
+      "passed": true
+    },
+    {
+      "name": "emitter_low_single_step_15",
+      "passed": true
+    },
+    {
+      "name": "emitter_low_single_step_16",
+      "passed": true
+    },
+    {
+      "name": "emitter_low_single_step_17",
+      "passed": true
+    },
+    {
+      "name": "emitter_low_single_step_18",
+      "passed": true
+    },
+    {
+      "name": "emitter_low_single_step_19",
+      "passed": true
+    },
+    {
+      "name": "emitter_low_single_step_20",
+      "passed": true
+    },
+    {
+      "name": "emitter_low_single_step_21",
+      "passed": true
+    },
+    {
+      "name": "emitter_low_single_step_22",
+      "passed": true
+    },
+    {
+      "name": "emitter_low_single_step_23",
+      "passed": true
+    },
+    {
+      "name": "emitter_low_single_step_24",
+      "passed": true
+    },
+    {
+      "name": "emitter_low_single_step_25",
+      "passed": true
+    },
+    {
+      "name": "emitter_low_single_step_26",
+      "passed": true
+    },
+    {
+      "name": "emitter_low_single_step_27",
+      "passed": true
+    },
+    {
+      "name": "emitter_low_single_step_28",
+      "passed": true
+    },
+    {
+      "name": "emitter_low_single_step_29",
+      "passed": true
+    },
+    {
+      "name": "emitter_low_single_step_30",
+      "passed": true
+    },
+    {
+      "name": "emitter_low_single_step_31",
+      "passed": true
+    },
+    {
+      "name": "emitter_low_single_step_32",
+      "passed": true
+    },
+    {
+      "name": "emitter_low_single_step_33",
+      "passed": true
+    },
+    {
+      "name": "emitter_low_single_step_34",
+      "passed": true
+    },
+    {
+      "name": "emitter_low_single_step_35",
+      "passed": true
+    },
+    {
+      "name": "emitter_low_single_step_36",
+      "passed": true
+    },
+    {
+      "name": "emitter_low_single_step_37",
+      "passed": true
+    },
+    {
+      "name": "emitter_low_single_step_38",
+      "passed": true
+    },
+    {
+      "name": "emitter_low_single_step_39",
+      "passed": true
+    },
+    {
+      "name": "emitter_low_single_step_40",
+      "passed": true
+    },
+    {
+      "name": "authored_emitter_adds_particles",
+      "passed": true
+    },
+    {
+      "name": "emitter_high_reset",
+      "passed": true
+    },
+    {
+      "name": "emitter_high_new_epoch",
+      "passed": true
+    },
+    {
+      "name": "emitter_high_single_step_1",
+      "passed": true
+    },
+    {
+      "name": "emitter_high_single_step_2",
+      "passed": true
+    },
+    {
+      "name": "emitter_high_single_step_3",
+      "passed": true
+    },
+    {
+      "name": "emitter_high_single_step_4",
+      "passed": true
+    },
+    {
+      "name": "emitter_high_single_step_5",
+      "passed": true
+    },
+    {
+      "name": "emitter_high_single_step_6",
+      "passed": true
+    },
+    {
+      "name": "emitter_high_single_step_7",
+      "passed": true
+    },
+    {
+      "name": "emitter_high_single_step_8",
+      "passed": true
+    },
+    {
+      "name": "emitter_high_single_step_9",
+      "passed": true
+    },
+    {
+      "name": "emitter_high_single_step_10",
+      "passed": true
+    },
+    {
+      "name": "emitter_high_single_step_11",
+      "passed": true
+    },
+    {
+      "name": "emitter_high_single_step_12",
+      "passed": true
+    },
+    {
+      "name": "emitter_high_single_step_13",
+      "passed": true
+    },
+    {
+      "name": "emitter_high_single_step_14",
+      "passed": true
+    },
+    {
+      "name": "emitter_high_single_step_15",
+      "passed": true
+    },
+    {
+      "name": "emitter_high_single_step_16",
+      "passed": true
+    },
+    {
+      "name": "emitter_high_single_step_17",
+      "passed": true
+    },
+    {
+      "name": "emitter_high_single_step_18",
+      "passed": true
+    },
+    {
+      "name": "emitter_high_single_step_19",
+      "passed": true
+    },
+    {
+      "name": "emitter_high_single_step_20",
+      "passed": true
+    },
+    {
+      "name": "emitter_high_single_step_21",
+      "passed": true
+    },
+    {
+      "name": "emitter_high_single_step_22",
+      "passed": true
+    },
+    {
+      "name": "emitter_high_single_step_23",
+      "passed": true
+    },
+    {
+      "name": "emitter_high_single_step_24",
+      "passed": true
+    },
+    {
+      "name": "emitter_high_single_step_25",
+      "passed": true
+    },
+    {
+      "name": "emitter_high_single_step_26",
+      "passed": true
+    },
+    {
+      "name": "emitter_high_single_step_27",
+      "passed": true
+    },
+    {
+      "name": "emitter_high_single_step_28",
+      "passed": true
+    },
+    {
+      "name": "emitter_high_single_step_29",
+      "passed": true
+    },
+    {
+      "name": "emitter_high_single_step_30",
+      "passed": true
+    },
+    {
+      "name": "emitter_high_single_step_31",
+      "passed": true
+    },
+    {
+      "name": "emitter_high_single_step_32",
+      "passed": true
+    },
+    {
+      "name": "emitter_high_single_step_33",
+      "passed": true
+    },
+    {
+      "name": "emitter_high_single_step_34",
+      "passed": true
+    },
+    {
+      "name": "emitter_high_single_step_35",
+      "passed": true
+    },
+    {
+      "name": "emitter_high_single_step_36",
+      "passed": true
+    },
+    {
+      "name": "emitter_high_single_step_37",
+      "passed": true
+    },
+    {
+      "name": "emitter_high_single_step_38",
+      "passed": true
+    },
+    {
+      "name": "emitter_high_single_step_39",
+      "passed": true
+    },
+    {
+      "name": "emitter_high_single_step_40",
+      "passed": true
+    },
+    {
+      "name": "higher_authored_rate_changes_particle_count",
+      "passed": true
+    },
+    {
+      "name": "emitter_A_B_same_elapsed_time",
+      "passed": true
+    },
+    {
+      "name": "stable_IDs_survive_real_spatial_sort",
+      "passed": true
+    },
+    {
+      "name": "survivor_ID_motion_is_local",
+      "passed": true
+    },
+    {
+      "name": "actual_emitter_snapshot_operator",
+      "passed": true
+    },
+    {
+      "name": "emitted_native_snapshot_uses_logical_count",
+      "passed": true
+    },
+    {
+      "name": "emitted_stable_IDs_match_real_solver",
+      "passed": true
+    },
+    {
+      "name": "emitter_stop_operator",
+      "passed": true
+    },
+    {
+      "name": "emitter_sdk_close",
+      "passed": true
+    }
+  ],
+  "native_emitter_object": "SDK Emitter A-B Snapshot",
+  "elapsed_seconds": 25.753350700000738
+}

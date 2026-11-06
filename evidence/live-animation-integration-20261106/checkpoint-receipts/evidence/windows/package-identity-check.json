@@ -1,0 +1,9 @@
+{
+  "status": "passed",
+  "source_commit": "3445fab5316d55cabd3459c2fc058cb320945ee9",
+  "production_commit": "82ba668363018ce561b742a91efa084ebafc90a1",
+  "payload_files": 59,
+  "extension_sha256": "f439d7551ed0755567c68ab6898ccdafd284992f11272b0049ddbe782f6b82a8",
+  "sdk_wheel_sha256": "24a4e65a290a4f95e9cba7ee54e31f3cecd066c17e2897c8e6cf4ddf8e7e7bda",
+  "archive_matches_all_committed_product_blobs": true
+}

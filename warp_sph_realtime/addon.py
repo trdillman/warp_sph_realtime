@@ -20,6 +20,7 @@ from . import (
     live_edits,
     physics_presets,
     props,
+    sdk_ui,
     sim_session,
     warp_installer,
     warp_runtime,
@@ -219,6 +220,10 @@ class WM_OT_warp_sph_pause(bpy.types.Operator):
 
     def execute(self, context):
         session = _session(context)
+        job = getattr(session, 'native_bake', None)
+        if job is not None:
+            job.paused = not job.paused
+            return {'FINISHED'}
         session.paused = not session.paused
         return {'FINISHED'}
 
@@ -234,6 +239,9 @@ class WM_OT_warp_sph_step_frame(bpy.types.Operator):
 
     def execute(self, context):
         session = _session(context)
+        if getattr(session, 'native_bake', None) is not None:
+            self.report({'ERROR'}, 'Resume or cancel native animation baking before manual single-stepping')
+            return {'CANCELLED'}
         session.paused = True
         session.step_once = True
         return {'FINISHED'}
@@ -801,6 +809,7 @@ def register():
         is_running=lambda: sim_session.active() is not None, startup_error=lambda: _startup_error,
         active_warp=lambda: sim_session.runtime.wp)
     bpy.utils.register_class(VIEW3D_PT_warp_sph)
+    sdk_ui.register()
     cache_ui.register()  # sub-panel of the main panel, shown above Advanced
     bpy.utils.register_class(VIEW3D_PT_warp_sph_advanced)
     bpy.utils.register_class(OBJECT_PT_warp_sph)
@@ -820,6 +829,7 @@ def unregister():
     bpy.utils.unregister_class(OBJECT_PT_warp_sph)
     bpy.utils.unregister_class(VIEW3D_PT_warp_sph_advanced)
     cache_ui.unregister()
+    sdk_ui.unregister()
     bpy.utils.unregister_class(VIEW3D_PT_warp_sph)
     bpy.utils.unregister_class(WM_OT_warp_sph_step_frame)
     bpy.utils.unregister_class(WM_OT_warp_sph_pause)

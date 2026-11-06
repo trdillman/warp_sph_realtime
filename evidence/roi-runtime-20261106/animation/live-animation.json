@@ -1,0 +1,174 @@
+{
+  "status": "passed",
+  "pid": 75984,
+  "backend": "VULKAN",
+  "checks": [
+    {
+      "name": "live_GN_updates_without_snapshot_clicks",
+      "passed": true,
+      "frames": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "count": 100000
+    },
+    {
+      "name": "disabled_live_keeps_last_geometry",
+      "passed": true
+    },
+    {
+      "name": "bake_has_independent_solver",
+      "passed": true
+    },
+    {
+      "name": "bake_preserves_all_live_arrays_state_and_timeline",
+      "passed": true
+    },
+    {
+      "name": "bake_all_requested_frames",
+      "passed": true
+    },
+    {
+      "name": "actual_private_solver_moves",
+      "passed": true
+    },
+    {
+      "name": "declared_sampling_matches_solver_time",
+      "passed": true
+    },
+    {
+      "name": "cancel_preserves_live_arrays_state_and_timeline",
+      "passed": true
+    },
+    {
+      "name": "cancel_retains_whole_prefix",
+      "passed": true,
+      "span": [
+        1,
+        2
+      ]
+    },
+    {
+      "name": "GPU_teardown_completed",
+      "passed": true
+    },
+    {
+      "name": "timeline_scrub_exact_native_attributes",
+      "passed": true,
+      "frames": [
+        "8",
+        "1",
+        "5",
+        "2",
+        "7"
+      ]
+    },
+    {
+      "name": "corrupt_cache_hidden_and_reported",
+      "passed": true
+    },
+    {
+      "name": "restored_cache_recovers",
+      "passed": true
+    },
+    {
+      "name": "standalone_budget_rejects_without_mutation",
+      "passed": true
+    }
+  ],
+  "live_samples": [
+    1,
+    2,
+    3,
+    4,
+    5
+  ],
+  "scope": "actual solver live native GN plus private-copy animation; correctness not realtime FPS",
+  "particle_count": 100000,
+  "animation_signature": {
+    "particles": 100000,
+    "steps_per_frame": 16,
+    "fps": 24.0,
+    "dt": 0.001648026890777408,
+    "h": 0.10341286512153043,
+    "stiffness": 90000.0,
+    "viscosity": 0.15000000596046448,
+    "scene": "Live GN and Animation Qualification",
+    "demo": "DOUBLE_DAM_PILLARS",
+    "gravity": [
+      0.0,
+      0.0,
+      -9.8100004196167
+    ],
+    "boundaries": "8bdcd10b11ac1b4e745ce81bb5f6cf3d5dff9a1caaab2eb18199e3587b71b151",
+    "initial_simulation_time_s": 0.03625659159710296,
+    "sample_step_seconds": 0.026368430252438527,
+    "requested_frame_seconds": 0.041666666666666664,
+    "origin": "current paused solver cloned; live state and timeline untouched",
+    "density_sampling": "last solver force evaluation, not recalculated at the final positions"
+  },
+  "frame_hashes": {
+    "8": {
+      "position": "291a734ef5a0a962350d8a5bad35f039220f9f61fa545c2727469e0ddd3e3bb9",
+      "velocity": "a22616c78fc752cf646b0cf912b8155871e810e8342ee9ab845c4de6b04c9042",
+      "density": "a19aaf56e23acaa9da6a10e10245c3111ab4ab4b237a1a922b700e5d4490e009",
+      "radius": "2ef195a9f0f0d346eef9fd15a370403a4b2b5075c3a5d6d349a5d5fbecf485e1",
+      "color": "40cdeae73fd9dfcb6991fb8bfa267dabc1f5e8c7734b9c6a85bbd117bec922f2",
+      "id": "0d84e54632cf2fc0083c319fddf93a5a72a1e33c0cc348fe3bb0a0c48507f963"
+    },
+    "1": {
+      "position": "f5f5f3872e01b39471f9ec753073aa649d400ffc4020b508a3bcd4458bfa8883",
+      "velocity": "c8da0380522bc5955f717e3cd7e18e528ad7d84b1412e8d1158389cc3adaf3e2",
+      "density": "2bdb2c5a62d45ee48e80ddcfde575e7dd205208a4186aaf3df350a10d2a8b94c",
+      "radius": "2ef195a9f0f0d346eef9fd15a370403a4b2b5075c3a5d6d349a5d5fbecf485e1",
+      "color": "40cdeae73fd9dfcb6991fb8bfa267dabc1f5e8c7734b9c6a85bbd117bec922f2",
+      "id": "99838e06c16e2b6f9e326d9e65e115c9408bacab47d0c1fa262549db81c62090"
+    },
+    "5": {
+      "position": "a9a41de046a538623568f20a1146bfc20fb7e90c1f71f0f937a2fa729f30c217",
+      "velocity": "fc6e5936867274f552710dee02f0c0acf26f9da08a4dd3e65696bef7315d356f",
+      "density": "80777ea3b773c665543005725c5ac39394335ec2ef40a1260a70977ac94f7303",
+      "radius": "2ef195a9f0f0d346eef9fd15a370403a4b2b5075c3a5d6d349a5d5fbecf485e1",
+      "color": "40cdeae73fd9dfcb6991fb8bfa267dabc1f5e8c7734b9c6a85bbd117bec922f2",
+      "id": "99d7ef55420ee7d4329c1922ac2da8ee9ba8aa4e2f8da6d9cb6ec9811fd6a194"
+    },
+    "2": {
+      "position": "a264779279cebe102542a9c4152ea96f3261a5082c22e2f7d934c60f763eaf9f",
+      "velocity": "c8031fa37c1ed79d73e84ca2dde03554f6c37db5e7ca5eeb61cc3caf934be38b",
+      "density": "971a0507ffa2fc14b4c83a3a2767c353fae594b686148613372b9f7685446368",
+      "radius": "2ef195a9f0f0d346eef9fd15a370403a4b2b5075c3a5d6d349a5d5fbecf485e1",
+      "color": "40cdeae73fd9dfcb6991fb8bfa267dabc1f5e8c7734b9c6a85bbd117bec922f2",
+      "id": "99838e06c16e2b6f9e326d9e65e115c9408bacab47d0c1fa262549db81c62090"
+    },
+    "7": {
+      "position": "e15cfa9d8a5bff0d32db1f2d1ae1a16f5e0ebd30a1f10f11783f48a93293b5a8",
+      "velocity": "ddb21786bc03b336a8c990363338b6e4c59d1e4e9b5779e30318979724d2be14",
+      "density": "3b21ea313a59fc3603d9115d8008696c1a914d252b0d87b19ec3d5d01d252abd",
+      "radius": "2ef195a9f0f0d346eef9fd15a370403a4b2b5075c3a5d6d349a5d5fbecf485e1",
+      "color": "40cdeae73fd9dfcb6991fb8bfa267dabc1f5e8c7734b9c6a85bbd117bec922f2",
+      "id": "146d545d6ad2211bc8b8631352ab437517674d5e0a471f7232575c66730cfd56"
+    }
+  },
+  "standalone_evaluation": {
+    "1": {
+      "vertices": 1200000,
+      "ids_sha": "6741f27dcfe57e51120a4bdb76a22ec28e0458be2f2b02cfa3d0003754929371",
+      "unique_ids": 100000
+    },
+    "4": {
+      "vertices": 1200000,
+      "ids_sha": "0bad93ebe9541207281e7255cbec4d4655a2d2850649aa8c72e93bb5f2c9af02",
+      "unique_ids": 100000
+    },
+    "8": {
+      "vertices": 1200000,
+      "ids_sha": "31bc4842aee66bbf1ffbb8fa8875158fea5eabead4abf28348e4c8c422313be8",
+      "unique_ids": 100000
+    }
+  },
+  "standalone_blend": "C:\\Users\\Tyler\\.codex\\worktrees\\live-animation-integration\\warp_sph_realtime\\evidence\\roi-runtime-20261106\\animation\\Live-GN-Fluid-Animation.blend",
+  "elapsed_seconds": 21.273278300002858
+}

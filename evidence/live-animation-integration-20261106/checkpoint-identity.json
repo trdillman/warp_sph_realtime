@@ -1,0 +1,19 @@
+{
+  "archive": "C:\\Users\\Tyler\\Downloads\\WarpSPH-Live-GN-Animation-Cross-Platform-Checkpoint-2026-11-06.zip",
+  "archive_sha256": "c2b707f2730f8d58886270a01a94427e195f60e1e9f54bc38051f7abc04d7719",
+  "checkpoint": "3445fab5316d55cabd3459c2fc058cb320945ee9",
+  "main": "52a383aa45ba14acfba0e5c2c7c86a91f1498181",
+  "origin_main": "52a383aa45ba14acfba0e5c2c7c86a91f1498181",
+  "main_checkpoint_left_right": "0\t8",
+  "source_files_verified": 167,
+  "assets_verified": 35,
+  "source_mismatches": [],
+  "asset_mismatches": [],
+  "checkpoint_limits": [
+    "No Linux Blender or GPU qualification",
+    "No FPS/real-time guarantee",
+    "Live GN readback is not zero-copy",
+    "No subframe/motion-blur acceptance",
+    "No production installation or main merge/push"
+  ]
+}

@@ -12,7 +12,7 @@ dist/
 .ruff_cache/
 evidence/
 
-# graft's local graph cache — regenerable, not committed (run `graft build`).
+# graft's local graph cache â€” regenerable, not committed (run `graft build`).
 /graft/
 reports/review-project-progress/
 reports/cleanup-audit/
@@ -31,3 +31,6 @@ docs/PRODUCT_DELIVERY.md
 docs/TRACKER_UPDATE_PENDING.md
 docs/PROJECT_TRACKER_SNAPSHOT.md
 research_notes/
+
+# Isolated qualification profiles, dependency installs and transient process files.
+/.verification-temp/
