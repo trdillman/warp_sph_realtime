@@ -145,7 +145,7 @@ class Probe:
         s.use_shared_sdk = True
         s.scene_source = "DEMO"
         s.demo_scene = "DOUBLE_DAM_PILLARS"
-        s.particle_count = 4097
+        s.particle_count = 100_000
         s.substeps = 2
         s.render_mode = "POINTS"
         s.particle_radius = 0.025
@@ -153,7 +153,7 @@ class Probe:
         s.sdk_live_geometry = True
         s.sdk_live_rate = 20
         s.sdk_live_name = "Live GN Fluid"
-        s.sdk_native_budget_mb = 512
+        s.sdk_native_budget_mb = 1024
         s.sdk_animation_name = "Native Fluid Animation"
         s.bake_start = 1
         s.bake_end = 8
@@ -162,6 +162,9 @@ class Probe:
         scene.render.fps = 24
         assert bpy.ops.wm.warp_sph_start() == {"RUNNING_MODAL"}
         self.session = self.sim.get(scene)
+        self.particle_count = int(self.session.solver.active_count)
+        assert self.particle_count == s.particle_count
+        self.report["particle_count"] = self.particle_count
         self.save()
         bpy.app.timers.register(self.tick, first_interval=0.02)
 
@@ -317,13 +320,22 @@ class Probe:
         bpy.context.view_layer.update()
         validate_mesh(obj, self.saved_reader.read(3), self.scene)
         self.check("restored_cache_recovers", not obj.get("warpsph_native_error") and not obj.hide_render)
+        # A too-small standalone budget must reject before any scene mutation.
+        before = (len(bpy.data.objects), len(bpy.data.meshes), len(bpy.data.node_groups))
+        try:
+            self.playback.make_standalone(self.scene, obj, max_bytes=1)
+        except ValueError:
+            self.check("standalone_budget_rejects_without_mutation", before ==
+                       (len(bpy.data.objects), len(bpy.data.meshes), len(bpy.data.node_groups)))
+        else:
+            raise AssertionError("standalone embedding ignored its memory budget")
         assert bpy.ops.wm.warp_sph_sdk_embed_animation() == {"FINISHED"}
         standalone = bpy.data.objects["WarpSPH Standalone Animation"]
         standalone_values = {}
         for frame in [1, 4, 8]:
             self.scene.frame_set(frame)
             bpy.context.view_layer.update()
-            standalone_values[str(frame)] = evaluate_ids(standalone, 4097)
+            standalone_values[str(frame)] = evaluate_ids(standalone, self.particle_count)
         self.report["standalone_evaluation"] = standalone_values
         # Hide earlier static/live geometry so the exported standalone is unambiguous.
         for item in self.scene.objects:
@@ -341,7 +353,7 @@ class Probe:
         expected = {
             "creator_pid": os.getpid(),
             "object": standalone.name,
-            "count": 4097,
+            "count": self.particle_count,
             "frame_hashes": checked,
             "source_cache": str(self.saved_reader.directory),
             "frame_range": [1, 8],
