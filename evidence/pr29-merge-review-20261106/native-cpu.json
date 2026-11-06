@@ -1,0 +1,12 @@
+{
+  "passed": true,
+  "checks": [
+    "native small-frame mesh publication",
+    "later larger population refused before replacement",
+    "stale mesh cleared and hidden",
+    "bounded immutable reader roundtrip"
+  ],
+  "blender": "5.2.0 LTS",
+  "build": "fbe6228777e7",
+  "scope": "source native CPU adapter, no SDK/GPU/render acceptance"
+}
