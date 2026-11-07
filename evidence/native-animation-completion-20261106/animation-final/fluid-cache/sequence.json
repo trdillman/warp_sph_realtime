@@ -1,0 +1,104 @@
+{
+  "format": "warpsph-rich-particles-1",
+  "first": 1,
+  "last": 8,
+  "fps": 24.0,
+  "signature": {
+    "particles": 100000,
+    "steps_per_frame": 16,
+    "fps": 24.0,
+    "dt": 0.001648026890777408,
+    "h": 0.10341286512153043,
+    "stiffness": 90000.0,
+    "viscosity": 0.15000000596046448,
+    "scene": "Live GN and Animation Qualification.002",
+    "demo": "DOUBLE_DAM_PILLARS",
+    "gravity": [
+      0.0,
+      0.0,
+      -9.8100004196167
+    ],
+    "boundaries": "8bdcd10b11ac1b4e745ce81bb5f6cf3d5dff9a1caaab2eb18199e3587b71b151",
+    "initial_simulation_time_s": 0.04284869916021259,
+    "sample_step_seconds": 0.026368430252438527,
+    "requested_frame_seconds": 0.041666666666666664,
+    "origin": "current paused solver cloned; live state and timeline untouched",
+    "density_sampling": "last solver force evaluation, not recalculated at the final positions"
+  },
+  "status": "COMPLETE",
+  "frames": [
+    {
+      "frame": 1,
+      "file": "frame_000001.npz",
+      "count": 100000,
+      "bytes": 5601884,
+      "payload_bytes": 5600000,
+      "sha256": "b2a025a8be3df159d7d2743c6cc1798f9ff9d15b48e883fbb608965bcaa5640b",
+      "simulation_time_s": 0.04284869916021259
+    },
+    {
+      "frame": 2,
+      "file": "frame_000002.npz",
+      "count": 100000,
+      "bytes": 5601884,
+      "payload_bytes": 5600000,
+      "sha256": "19c4d55afe1c08bea699dffb48b55f017c817a38eac5850973fbef3887d899a7",
+      "simulation_time_s": 0.06921712941265111
+    },
+    {
+      "frame": 3,
+      "file": "frame_000003.npz",
+      "count": 100000,
+      "bytes": 5601884,
+      "payload_bytes": 5600000,
+      "sha256": "76274a900d692c63ec0e304d335f9719420f74dcde7e7ab7b11ccb25cbc02074",
+      "simulation_time_s": 0.09558555966508962
+    },
+    {
+      "frame": 4,
+      "file": "frame_000004.npz",
+      "count": 100000,
+      "bytes": 5601885,
+      "payload_bytes": 5600000,
+      "sha256": "0e7cea5f887c21ef84e1c361936366e9284460ebd48b58a42003568d4c55f728",
+      "simulation_time_s": 0.12195398991752814
+    },
+    {
+      "frame": 5,
+      "file": "frame_000005.npz",
+      "count": 100000,
+      "bytes": 5601885,
+      "payload_bytes": 5600000,
+      "sha256": "997044d717a36f9e5c8f5663f958221f0eeae14a15b2c8f78e3eef47603bd4e2",
+      "simulation_time_s": 0.14832242016996686
+    },
+    {
+      "frame": 6,
+      "file": "frame_000006.npz",
+      "count": 100000,
+      "bytes": 5601884,
+      "payload_bytes": 5600000,
+      "sha256": "d6839cfca41d9515b28c1f462c87ba0a3eae80ed04682f5e971333da4a3aeec9",
+      "simulation_time_s": 0.1746908504224056
+    },
+    {
+      "frame": 7,
+      "file": "frame_000007.npz",
+      "count": 100000,
+      "bytes": 5601885,
+      "payload_bytes": 5600000,
+      "sha256": "3b4862eb57d343a5ef0f43090134d5578016971a71c0f787ea8f6e8deebc606c",
+      "simulation_time_s": 0.20105928067484433
+    },
+    {
+      "frame": 8,
+      "file": "frame_000008.npz",
+      "count": 100000,
+      "bytes": 5601885,
+      "payload_bytes": 5600000,
+      "sha256": "43fbb21cbaeb006310c1f9de9d3f5c7b63b2321d819106569ec4c302ccfe54e6",
+      "simulation_time_s": 0.22742771092728306
+    }
+  ],
+  "units": "metres;velocity=m/s"
+}

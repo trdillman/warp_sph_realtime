@@ -1,0 +1,138 @@
+..FFF.                                                                   [100%]
+================================== FAILURES ===================================
+_________ test_lock_io_failure_releases_only_owned_reservation[write] _________
+
+tmp_path = WindowsPath('C:/Windows/Temp/pytest-of-Tyler/pytest-132/test_lock_io_failure_releases_0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000229FFCD0180>
+failure = 'write'
+
+    @pytest.mark.parametrize("failure", ["write", "close", "short_write"])
+    def test_lock_io_failure_releases_only_owned_reservation(tmp_path, monkeypatch, failure):
+        directory = tmp_path / "failed-lock"
+        original_open = Path.open
+    
+        class FailingLock:
+            def __init__(self, handle):
+                self.handle = handle
+    
+            def __enter__(self):
+                return self
+    
+            def write(self, value):
+                if failure == "write":
+                    raise OSError("injected lock write failure")
+                if failure == "short_write":
+                    return 0
+                return self.handle.write(value)
+    
+            def __exit__(self, *args):
+                self.handle.close()
+                if failure == "close":
+                    raise OSError("injected lock close failure")
+    
+        def fail_lock(path, *args, **kwargs):
+            handle = original_open(path, *args, **kwargs)
+            return FailingLock(handle) if path.name == ".writer.lock" else handle
+    
+        with monkeypatch.context() as patch:
+            patch.setattr(Path, "open", fail_lock)
+            with pytest.raises(OSError):
+                SequenceWriter(directory, first=1, last=2, fps=24, signature={})
+>       assert not list(directory.iterdir())
+E       AssertionError: assert not [WindowsPath('C:/Windows/Temp/pytest-of-Tyler/pytest-132/test_lock_io_failure_releases_0/failed-lock/.writer.lock')]
+E        +  where [WindowsPath('C:/Windows/Temp/pytest-of-Tyler/pytest-132/test_lock_io_failure_releases_0/failed-lock/.writer.lock')] = list(<generator object Path.iterdir.<locals>.<genexpr> at 0x00000229FFC894E0>)
+E        +    where <generator object Path.iterdir.<locals>.<genexpr> at 0x00000229FFC894E0> = iterdir()
+E        +      where iterdir = WindowsPath('C:/Windows/Temp/pytest-of-Tyler/pytest-132/test_lock_io_failure_releases_0/failed-lock').iterdir
+
+tests\test_sequence_admission_cleanup.py:53: AssertionError
+_________ test_lock_io_failure_releases_only_owned_reservation[close] _________
+
+tmp_path = WindowsPath('C:/Windows/Temp/pytest-of-Tyler/pytest-132/test_lock_io_failure_releases_1')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000229FFCCD6D0>
+failure = 'close'
+
+    @pytest.mark.parametrize("failure", ["write", "close", "short_write"])
+    def test_lock_io_failure_releases_only_owned_reservation(tmp_path, monkeypatch, failure):
+        directory = tmp_path / "failed-lock"
+        original_open = Path.open
+    
+        class FailingLock:
+            def __init__(self, handle):
+                self.handle = handle
+    
+            def __enter__(self):
+                return self
+    
+            def write(self, value):
+                if failure == "write":
+                    raise OSError("injected lock write failure")
+                if failure == "short_write":
+                    return 0
+                return self.handle.write(value)
+    
+            def __exit__(self, *args):
+                self.handle.close()
+                if failure == "close":
+                    raise OSError("injected lock close failure")
+    
+        def fail_lock(path, *args, **kwargs):
+            handle = original_open(path, *args, **kwargs)
+            return FailingLock(handle) if path.name == ".writer.lock" else handle
+    
+        with monkeypatch.context() as patch:
+            patch.setattr(Path, "open", fail_lock)
+            with pytest.raises(OSError):
+                SequenceWriter(directory, first=1, last=2, fps=24, signature={})
+>       assert not list(directory.iterdir())
+E       AssertionError: assert not [WindowsPath('C:/Windows/Temp/pytest-of-Tyler/pytest-132/test_lock_io_failure_releases_1/failed-lock/.writer.lock')]
+E        +  where [WindowsPath('C:/Windows/Temp/pytest-of-Tyler/pytest-132/test_lock_io_failure_releases_1/failed-lock/.writer.lock')] = list(<generator object Path.iterdir.<locals>.<genexpr> at 0x00000229FFC8A2F0>)
+E        +    where <generator object Path.iterdir.<locals>.<genexpr> at 0x00000229FFC8A2F0> = iterdir()
+E        +      where iterdir = WindowsPath('C:/Windows/Temp/pytest-of-Tyler/pytest-132/test_lock_io_failure_releases_1/failed-lock').iterdir
+
+tests\test_sequence_admission_cleanup.py:53: AssertionError
+______ test_lock_io_failure_releases_only_owned_reservation[short_write] ______
+
+tmp_path = WindowsPath('C:/Windows/Temp/pytest-of-Tyler/pytest-132/test_lock_io_failure_releases_2')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x00000229FFC42250>
+failure = 'short_write'
+
+    @pytest.mark.parametrize("failure", ["write", "close", "short_write"])
+    def test_lock_io_failure_releases_only_owned_reservation(tmp_path, monkeypatch, failure):
+        directory = tmp_path / "failed-lock"
+        original_open = Path.open
+    
+        class FailingLock:
+            def __init__(self, handle):
+                self.handle = handle
+    
+            def __enter__(self):
+                return self
+    
+            def write(self, value):
+                if failure == "write":
+                    raise OSError("injected lock write failure")
+                if failure == "short_write":
+                    return 0
+                return self.handle.write(value)
+    
+            def __exit__(self, *args):
+                self.handle.close()
+                if failure == "close":
+                    raise OSError("injected lock close failure")
+    
+        def fail_lock(path, *args, **kwargs):
+            handle = original_open(path, *args, **kwargs)
+            return FailingLock(handle) if path.name == ".writer.lock" else handle
+    
+        with monkeypatch.context() as patch:
+            patch.setattr(Path, "open", fail_lock)
+>           with pytest.raises(OSError):
+                 ^^^^^^^^^^^^^^^^^^^^^^
+E           Failed: DID NOT RAISE <class 'OSError'>
+
+tests\test_sequence_admission_cleanup.py:51: Failed
+=========================== short test summary info ===========================
+FAILED tests/test_sequence_admission_cleanup.py::test_lock_io_failure_releases_only_owned_reservation[write]
+FAILED tests/test_sequence_admission_cleanup.py::test_lock_io_failure_releases_only_owned_reservation[close]
+FAILED tests/test_sequence_admission_cleanup.py::test_lock_io_failure_releases_only_owned_reservation[short_write]
+3 failed, 3 passed in 1.11s

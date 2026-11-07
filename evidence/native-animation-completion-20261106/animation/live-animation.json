@@ -1,0 +1,9 @@
+{
+  "status": "failed",
+  "pid": 5216,
+  "backend": "VULKAN",
+  "checks": [],
+  "live_samples": [],
+  "scope": "actual solver live native GN plus private-copy animation; correctness not realtime FPS",
+  "startup_error": "Traceback (most recent call last):\n  File \"C:\\Users\\Tyler\\.codex\\worktrees\\live-animation-integration\\warp_sph_realtime\\tests\\runtime_live_native_animation.py\", line 401, in start\n    _probe.begin()\n    ~~~~~~~~~~~~^^\n  File \"C:\\Users\\Tyler\\.codex\\worktrees\\live-animation-integration\\warp_sph_realtime\\tests\\runtime_live_native_animation.py\", line 163, in begin\n    assert bpy.ops.wm.warp_sph_start() == {\"RUNNING_MODAL\"}\n           ~~~~~~~~~~~~~~~~~~~~~~~~~^^\nRuntimeError: Error: WarpSPH cannot start: requires one live owner window\n\n"
+}

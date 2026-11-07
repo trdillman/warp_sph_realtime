@@ -1,0 +1,265 @@
+{
+  "addon_proof": {
+    "bl_ext.blender_org.AddShaderAttribute": {
+      "default_enabled": true,
+      "discovery_root": "C:\\Users\\Tyler\\.codex\\blender-mcp\\bases\\a9440ee5b53092f14f04\\resources\\extensions\\blender_org\\AddShaderAttribute",
+      "enabled": true,
+      "expected_root": "C:\\Users\\Tyler\\.codex\\blender-mcp\\bases\\a9440ee5b53092f14f04\\resources\\extensions\\blender_org\\AddShaderAttribute",
+      "module_file": "C:\\Users\\Tyler\\.codex\\blender-mcp\\bases\\a9440ee5b53092f14f04\\resources\\extensions\\blender_org\\AddShaderAttribute\\__init__.py",
+      "preferences_member": true,
+      "version": null
+    },
+    "bl_ext.blender_org.attribute_sweep": {
+      "default_enabled": true,
+      "discovery_root": "C:\\Users\\Tyler\\.codex\\blender-mcp\\bases\\a9440ee5b53092f14f04\\resources\\extensions\\blender_org\\attribute_sweep",
+      "enabled": true,
+      "expected_root": "C:\\Users\\Tyler\\.codex\\blender-mcp\\bases\\a9440ee5b53092f14f04\\resources\\extensions\\blender_org\\attribute_sweep",
+      "module_file": "C:\\Users\\Tyler\\.codex\\blender-mcp\\bases\\a9440ee5b53092f14f04\\resources\\extensions\\blender_org\\attribute_sweep\\__init__.py",
+      "preferences_member": true,
+      "version": null
+    },
+    "bl_ext.blender_org.copy_attributes_menu": {
+      "default_enabled": true,
+      "discovery_root": "C:\\Users\\Tyler\\.codex\\blender-mcp\\bases\\a9440ee5b53092f14f04\\resources\\extensions\\blender_org\\copy_attributes_menu",
+      "enabled": true,
+      "expected_root": "C:\\Users\\Tyler\\.codex\\blender-mcp\\bases\\a9440ee5b53092f14f04\\resources\\extensions\\blender_org\\copy_attributes_menu",
+      "module_file": "C:\\Users\\Tyler\\.codex\\blender-mcp\\bases\\a9440ee5b53092f14f04\\resources\\extensions\\blender_org\\copy_attributes_menu\\__init__.py",
+      "preferences_member": true,
+      "version": null
+    },
+    "bl_ext.blender_org.developer_utilities": {
+      "default_enabled": true,
+      "discovery_root": "C:\\Users\\Tyler\\.codex\\blender-mcp\\bases\\a9440ee5b53092f14f04\\resources\\extensions\\blender_org\\developer_utilities",
+      "enabled": true,
+      "expected_root": "C:\\Users\\Tyler\\.codex\\blender-mcp\\bases\\a9440ee5b53092f14f04\\resources\\extensions\\blender_org\\developer_utilities",
+      "module_file": "C:\\Users\\Tyler\\.codex\\blender-mcp\\bases\\a9440ee5b53092f14f04\\resources\\extensions\\blender_org\\developer_utilities\\__init__.py",
+      "preferences_member": true,
+      "version": null
+    },
+    "bl_ext.blender_org.named_attribute_list": {
+      "default_enabled": true,
+      "discovery_root": "C:\\Users\\Tyler\\.codex\\blender-mcp\\bases\\a9440ee5b53092f14f04\\resources\\extensions\\blender_org\\named_attribute_list",
+      "enabled": true,
+      "expected_root": "C:\\Users\\Tyler\\.codex\\blender-mcp\\bases\\a9440ee5b53092f14f04\\resources\\extensions\\blender_org\\named_attribute_list",
+      "module_file": "C:\\Users\\Tyler\\.codex\\blender-mcp\\bases\\a9440ee5b53092f14f04\\resources\\extensions\\blender_org\\named_attribute_list\\__init__.py",
+      "preferences_member": true,
+      "version": null
+    },
+    "bl_ext.blender_org.node_arrange": {
+      "default_enabled": true,
+      "discovery_root": "C:\\Users\\Tyler\\.codex\\blender-mcp\\bases\\a9440ee5b53092f14f04\\resources\\extensions\\blender_org\\node_arrange",
+      "enabled": true,
+      "expected_root": "C:\\Users\\Tyler\\.codex\\blender-mcp\\bases\\a9440ee5b53092f14f04\\resources\\extensions\\blender_org\\node_arrange",
+      "module_file": "C:\\Users\\Tyler\\.codex\\blender-mcp\\bases\\a9440ee5b53092f14f04\\resources\\extensions\\blender_org\\node_arrange\\__init__.py",
+      "preferences_member": true,
+      "version": null
+    },
+    "bl_ext.blender_org.node_editor_switcher": {
+      "default_enabled": true,
+      "discovery_root": "C:\\Users\\Tyler\\.codex\\blender-mcp\\bases\\a9440ee5b53092f14f04\\resources\\extensions\\blender_org\\node_editor_switcher",
+      "enabled": true,
+      "expected_root": "C:\\Users\\Tyler\\.codex\\blender-mcp\\bases\\a9440ee5b53092f14f04\\resources\\extensions\\blender_org\\node_editor_switcher",
+      "module_file": "C:\\Users\\Tyler\\.codex\\blender-mcp\\bases\\a9440ee5b53092f14f04\\resources\\extensions\\blender_org\\node_editor_switcher\\__init__.py",
+      "preferences_member": true,
+      "version": null
+    },
+    "bl_ext.blender_org.node_to_python": {
+      "default_enabled": true,
+      "discovery_root": "C:\\Users\\Tyler\\.codex\\blender-mcp\\bases\\a9440ee5b53092f14f04\\resources\\extensions\\blender_org\\node_to_python",
+      "enabled": true,
+      "expected_root": "C:\\Users\\Tyler\\.codex\\blender-mcp\\bases\\a9440ee5b53092f14f04\\resources\\extensions\\blender_org\\node_to_python",
+      "module_file": "C:\\Users\\Tyler\\.codex\\blender-mcp\\bases\\a9440ee5b53092f14f04\\resources\\extensions\\blender_org\\node_to_python\\__init__.py",
+      "preferences_member": true,
+      "version": null
+    },
+    "bl_ext.blender_org.preset_startup_manager": {
+      "default_enabled": true,
+      "discovery_root": "C:\\Users\\Tyler\\.codex\\blender-mcp\\bases\\a9440ee5b53092f14f04\\resources\\extensions\\blender_org\\preset_startup_manager",
+      "enabled": true,
+      "expected_root": "C:\\Users\\Tyler\\.codex\\blender-mcp\\bases\\a9440ee5b53092f14f04\\resources\\extensions\\blender_org\\preset_startup_manager",
+      "module_file": "C:\\Users\\Tyler\\.codex\\blender-mcp\\bases\\a9440ee5b53092f14f04\\resources\\extensions\\blender_org\\preset_startup_manager\\__init__.py",
+      "preferences_member": true,
+      "version": null
+    },
+    "bl_ext.blender_org.ramp_generator": {
+      "default_enabled": true,
+      "discovery_root": "C:\\Users\\Tyler\\.codex\\blender-mcp\\bases\\a9440ee5b53092f14f04\\resources\\extensions\\blender_org\\ramp_generator",
+      "enabled": true,
+      "expected_root": "C:\\Users\\Tyler\\.codex\\blender-mcp\\bases\\a9440ee5b53092f14f04\\resources\\extensions\\blender_org\\ramp_generator",
+      "module_file": "C:\\Users\\Tyler\\.codex\\blender-mcp\\bases\\a9440ee5b53092f14f04\\resources\\extensions\\blender_org\\ramp_generator\\__init__.py",
+      "preferences_member": true,
+      "version": null
+    },
+    "bl_ext.blender_org.restart": {
+      "default_enabled": true,
+      "discovery_root": "C:\\Users\\Tyler\\.codex\\blender-mcp\\bases\\a9440ee5b53092f14f04\\resources\\extensions\\blender_org\\restart",
+      "enabled": true,
+      "expected_root": "C:\\Users\\Tyler\\.codex\\blender-mcp\\bases\\a9440ee5b53092f14f04\\resources\\extensions\\blender_org\\restart",
+      "module_file": "C:\\Users\\Tyler\\.codex\\blender-mcp\\bases\\a9440ee5b53092f14f04\\resources\\extensions\\blender_org\\restart\\__init__.py",
+      "preferences_member": true,
+      "version": null
+    },
+    "bl_ext.blender_org.synchronize_workspaces": {
+      "default_enabled": true,
+      "discovery_root": "C:\\Users\\Tyler\\.codex\\blender-mcp\\bases\\a9440ee5b53092f14f04\\resources\\extensions\\blender_org\\synchronize_workspaces",
+      "enabled": true,
+      "expected_root": "C:\\Users\\Tyler\\.codex\\blender-mcp\\bases\\a9440ee5b53092f14f04\\resources\\extensions\\blender_org\\synchronize_workspaces",
+      "module_file": "C:\\Users\\Tyler\\.codex\\blender-mcp\\bases\\a9440ee5b53092f14f04\\resources\\extensions\\blender_org\\synchronize_workspaces\\__init__.py",
+      "preferences_member": true,
+      "version": null
+    },
+    "bl_ext.user_default.gpu_particle_nodes": {
+      "default_enabled": true,
+      "discovery_root": "C:\\Users\\Tyler\\.codex\\blender-mcp\\bases\\a9440ee5b53092f14f04\\resources\\extensions\\user_default\\gpu_particle_nodes",
+      "enabled": true,
+      "expected_root": "C:\\Users\\Tyler\\.codex\\blender-mcp\\bases\\a9440ee5b53092f14f04\\resources\\extensions\\user_default\\gpu_particle_nodes",
+      "module_file": "C:\\Users\\Tyler\\.codex\\blender-mcp\\bases\\a9440ee5b53092f14f04\\resources\\extensions\\user_default\\gpu_particle_nodes\\__init__.py",
+      "preferences_member": true,
+      "version": null
+    },
+    "bl_pkg": {
+      "default_enabled": true,
+      "discovery_root": "C:\\Users\\Tyler\\Downloads\\blender-5.2.0-windows-x64\\blender-5.2.0-windows-x64\\5.2\\scripts\\addons_core",
+      "enabled": true,
+      "expected_root": null,
+      "module_file": "C:\\Users\\Tyler\\Downloads\\blender-5.2.0-windows-x64\\blender-5.2.0-windows-x64\\5.2\\scripts\\addons_core\\bl_pkg\\__init__.py",
+      "preferences_member": true,
+      "version": [
+        0,
+        0,
+        1
+      ]
+    },
+    "blender_mcp": {
+      "default_enabled": true,
+      "discovery_root": "C:\\Users\\Tyler\\.codex\\blender-mcp\\sessions\\11e3783839cd4acbb66e5e4a48939881\\resources\\scripts\\addons\\blender_mcp",
+      "enabled": true,
+      "expected_root": "C:\\Users\\Tyler\\.codex\\blender-mcp\\sessions\\11e3783839cd4acbb66e5e4a48939881\\resources\\scripts\\addons\\blender_mcp",
+      "module_file": "C:\\Users\\Tyler\\.codex\\blender-mcp\\sessions\\11e3783839cd4acbb66e5e4a48939881\\resources\\scripts\\addons\\blender_mcp\\__init__.py",
+      "preferences_member": true,
+      "version": [
+        1,
+        4
+      ]
+    },
+    "cycles": {
+      "default_enabled": true,
+      "discovery_root": "C:\\Users\\Tyler\\Downloads\\blender-5.2.0-windows-x64\\blender-5.2.0-windows-x64\\5.2\\scripts\\addons_core",
+      "enabled": true,
+      "expected_root": null,
+      "module_file": "C:\\Users\\Tyler\\Downloads\\blender-5.2.0-windows-x64\\blender-5.2.0-windows-x64\\5.2\\scripts\\addons_core\\cycles\\__init__.py",
+      "preferences_member": true,
+      "version": null
+    },
+    "io_anim_bvh": {
+      "default_enabled": true,
+      "discovery_root": "C:\\Users\\Tyler\\Downloads\\blender-5.2.0-windows-x64\\blender-5.2.0-windows-x64\\5.2\\scripts\\addons_core",
+      "enabled": true,
+      "expected_root": null,
+      "module_file": "C:\\Users\\Tyler\\Downloads\\blender-5.2.0-windows-x64\\blender-5.2.0-windows-x64\\5.2\\scripts\\addons_core\\io_anim_bvh\\__init__.py",
+      "preferences_member": true,
+      "version": [
+        1,
+        0,
+        1
+      ]
+    },
+    "io_curve_svg": {
+      "default_enabled": true,
+      "discovery_root": "C:\\Users\\Tyler\\Downloads\\blender-5.2.0-windows-x64\\blender-5.2.0-windows-x64\\5.2\\scripts\\addons_core",
+      "enabled": true,
+      "expected_root": null,
+      "module_file": "C:\\Users\\Tyler\\Downloads\\blender-5.2.0-windows-x64\\blender-5.2.0-windows-x64\\5.2\\scripts\\addons_core\\io_curve_svg\\__init__.py",
+      "preferences_member": true,
+      "version": null
+    },
+    "io_mesh_uv_layout": {
+      "default_enabled": true,
+      "discovery_root": "C:\\Users\\Tyler\\Downloads\\blender-5.2.0-windows-x64\\blender-5.2.0-windows-x64\\5.2\\scripts\\addons_core",
+      "enabled": true,
+      "expected_root": null,
+      "module_file": "C:\\Users\\Tyler\\Downloads\\blender-5.2.0-windows-x64\\blender-5.2.0-windows-x64\\5.2\\scripts\\addons_core\\io_mesh_uv_layout\\__init__.py",
+      "preferences_member": true,
+      "version": [
+        1,
+        2,
+        0
+      ]
+    },
+    "io_scene_fbx": {
+      "default_enabled": true,
+      "discovery_root": "C:\\Users\\Tyler\\Downloads\\blender-5.2.0-windows-x64\\blender-5.2.0-windows-x64\\5.2\\scripts\\addons_core",
+      "enabled": true,
+      "expected_root": null,
+      "module_file": "C:\\Users\\Tyler\\Downloads\\blender-5.2.0-windows-x64\\blender-5.2.0-windows-x64\\5.2\\scripts\\addons_core\\io_scene_fbx\\__init__.py",
+      "preferences_member": true,
+      "version": [
+        5,
+        15,
+        0
+      ]
+    },
+    "io_scene_gltf2": {
+      "default_enabled": true,
+      "discovery_root": "C:\\Users\\Tyler\\Downloads\\blender-5.2.0-windows-x64\\blender-5.2.0-windows-x64\\5.2\\scripts\\addons_core",
+      "enabled": true,
+      "expected_root": null,
+      "module_file": "C:\\Users\\Tyler\\Downloads\\blender-5.2.0-windows-x64\\blender-5.2.0-windows-x64\\5.2\\scripts\\addons_core\\io_scene_gltf2\\__init__.py",
+      "preferences_member": true,
+      "version": [
+        5,
+        2,
+        39
+      ]
+    },
+    "node_wrangler": {
+      "default_enabled": true,
+      "discovery_root": "C:\\Users\\Tyler\\Downloads\\blender-5.2.0-windows-x64\\blender-5.2.0-windows-x64\\5.2\\scripts\\addons_core",
+      "enabled": true,
+      "expected_root": null,
+      "module_file": "C:\\Users\\Tyler\\Downloads\\blender-5.2.0-windows-x64\\blender-5.2.0-windows-x64\\5.2\\scripts\\addons_core\\node_wrangler\\__init__.py",
+      "preferences_member": true,
+      "version": [
+        4,
+        1,
+        0
+      ]
+    },
+    "pose_library": {
+      "default_enabled": true,
+      "discovery_root": "C:\\Users\\Tyler\\Downloads\\blender-5.2.0-windows-x64\\blender-5.2.0-windows-x64\\5.2\\scripts\\addons_core",
+      "enabled": true,
+      "expected_root": null,
+      "module_file": "C:\\Users\\Tyler\\Downloads\\blender-5.2.0-windows-x64\\blender-5.2.0-windows-x64\\5.2\\scripts\\addons_core\\pose_library\\__init__.py",
+      "preferences_member": true,
+      "version": [
+        2,
+        0
+      ]
+    }
+  },
+  "blend_file": "C:\\Users\\Tyler\\.codex\\worktrees\\live-animation-integration\\warp_sph_realtime\\evidence\\native-animation-completion-20261106\\animation-final\\Live-GN-Fluid-Animation.blend",
+  "blender_version": "5.2.0 LTS",
+  "host": "127.0.0.1",
+  "launch_id": "11e3783839cd4acbb66e5e4a48939881",
+  "operator": "blendermcp.start_canonical_server",
+  "operator_result": [
+    "FINISHED"
+  ],
+  "pid": 32700,
+  "port": 9877,
+  "profile_root": "C:\\Users\\Tyler\\.codex\\blender-mcp\\sessions\\11e3783839cd4acbb66e5e4a48939881\\resources",
+  "python_dependency_proof": {},
+  "ready": true,
+  "runtime_script": "C:\\Users\\Tyler\\Downloads\\chatgpt-local-mcp-gateway\\chatgpt-local-mcp-gateway\\repo_mcp\\blender_tcp_runtime.py",
+  "schema_version": 1,
+  "stdio_proof": {
+    "log_path": "C:\\Users\\Tyler\\Downloads\\chatgpt-local-mcp-gateway\\chatgpt-local-mcp-gateway\\.codex\\runtime\\blender-mcp-logs\\blender-mcp-127.0.0.1-9877.log",
+    "stderr_repaired": true,
+    "stderr_usable": true,
+    "stdout_repaired": true,
+    "stdout_usable": true
+  },
+  "timestamp_unix": 1794079401.0592673,
+  "window_count": 1
+}
