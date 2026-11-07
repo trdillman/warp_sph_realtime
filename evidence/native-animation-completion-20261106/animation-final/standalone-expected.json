@@ -1,0 +1,52 @@
+{
+  "creator_pid": 5216,
+  "object": "WarpSPH Standalone Animation",
+  "count": 100000,
+  "frame_hashes": {
+    "8": {
+      "position": "d6267017c87344f5f61f829be13ff1d19740fced8dbed1a88a2eb0bd01fbdfb3",
+      "velocity": "26a7bb5cf9d5d5a5614bf71063b960f3c9e06ec48927c66b2b7baf27488c3d46",
+      "density": "c7a992c59158320780cde5eba195ca565789755907f51e80fd54bb3d4fac117b",
+      "radius": "2ef195a9f0f0d346eef9fd15a370403a4b2b5075c3a5d6d349a5d5fbecf485e1",
+      "color": "40cdeae73fd9dfcb6991fb8bfa267dabc1f5e8c7734b9c6a85bbd117bec922f2",
+      "id": "c07d28ed36a12c256ece396f2959f9c8579cc2571e8491e3269a908fad676450"
+    },
+    "1": {
+      "position": "0d865c042ba11d6b62ce2966f92f6d0752c5ded43613ed568fa67b2892c68d6e",
+      "velocity": "4d9e05f98de848d8a4a42927098ae0689d7f605c9a1f1e0e009d55810c5c1e63",
+      "density": "dfbd9835b230d896ba1b03c63e22584b922567b9db1fc3d6173dc8ab74a97fc6",
+      "radius": "2ef195a9f0f0d346eef9fd15a370403a4b2b5075c3a5d6d349a5d5fbecf485e1",
+      "color": "40cdeae73fd9dfcb6991fb8bfa267dabc1f5e8c7734b9c6a85bbd117bec922f2",
+      "id": "99838e06c16e2b6f9e326d9e65e115c9408bacab47d0c1fa262549db81c62090"
+    },
+    "5": {
+      "position": "8621ff6cb35736d5a98c5b26b9de9c3232c3874d943bb42c92a65b67c7cc68c2",
+      "velocity": "0dc98ff88f577694ef29080bb0d96272c71b0b19665ed98bd42e68c9c52dca71",
+      "density": "2de06be575c33deb9025577bd268f1ae30ae9e8e2e1c1dec009a2df6bd8dce0a",
+      "radius": "2ef195a9f0f0d346eef9fd15a370403a4b2b5075c3a5d6d349a5d5fbecf485e1",
+      "color": "40cdeae73fd9dfcb6991fb8bfa267dabc1f5e8c7734b9c6a85bbd117bec922f2",
+      "id": "926518655d54c27b3a8a125e8136de2f8fb1d1f1a83ff0bb9cab8dc4dfaff7c1"
+    },
+    "2": {
+      "position": "ea08755b19980cd3254bcc9760fd1a8ba1dd17e90767643605a0edaf030606d1",
+      "velocity": "599bfa0832a216a180ed69ff9a5b4572819be549699dd1cf998bff51a8d84608",
+      "density": "5d0ab31d0289b83a13abf2cb4d9519e9be24bd6d58b73d06a8809b2a42bdf371",
+      "radius": "2ef195a9f0f0d346eef9fd15a370403a4b2b5075c3a5d6d349a5d5fbecf485e1",
+      "color": "40cdeae73fd9dfcb6991fb8bfa267dabc1f5e8c7734b9c6a85bbd117bec922f2",
+      "id": "99838e06c16e2b6f9e326d9e65e115c9408bacab47d0c1fa262549db81c62090"
+    },
+    "7": {
+      "position": "2a46f1efcf09e6513f44008ab375477e7a09351e6775ff5f41305695df241195",
+      "velocity": "c010b121165e4a2b6d7ceb87d8836071792e5bf8ba6cf54f9f6816098d3da2e3",
+      "density": "a4555188d651665678bf78199190059bff84206f79f2154b42981a0ae6518a03",
+      "radius": "2ef195a9f0f0d346eef9fd15a370403a4b2b5075c3a5d6d349a5d5fbecf485e1",
+      "color": "40cdeae73fd9dfcb6991fb8bfa267dabc1f5e8c7734b9c6a85bbd117bec922f2",
+      "id": "2558e219d91482e13a9b7e6064e661aee610c49cb6002c74f9e6d7a7c777fe77"
+    }
+  },
+  "source_cache": "C:\\Users\\Tyler\\.codex\\worktrees\\live-animation-integration\\warp_sph_realtime\\evidence\\native-animation-completion-20261106\\animation-final\\fluid-cache",
+  "frame_range": [
+    1,
+    8
+  ]
+}

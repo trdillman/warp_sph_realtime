@@ -1,0 +1,50 @@
+{
+  "format": "warpsph-rich-particles-1",
+  "first": 1,
+  "last": 50,
+  "fps": 24.0,
+  "signature": {
+    "particles": 100000,
+    "steps_per_frame": 16,
+    "fps": 24.0,
+    "dt": 0.001648026890777408,
+    "h": 0.10341286512153043,
+    "stiffness": 90000.0,
+    "viscosity": 0.15000000596046448,
+    "scene": "Live GN and Animation Qualification.002",
+    "demo": "DOUBLE_DAM_PILLARS",
+    "gravity": [
+      0.0,
+      0.0,
+      -9.8100004196167
+    ],
+    "boundaries": "8bdcd10b11ac1b4e745ce81bb5f6cf3d5dff9a1caaab2eb18199e3587b71b151",
+    "initial_simulation_time_s": 0.04284869916021259,
+    "sample_step_seconds": 0.026368430252438527,
+    "requested_frame_seconds": 0.041666666666666664,
+    "origin": "current paused solver cloned; live state and timeline untouched",
+    "density_sampling": "last solver force evaluation, not recalculated at the final positions"
+  },
+  "status": "CANCELLED",
+  "frames": [
+    {
+      "frame": 1,
+      "file": "frame_000001.npz",
+      "count": 100000,
+      "bytes": 5601884,
+      "payload_bytes": 5600000,
+      "sha256": "d58680a15bad9be816d3684cefb01f041b2a88997f7917c2b3130928c49b7a6a",
+      "simulation_time_s": 0.04284869916021259
+    },
+    {
+      "frame": 2,
+      "file": "frame_000002.npz",
+      "count": 100000,
+      "bytes": 5601884,
+      "payload_bytes": 5600000,
+      "sha256": "220853a89850ab374bae17b8faa82b1c2dda83a795f5938bb1a528fbf9c958a9",
+      "simulation_time_s": 0.06921712941265111
+    }
+  ],
+  "units": "metres;velocity=m/s"
+}
