@@ -1,0 +1,17 @@
+{
+  "source": "3c3b90d",
+  "pid": 24556,
+  "port": 9879,
+  "module": "bl_ext.timeline_demo.warp_sph_realtime",
+  "installed_zip_bytes_match": true,
+  "native_play_advances": true,
+  "addon_pause_cancels_native_play": true,
+  "addon_single_step_frame": 2,
+  "solver_steps_for_frame": 13,
+  "native_frame_offset_verified": true,
+  "backward_scrub_rebuilds": true,
+  "reset_frame": 1,
+  "frame_start_at_nonstart_start_verified": true,
+  "idle_initial_steps": 0,
+  "errors": ""
+}
