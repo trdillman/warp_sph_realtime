@@ -382,6 +382,9 @@ class SimSession:
     def _rebase(self, scene):
         """The run was just built from ``scene`` as it is now: nothing is pending, and this is its start frame."""
         self.start_frame = int(getattr(scene, "frame_current", 1))
+        self._timeline_target = self.start_frame
+        self._timeline_elapsed = 0.0
+        self.timeline_status = "Timeline ready: Play or move the playhead"
         self.tracker = live_edits.ChangeTracker(scene, custom=self.active_demo == CUSTOM_SCENE)
         if getattr(self.session, 'is_shared_sdk', False):
             self.session.note_scene_applied()
@@ -446,7 +449,16 @@ class SimSession:
                     self._set_frame(frame)
                 raise
         else:
-            self.reallocate(scene, settings.particle_count, settings.demo_scene, context.window, keep_output=True)
+            frame = getattr(scene, "frame_current", None)
+            start = self.start_frame if start is None else start
+            if frame is not None and start is not None:
+                self._set_frame(start)
+            try:
+                self.reallocate(scene, settings.particle_count, settings.demo_scene, context.window, keep_output=True)
+            except BaseException:
+                if frame is not None:
+                    self._set_frame(frame)
+                raise
 
     def reset(self, context, report: Report) -> bool:
         """Restart the running simulation at its start frame with every scene edit applied, keeping the Warp
@@ -493,7 +505,10 @@ class SimSession:
     def apply_scene(self, context, count: int, demo: str, report: Report) -> bool:
         """Resize or switch demo while running; on failure the running session is kept and the
         scene settings are put back so the same change is not retried every tick."""
+        frame = self.scene.frame_current if hasattr(context.screen, 'is_animation_playing') else None
         try:
+            if frame is not None:
+                self._set_frame(self.start_frame)
             self.reallocate(self.scene, count, demo, context.window)
             return True
         except FatalTransportError as exc:
@@ -508,6 +523,9 @@ class SimSession:
                 else:
                     settings.particle_count = self.solver.num_particles
                     settings.demo_scene = self.active_demo
+        finally:
+            if frame is not None:
+                self._set_frame(frame)
         return False
 
     # -- lifecycle -----------------------------------------------------------------------------------
@@ -524,6 +542,9 @@ class SimSession:
         self.scene_uid = live_edits.uid(context.scene)
         self.last_error = ""
         self.draw_errors.clear()
+        initial_frame = getattr(self.scene, 'frame_current', None)
+        if hasattr(context.screen, 'is_animation_playing'):
+            self._set_frame(self.scene.frame_start)
         try:
             if getattr(self.scene.warp_sph, 'use_shared_sdk', False):
                 from .sdk_dependency import validate_environment
@@ -536,16 +557,22 @@ class SimSession:
             else:
                 self.reallocate(scene, settings.particle_count, settings.demo_scene, context.window)
         except SceneSetupError as exc:
+            if initial_frame is not None:
+                self._set_frame(initial_frame)
             self.stop(context)
             self.last_error = f"Scene not valid: {exc}"
             report({'ERROR'}, f"WarpSPH cannot start this scene: {exc}")
             return None
         except FatalTransportError as exc:
+            if initial_frame is not None:
+                self._set_frame(initial_frame)
             self.mark_fatal(str(exc))
             self.stop(context)
             report({'ERROR'}, f"WarpSPH GPU transport failed; restart Blender: {exc}")
             return None
         except Exception as exc:
+            if initial_frame is not None:
+                self._set_frame(initial_frame)
             self.stop(context)
             report({'ERROR'}, f"WarpSPH cannot start: {exc}")
             return None
@@ -641,7 +668,50 @@ class SimSession:
             _redraw_views(screen)
             return True  # publish the initial state before advancing, including when paused
 
-        if self.paused and not self.step_once:
+        timeline_bound = hasattr(screen, 'is_animation_playing')
+        step_seconds = 0.0
+        if timeline_bound:
+            from .timeline import needs_step
+            target = max(self.start_frame, int(self.scene.frame_current))
+            if self.scene.frame_current < self.start_frame:
+                self._set_frame(self.start_frame)
+            previous = getattr(self, '_timeline_target', self.start_frame)
+            after_bake = getattr(self, '_timeline_rebuild', False)
+            if after_bake and screen.is_animation_playing:
+                bpy.ops.screen.animation_cancel(restore_frame=False)
+            if target < previous or after_bake:
+                # Without recorded inputs a seek replays the current settings.
+                # Rebuild transactionally, then catch up in bounded modal ticks.
+                requested = target
+                if not self.reset(context, report):
+                    return True
+                self._set_frame(requested)
+                self._timeline_rebuild = False
+                target = requested
+                report({'INFO'}, "Timeline rewind: replaying from start with current settings")
+            self._timeline_target = target
+            self.paused = not screen.is_animation_playing
+            fps = self.scene.render.fps / self.scene.render.fps_base
+            step_seconds = float(self.solver.dt) * int(settings.substeps)
+            try:
+                pending = needs_step(target, self.start_frame, fps,
+                                     getattr(self, '_timeline_elapsed', 0.0), step_seconds)
+            except ValueError as exc:
+                message = str(exc)
+                if self.timeline_status != message:
+                    report({'WARNING'}, message)
+                self.timeline_status = message
+                if screen.is_animation_playing:
+                    bpy.ops.screen.animation_cancel(restore_frame=False)
+                self.paused = True
+                _redraw_views(screen)
+                return True
+            if not pending:
+                self.timeline_status = f"Timeline frame {target}: ready"
+                _redraw_views(screen)
+                return True
+            self.timeline_status = f"Simulating toward timeline frame {target}"
+        elif self.paused and not self.step_once:
             _redraw_views(screen)  # keep redrawing so display settings stay live on the frozen frame
             return True
 
@@ -651,7 +721,12 @@ class SimSession:
         solver, use_graph = self.solver, settings.use_cuda_graph
         try:
             if self.active_demo == CUSTOM_SCENE:  # animated colliders: one transform read per frame
-                self._sync_colliders(solver)
+                frame = self.scene.frame_current if timeline_bound else None
+                try:
+                    self._sync_colliders(solver)
+                finally:
+                    if frame is not None and self.scene.frame_current != frame:
+                        self._set_frame(frame)
                 if getattr(self.session, 'is_shared_sdk', False):
                     self.session.note_scene_applied()
             if self.session is not None:
@@ -686,6 +761,8 @@ class SimSession:
             self.fps_avg = 1000.0 / max(self.frame_time_ms, 0.001)
         if stepped:
             self.step_count += 1
+            if timeline_bound:
+                self._timeline_elapsed = getattr(self, '_timeline_elapsed', 0.0) + step_seconds
             self.step_once = False  # a single-step request survives a backpressure skip
         if getattr(solver, "emission_exhausted", False) and solver.take_exhaustion_notice():
             report({'WARNING'}, "WarpSPH: particle budget reached; emitters stopped (raise Max Particles)")
@@ -850,6 +927,7 @@ class SimSession:
         if self.solver is not None:
             self.solver.substeps = self.scene.warp_sph.substeps
         self.paused = True  # keep the final state on screen; Resume continues the live view
+        self._timeline_rebuild = True  # bake used this solver; replay before returning to live timeline control
 
     def _discard_bake(self):
         """Teardown path (stop, file load, unregister): leave the cache as a whole prefix and free the ring."""
