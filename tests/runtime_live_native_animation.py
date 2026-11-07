@@ -436,7 +436,7 @@ def verify_standalone(output):
         "pid": os.getpid(),
         "SDK_Warp_consumer_absent": True,
         "native_GN_time_samples": samples,
-        "source_files_not_read_for_playback": True,
+        "source_files_not_read_for_playback": None,  # Not traced or blocked by this reopen probe.
     }
     (out / "standalone-reopen.json").write_text(json.dumps(report, indent=2), encoding="utf-8")
     return report
