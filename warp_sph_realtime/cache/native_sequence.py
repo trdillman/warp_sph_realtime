@@ -131,8 +131,6 @@ class SequenceWriter:
             raise ValueError("animation directory must be empty; existing files are never replaced")
         self.directory.mkdir(parents=True, exist_ok=True)
         self.lock = self.directory / ".writer.lock"
-        with self.lock.open("x", encoding="ascii") as handle:
-            handle.write(str(os.getpid()))
         self.max_frame_bytes = max_frame_bytes
         self.closed = False
         self.document = {
@@ -146,7 +144,14 @@ class SequenceWriter:
             "units": "metres;velocity=m/s",
         }
         self.previous_stamp = None
+        # Opening exclusively establishes ownership. A failed open must never
+        # remove a competing writer's lock; all later I/O failures release ours.
+        lock_handle = self.lock.open("x", encoding="ascii")
         try:
+            with lock_handle as handle:
+                identity = str(os.getpid())
+                if handle.write(identity) != len(identity):
+                    raise OSError("incomplete animation writer lock")
             _atomic_json(self.directory / "sequence.json", self.document)
         except Exception:
             self.lock.unlink(missing_ok=True)
