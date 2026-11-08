@@ -123,6 +123,19 @@ assert rt.reset(ctx,lambda *a:None)
 ctx.scene.frame_set(2)
 for _ in range(20):rt.tick(ctx,lambda *a:None)
 assert rt.solver.steps==10,'Reset failed to accept new FPS'
+real_reset=rt.reset
+attempts=[]
+rt.reset=lambda context,report:attempts.append('attempt') or False
+ctx.scene.frame_set(1)
+ctx.screen.is_animation_playing=True
+for _ in range(30):rt.tick(ctx,lambda *a:None)
+assert len(attempts)==1 and rt._timeline_rebuild and rt._timeline_reset_failed
+assert not ctx.screen.is_animation_playing
+rt.reset=real_reset
+assert rt.reset(ctx,lambda *a:None) and not rt._timeline_reset_failed
+ctx.scene.frame_set(2)
+for _ in range(20):rt.tick(ctx,lambda *a:None)
+assert rt.solver.steps==10,'manual Reset did not recover failed rewind'
 rt.stop(ctx)
 ctx.scene.frame_current=10
 op,result=start(ctx)

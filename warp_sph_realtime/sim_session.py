@@ -391,6 +391,8 @@ class SimSession:
         self._timeline_seek_pending = False
         self._timeline_pause_requested = False
         self._timeline_step_requested = False
+        self._timeline_reset_failed = False
+        self._timeline_rebuild = False
         self.timeline_status = "Timeline ready: Play or move the playhead"
         self.tracker = live_edits.ChangeTracker(scene, custom=self.active_demo == CUSTOM_SCENE)
         if getattr(self.session, 'is_shared_sdk', False):
@@ -679,6 +681,13 @@ class SimSession:
         step_seconds = 0.0
         if timeline_bound:
             from .timeline import needs_step
+            if getattr(self, '_timeline_reset_failed', False):
+                if screen.is_animation_playing:
+                    bpy.ops.screen.animation_cancel(restore_frame=False)
+                self.paused = True
+                self.timeline_status = "Timeline rebuild failed: fix the scene, then Reset"
+                _redraw_views(screen)
+                return True
             target = max(self.start_frame, int(self.scene.frame_current))
             if self.scene.frame_current < self.start_frame:
                 self._set_frame(self.start_frame)
@@ -709,6 +718,11 @@ class SimSession:
                 # Rebuild transactionally, then catch up in bounded modal ticks.
                 requested = target
                 if not self.reset(context, report):
+                    self._timeline_reset_failed = True
+                    self._timeline_rebuild = True  # failed replay remains required
+                    if screen.is_animation_playing:
+                        bpy.ops.screen.animation_cancel(restore_frame=False)
+                    self.paused = True
                     return True
                 self._set_frame(requested)
                 self._timeline_rebuild = False

@@ -8,6 +8,13 @@ Codex review found two valid boundaries on original head2ad949f:
 - A Single Step clamped to an already-completed end frame now clears step_once,
   preventing a stale request from blocking native animation bake admission.
 
+CodeRabbit additionally found repeated failed rewind/post-bake rebuilds on the
+modal timer. A rejected replay now remains required but is held without repeated
+rebuilds/reports; playback pauses and the panel requests scene correction plus
+explicit Reset. A successful Reset clears the held failure and replay state.
+Regression verifies one attempt over30ticks, retained replay requirement, paused
+playback and recovery after explicit Reset.
+
 The actual SimSession subprocess regression reproduces premature FPS retiming
 before the fix, then verifies the old FPS until Reset, the new FPS afterward,
 and end-frame request cleanup. Final affected suite21 tests/2 subtests passed;
