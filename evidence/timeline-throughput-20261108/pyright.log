@@ -1,0 +1,8 @@
+c:\Users\Tyler\.codex\worktrees\live-animation-integration\warp_sph_realtime\scripts\benchmark_timeline_frame.py
+  c:\Users\Tyler\.codex\worktrees\live-animation-integration\warp_sph_realtime\scripts\benchmark_timeline_frame.py:30:10 - error: Object of type "Never" cannot be used with "with" because it does not correctly implement __enter__ (reportGeneralTypeIssues)
+  c:\Users\Tyler\.codex\worktrees\live-animation-integration\warp_sph_realtime\scripts\benchmark_timeline_frame.py:30:10 - error: Object of type "Never" cannot be used with "with" because it does not correctly implement __exit__ (reportGeneralTypeIssues)
+  c:\Users\Tyler\.codex\worktrees\live-animation-integration\warp_sph_realtime\scripts\benchmark_timeline_frame.py:62:53 - error: Operator "+" not supported for "None" (reportOptionalOperand)
+3 errors, 0 warnings, 0 informations
+WARNING: there is a new pyright version available (v1.1.408 -> v1.1.414).
+Please install the new version or set PYRIGHT_PYTHON_FORCE_VERSION to `latest`
+

@@ -1,0 +1,2 @@
+name, driver_version, uuid, memory.used [MiB], utilization.gpu [%]
+NVIDIA GeForce RTX 4080 SUPER, 621.14, GPU-5d09f77b-a936-a6d9-054d-0324aef67adb, 4349 MiB, 17 %
