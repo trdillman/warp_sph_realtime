@@ -45,6 +45,7 @@ ctx.scene.frame_current=1
 ctx.scene.frame_start=1
 ctx.scene.frame_end=200
 ctx.scene.render=NS(fps=25,fps_base=1.0)
+Solver.fps=24.0  # real demo solver legacy field must not override accepted scene FPS
 ctx.scene.frame_set=lambda f:setattr(ctx.scene,'frame_current',f)
 op,result=start(ctx)
 assert result=={'RUNNING_MODAL'}

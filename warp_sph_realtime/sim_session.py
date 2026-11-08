@@ -385,8 +385,9 @@ class SimSession:
         self._timeline_target = self.start_frame
         self._timeline_elapsed = 0.0
         render = getattr(scene, 'render', None)
-        self._timeline_fps = (float(getattr(self.solver, 'fps', render.fps / render.fps_base))
-                              if render is not None else None)
+        # Scene construction accepts this rate. Demo solvers keep a legacy
+        # hardcoded fps field, so it is not authority for the timeline clock.
+        self._timeline_fps = float(render.fps / render.fps_base) if render is not None else None
         self._timeline_playing = False
         self._timeline_seek_pending = False
         self._timeline_pause_requested = False
