@@ -22,6 +22,7 @@ from .props import spacing_metres, stiffness_pa
 from .render import session as transport_session
 from .render.gpu_points import settings_from_scene
 from .render.transport import COMPLETED, FAILED, QUARANTINED, FatalTransportError, process_state
+from .timeline import needs_step
 
 _LOG = logging.getLogger(__name__)
 
@@ -36,6 +37,8 @@ CUSTOM_SCENE = "CUSTOM"
 TIMER_INTERVAL_S = 0.001  # P0.5: 1 ms timer chosen by measured latency; do not change
 BAKE_CHUNK_S = 0.004      # P2.2: most time one timer tick spends queueing bake frames (never a blocking loop)
 BAKE_RING_SLOTS = 3       # frames in flight between the solver, the host copy and the disk writer
+LIVE_CHUNK_S = 0.008     # host submission budget, checked between unchanged solver steps
+LIVE_MAX_STEPS = 16      # never queue an unbounded timeline backlog in one publication
 
 _QUARANTINE: list = process_state().quarantine  # objects never freed until exit, across reloads
 
@@ -680,8 +683,8 @@ class SimSession:
 
         timeline_bound = hasattr(screen, 'is_animation_playing')
         step_seconds = 0.0
+        fps, target = 0.0, self.start_frame  # batch timing is used only with a native timeline
         if timeline_bound:
-            from .timeline import needs_step
             if getattr(self, '_timeline_reset_failed', False):
                 if screen.is_animation_playing:
                     bpy.ops.screen.animation_cancel(restore_frame=False)
@@ -768,23 +771,44 @@ class SimSession:
 
         self.solver.substeps = settings.substeps
         solver, use_graph = self.solver, settings.use_cuda_graph
+        taken = 0
+
+        def produce(out):
+            nonlocal taken
+            # Admission belongs to the transport. Once admitted, amortize output
+            # over at most one timeline frame (plus <one step of rounding), with
+            # hard step and host-time caps so input events regain control.
+            begin = time.perf_counter()
+            elapsed = getattr(self, '_timeline_elapsed', 0.0)
+            while True:
+                if self.active_demo == CUSTOM_SCENE:
+                    # Sampling covers only the next solver step's interval.
+                    frame = self.scene.frame_current if timeline_bound else None
+                    try:
+                        self._sync_colliders(solver)
+                    finally:
+                        if frame is not None and self.scene.frame_current != frame:
+                            self._set_frame(frame)
+                    if getattr(self.session, 'is_shared_sdk', False):
+                        self.session.note_scene_applied()
+                solver.step(out, use_graph=use_graph)
+                taken += 1
+                if not timeline_bound or taken >= LIVE_MAX_STEPS:
+                    break
+                if (taken * step_seconds + 1e-10 >= 1.0 / fps
+                        or time.perf_counter() - begin >= LIVE_CHUNK_S
+                        or not needs_step(target, self.start_frame, fps,
+                                          elapsed + taken * step_seconds, step_seconds)):
+                    break
+
         try:
-            if self.active_demo == CUSTOM_SCENE:  # animated colliders: one transform read per frame
-                frame = self.scene.frame_current if timeline_bound else None
-                try:
-                    self._sync_colliders(solver)
-                finally:
-                    if frame is not None and self.scene.frame_current != frame:
-                        self._set_frame(frame)
-                if getattr(self.session, 'is_shared_sdk', False):
-                    self.session.note_scene_applied()
             if self.session is not None:
                 # No host sync: the adapter orders publication on the solver stream and
                 # skips the step (backpressure) while a step is in flight or both slots are busy.
-                stepped = self.session.tick(lambda out: solver.step(out, use_graph=use_graph))
+                stepped = self.session.tick(produce)
             else:
                 with self.gl_buf.mapped() as pos_vbo_wp:
-                    solver.step(pos_vbo_wp, use_graph=use_graph)
+                    produce(pos_vbo_wp)
                 runtime.wp.synchronize_device("cuda:0")
                 stepped = True
         except FatalTransportError as exc:
@@ -798,21 +822,24 @@ class SimSession:
             return False
         now = time.perf_counter()
         if self.session is None:
-            dt_ms = (now - t0) * 1000.0
-        elif stepped and self.last_tick:
-            dt_ms = (now - self.last_tick) * 1000.0  # asynchronous: wall-clock step interval
+            dt_ms = (now - t0) * 1000.0 / max(taken, 1)
+        elif taken and self.last_tick:
+            dt_ms = (now - self.last_tick) * 1000.0 / max(taken, 1)  # wall-clock per solver step
         else:
             dt_ms = None
-        if stepped and self.session is not None:
+        if taken and self.session is not None:
             self.last_tick = now
         if dt_ms is not None:
             self.frame_time_ms = 0.9 * self.frame_time_ms + 0.1 * dt_ms if self.step_count > 0 else dt_ms
             self.fps_avg = 1000.0 / max(self.frame_time_ms, 0.001)
-        if stepped:
-            self.step_count += 1
+        if taken:
+            self.step_count += taken
             if timeline_bound:
-                self._timeline_elapsed = getattr(self, '_timeline_elapsed', 0.0) + step_seconds
+                self._timeline_elapsed = getattr(self, '_timeline_elapsed', 0.0) + taken * step_seconds
             self.step_once = False  # a single-step request survives a backpressure skip
+            # A transport may admit compute then defer its final publication.
+            # Retain the advanced clock and retry output without repeating physics.
+            self._output_pending = not stepped
         if getattr(solver, "emission_exhausted", False) and solver.take_exhaustion_notice():
             report({'WARNING'}, "WarpSPH: particle budget reached; emitters stopped (raise Max Particles)")
 

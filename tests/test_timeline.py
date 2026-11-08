@@ -66,7 +66,7 @@ assert rt.solver.steps==60
 ctx.scene.frame_set(100)
 for _ in range(3):rt.tick(ctx,lambda *a:None)
 before_pause=rt.solver.steps
-assert before_pause==63
+assert before_pause==108  # bounded 16-step batches, not one publication per tiny step
 ctx.screen.is_animation_playing=False
 ctx.scene.frame_set(101)  # final playback frame can arrive together with Pause
 for _ in range(30):rt.tick(ctx,lambda *a:None)
@@ -86,11 +86,11 @@ assert rt.solver.steps==before_pause and rt.paused,'addon Pause must cancel phys
 assert addon.WM_OT_warp_sph_pause().execute(ctx)=={'FINISHED'}
 assert ctx.screen.is_animation_playing
 rt.tick(ctx,lambda *a:None)
-assert rt.solver.steps==before_pause+1,'addon Resume must use timeline playback'
+assert rt.solver.steps==before_pause+16,'addon Resume must use timeline playback'
 assert addon.WM_OT_warp_sph_step_frame().execute(ctx)=={'FINISHED'}
 before_step=rt.solver.steps
 rt.tick(ctx,lambda *a:None)
-assert rt.solver.steps==before_step+1 and not ctx.screen.is_animation_playing
+assert rt.solver.steps==before_step+16 and not ctx.screen.is_animation_playing
 ctx.screen.is_animation_playing=False
 rt.tick(ctx,lambda *a:None)
 ctx.scene.frame_set(4)  # explicit paused seek may evaluate the requested frame
@@ -149,3 +149,95 @@ print('TIMELINE_OK')
                             cwd=Path(__file__).resolve().parents[1], timeout=60)
     assert result.returncode == 0, result.stdout + result.stderr
     assert 'TIMELINE_OK' in result.stdout
+
+
+def test_admitted_batch_caps_colliders_and_partial_failure():
+    import subprocess
+    import sys
+    from pathlib import Path
+
+    from test_transport_session import LIFECYCLE
+
+    extra = r'''
+ctx=reset()
+ctx.screen.is_animation_playing=False
+ctx.scene.frame_current=ctx.scene.frame_start=1
+ctx.scene.frame_end=200
+ctx.scene.render=NS(fps=24,fps_base=1.0)
+ctx.scene.frame_set=lambda f:setattr(ctx.scene,'frame_current',f)
+Solver.dt=0.00165
+op,result=start(ctx)
+rt=sim_session.get(ctx.scene)
+rt.tick(ctx,lambda *a:None)  # publish initial state
+clock=[sim_session.time.perf_counter()]
+real_time=sim_session.time
+sim_session.time=NS(perf_counter=lambda:clock[0])
+ctx.scene.frame_set(2)
+rt.active_demo=sim_session.CUSTOM_SCENE
+samples=[]
+def sync(solver):
+    samples.append(solver.steps)
+    ctx.scene.frame_set(99)  # helper sampling must restore requested playhead
+rt._sync_colliders=sync
+rt.session.transport.ready=False
+frame=rt.session.transport.frame
+rt.tick(ctx,lambda *a:None)
+assert rt.solver.steps==0 and not samples and rt._timeline_elapsed==0
+rt.session.transport.ready=True
+rt.tick(ctx,lambda *a:None)
+assert rt.solver.steps==13 and rt.step_count==13
+assert rt.session.transport.frame==frame+1,'13 physics steps must share one publication'
+assert samples==list(range(13)) and ctx.scene.frame_current==2
+assert abs(rt._timeline_elapsed-0.0429)<1e-10
+rt.tick(ctx,lambda *a:None)
+assert rt.solver.steps==13  # never run beyond requested target
+ctx.scene.frame_set(3)
+real_tick=rt.session.tick
+def defer_output(produce):
+    produce(rt.session.positions)
+    return False
+rt.session.tick=defer_output
+rt.tick(ctx,lambda *a:None)
+assert rt.solver.steps==26 and rt.step_count==26 and rt._output_pending
+assert abs(rt._timeline_elapsed-0.0858)<1e-10,'admitted physics cannot vanish when output defers'
+rt.session.tick=real_tick
+rt.tick(ctx,lambda *a:None)
+assert rt.solver.steps==26 and not rt._output_pending,'publication retry must copy, not repeat physics'
+ctx.scene.frame_set(4)
+rt._timeline_elapsed=3/24-0.001
+rt.tick(ctx,lambda *a:None)
+assert rt.solver.steps==27,'partial target needs only one step'
+ctx.screen.is_animation_playing=True
+ctx.scene.frame_set(100)
+rt._timeline_elapsed=0
+Solver.dt=0.00001
+rt.tick(ctx,lambda *a:None)
+assert rt.solver.steps==43,'hard cap must limit to16 even when CPU clock is frozen'
+Solver.dt=0.005  # one frame needs5steps, stop at <one-step overshoot
+rt.tick(ctx,lambda *a:None)
+assert rt.solver.steps==48
+real_step=rt.solver.step
+def expensive(out,use_graph=True):
+    real_step(out,use_graph=use_graph)
+    clock[0]+=0.02
+rt.solver.step=expensive
+Solver.dt=0.00165
+rt.tick(ctx,lambda *a:None)
+assert rt.solver.steps==49,'host budget must yield after one expensive step'
+assert rt.frame_time_ms>0
+start_steps=rt.solver.steps
+def fail_mid_batch(out,use_graph=True):
+    if rt.solver.steps==start_steps+2:raise RuntimeError('mid-batch CUDA failure')
+    real_step(out,use_graph=use_graph)
+rt.solver.step=fail_mid_batch
+frame=rt.session.transport.frame
+assert not rt.tick(ctx,lambda *a:None)
+assert not rt.running and rt.restart_required,'partial failed batch must stop and poison CUDA session'
+sim_session.time=real_time
+print('BATCH_OK')
+'''
+    script = LIFECYCLE.split("reset()\next.unregister()")[0] + extra
+    result = subprocess.run([sys.executable, '-'], input=script, text=True, capture_output=True,
+                            cwd=Path(__file__).resolve().parents[1], timeout=60)
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert 'BATCH_OK' in result.stdout
