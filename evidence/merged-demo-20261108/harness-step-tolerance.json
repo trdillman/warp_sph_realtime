@@ -1,0 +1,79 @@
+{
+  "passed": false,
+  "phase": 5,
+  "error": "Traceback (most recent call last):\n  File \"C:\\Users\\Tyler\\.codex\\worktrees\\live-animation-integration\\warp_sph_realtime\\evidence\\merged-demo-20261108\\verify_live.py\", line 65, in run\n    assert a['elapsed'] >= 1/24\n           ^^^^^^^^^^^^^^^^^^^^\nAssertionError\n",
+  "records": [
+    {
+      "label": "initial_paused",
+      "frame": 1,
+      "steps": 0,
+      "time": 0.0,
+      "elapsed": 0.0,
+      "playing": false,
+      "position_sha": "f40807baa57983bd2861c8571003dc43039437cb80c33ea2250eda2bc0d8cfb6",
+      "viscosity": 0.15000000596046448,
+      "error": "",
+      "live_points": 100000
+    },
+    {
+      "label": "native_play",
+      "frame": 9,
+      "steps": 6,
+      "time": 0.019776322689328888,
+      "elapsed": 0.01977632268932889,
+      "playing": true,
+      "position_sha": "0071c5dbc1c79c36c056f025c57463e928cad3aeed2c3fc64e314b62b16679aa",
+      "viscosity": 0.15000000596046448,
+      "error": "",
+      "live_points": 100000
+    },
+    {
+      "label": "native_pause_a",
+      "frame": 9,
+      "steps": 6,
+      "time": 0.019776322689328888,
+      "elapsed": 0.01977632268932889,
+      "playing": false,
+      "position_sha": "0071c5dbc1c79c36c056f025c57463e928cad3aeed2c3fc64e314b62b16679aa",
+      "viscosity": 0.15000000596046448,
+      "error": "",
+      "live_points": 100000
+    },
+    {
+      "label": "native_pause_b",
+      "frame": 9,
+      "steps": 6,
+      "time": 0.019776322689328888,
+      "elapsed": 0.01977632268932889,
+      "playing": false,
+      "position_sha": "0071c5dbc1c79c36c056f025c57463e928cad3aeed2c3fc64e314b62b16679aa",
+      "viscosity": 0.15000000596046448,
+      "error": "",
+      "live_points": 100000
+    },
+    {
+      "label": "timeline_reset",
+      "frame": 1,
+      "steps": 0,
+      "time": 0.0,
+      "elapsed": 0.0,
+      "playing": false,
+      "position_sha": "f40807baa57983bd2861c8571003dc43039437cb80c33ea2250eda2bc0d8cfb6",
+      "viscosity": 0.15000000596046448,
+      "error": "",
+      "live_points": 100000
+    },
+    {
+      "label": "timeline_single_step",
+      "frame": 2,
+      "steps": 7,
+      "time": 0.023072376470883702,
+      "elapsed": 0.023072376470883706,
+      "playing": false,
+      "position_sha": "5fb1db5a13fe8cfda1edd85250d913b448b3ff50934783b2d73451807a4d9baf",
+      "viscosity": 0.15000000596046448,
+      "error": "",
+      "live_points": 100000
+    }
+  ]
+}

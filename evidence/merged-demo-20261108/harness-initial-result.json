@@ -1,0 +1,31 @@
+{
+  "passed": false,
+  "phase": 1,
+  "error": "Traceback (most recent call last):\n  File \"C:\\Users\\Tyler\\.codex\\worktrees\\live-animation-integration\\warp_sph_realtime\\evidence\\merged-demo-20261108\\verify_live.py\", line 54, in run\n    op('screen.animation_cancel', restore_frame=False)\n    ~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"C:\\Users\\Tyler\\.codex\\worktrees\\live-animation-integration\\warp_sph_realtime\\evidence\\merged-demo-20261108\\verify_live.py\", line 23, in op\n    assert 'FINISHED' in result or 'RUNNING_MODAL' in result, (name, result)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError: ('screen.animation_cancel', {'PASS_THROUGH'})\n",
+  "records": [
+    {
+      "label": "initial_paused",
+      "frame": 1,
+      "steps": 0,
+      "time": 0.0,
+      "elapsed": 0.0,
+      "playing": false,
+      "position_sha": "f40807baa57983bd2861c8571003dc43039437cb80c33ea2250eda2bc0d8cfb6",
+      "viscosity": 0.15000000596046448,
+      "error": "",
+      "live_points": 100000
+    },
+    {
+      "label": "native_play",
+      "frame": 7,
+      "steps": 6,
+      "time": 0.019776322689328888,
+      "elapsed": 0.01977632268932889,
+      "playing": true,
+      "position_sha": "0071c5dbc1c79c36c056f025c57463e928cad3aeed2c3fc64e314b62b16679aa",
+      "viscosity": 0.15000000596046448,
+      "error": "",
+      "live_points": 100000
+    }
+  ]
+}

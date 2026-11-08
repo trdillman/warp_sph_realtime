@@ -1,0 +1,19 @@
+{
+  "pid": 48636,
+  "file": "C:\\Users\\Tyler\\.codex\\worktrees\\live-animation-integration\\warp_sph_realtime\\evidence\\merged-demo-20261108\\WarpSPH-Live-Merged-Demo.blend",
+  "enabled": true,
+  "preferences": true,
+  "mcp_enabled": true,
+  "module": "C:\\Users\\Tyler\\.codex\\blender-mcp\\sessions\\934d0d1301c64b0698d978b9ad9530c6\\resources\\extensions\\demo\\warp_sph_realtime\\__init__.py",
+  "matched_files": 60,
+  "running": true,
+  "playing": true,
+  "frame": 289,
+  "steps": 221,
+  "sim_time": 0.7284278857236113,
+  "backend": "VULKAN",
+  "device": "cuda:0",
+  "warp": "1.17.0",
+  "error": "",
+  "draw_errors": []
+}
