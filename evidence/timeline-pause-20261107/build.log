@@ -1,0 +1,7 @@
++ C:\Users\Tyler\Downloads\blender-5.2.0-windows-x64\blender-5.2.0-windows-x64\blender.exe --factory-startup --command extension validate C:\Users\Tyler\.codex\worktrees\live-animation-integration\warp_sph_realtime\warp_sph_realtime
+Success parsing TOML in "C:\Users\Tyler\.codex\worktrees\live-animation-integration\warp_sph_realtime\warp_sph_realtime"
++ C:\Users\Tyler\Downloads\blender-5.2.0-windows-x64\blender-5.2.0-windows-x64\blender.exe --factory-startup --command extension build --source-dir C:\Users\Tyler\.codex\worktrees\live-animation-integration\warp_sph_realtime\warp_sph_realtime --output-dir C:\Users\Tyler\.codex\worktrees\live-animation-integration\warp_sph_realtime\dist
+building: warp_sph_realtime-0.1.0.zip
+complete
+created: "C:\Users\Tyler\.codex\worktrees\live-animation-integration\warp_sph_realtime\dist\warp_sph_realtime-0.1.0.zip", 240139
+Built C:\Users\Tyler\.codex\worktrees\live-animation-integration\warp_sph_realtime\dist\warp_sph_realtime-0.1.0.zip sha256=30ae8c234aaf82a44d6cc80438fe9d3358b5ddbc7ff51295344aafa3d4fd58ec

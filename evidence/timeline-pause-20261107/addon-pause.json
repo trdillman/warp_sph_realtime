@@ -1,0 +1,18 @@
+{
+  "kind": "addon_pause",
+  "samples": [
+    {
+      "frame": 698,
+      "steps": 128,
+      "time": 0.4218948840390187,
+      "position_sha": "73a3ef5a43e4db18d598a5a4481b9874b61010da9caf13d88ff0ffc897d0bf5b"
+    },
+    {
+      "frame": 698,
+      "steps": 128,
+      "time": 0.4218948840390187,
+      "position_sha": "73a3ef5a43e4db18d598a5a4481b9874b61010da9caf13d88ff0ffc897d0bf5b"
+    }
+  ],
+  "passed": true
+}

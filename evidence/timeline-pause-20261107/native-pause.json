@@ -1,0 +1,18 @@
+{
+  "kind": "native_timeline_pause",
+  "samples": [
+    {
+      "frame": 357,
+      "steps": 66,
+      "time": 0.21753954958261854,
+      "position_sha": "580cf060a5e63a751bbeb9d12f574549af8411ac77408830ef57120ecb19ae61"
+    },
+    {
+      "frame": 357,
+      "steps": 66,
+      "time": 0.21753954958261854,
+      "position_sha": "580cf060a5e63a751bbeb9d12f574549af8411ac77408830ef57120ecb19ae61"
+    }
+  ],
+  "passed": true
+}

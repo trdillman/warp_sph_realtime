@@ -1,0 +1,7 @@
+{
+  "timeline_reset_zero_state": true,
+  "addon_single_step_frame": 2,
+  "addon_single_step_solver_steps": 13,
+  "demo_running": true,
+  "native_playing": true
+}
