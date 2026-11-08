@@ -227,7 +227,11 @@ class WM_OT_warp_sph_pause(bpy.types.Operator):
             job.paused = not job.paused
             return {'FINISHED'}
         if session.bake is None and hasattr(context.screen, 'is_animation_playing'):
-            bpy.ops.screen.animation_play()
+            if context.screen.is_animation_playing:
+                bpy.ops.screen.animation_cancel(restore_frame=False)
+                session._timeline_pause_requested = True
+            else:
+                bpy.ops.screen.animation_play()
             session.paused = not context.screen.is_animation_playing
             return {'FINISHED'}
         session.paused = not session.paused
@@ -255,6 +259,7 @@ class WM_OT_warp_sph_step_frame(bpy.types.Operator):
             if context.screen.is_animation_playing:
                 bpy.ops.screen.animation_cancel(restore_frame=False)
             context.scene.frame_set(min(context.scene.frame_current + 1, context.scene.frame_end))
+            session._timeline_step_requested = True
         session.paused = True
         session.step_once = True
         return {'FINISHED'}

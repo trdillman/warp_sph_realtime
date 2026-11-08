@@ -384,6 +384,10 @@ class SimSession:
         self.start_frame = int(getattr(scene, "frame_current", 1))
         self._timeline_target = self.start_frame
         self._timeline_elapsed = 0.0
+        self._timeline_playing = False
+        self._timeline_seek_pending = False
+        self._timeline_pause_requested = False
+        self._timeline_step_requested = False
         self.timeline_status = "Timeline ready: Play or move the playhead"
         self.tracker = live_edits.ChangeTracker(scene, custom=self.active_demo == CUSTOM_SCENE)
         if getattr(self.session, 'is_shared_sdk', False):
@@ -676,9 +680,27 @@ class SimSession:
             if self.scene.frame_current < self.start_frame:
                 self._set_frame(self.start_frame)
             previous = getattr(self, '_timeline_target', self.start_frame)
+            playing = bool(screen.is_animation_playing)
+            was_playing = getattr(self, '_timeline_playing', False)
+            seek_pending = getattr(self, '_timeline_seek_pending', False)
+            pause_requested = getattr(self, '_timeline_pause_requested', False)
+            self._timeline_pause_requested = False
+            step_requested = getattr(self, '_timeline_step_requested', False)
+            self._timeline_step_requested = False
+            if step_requested:
+                seek_pending = True
+            elif not playing and (was_playing or pause_requested) and target != self.start_frame:
+                # Pause is cancellation, not permission to drain a backlog of
+                # future solver steps. A final playback frame may arrive with it.
+                seek_pending = False
+            elif target != previous:
+                seek_pending = not playing
             after_bake = getattr(self, '_timeline_rebuild', False)
+            if after_bake:
+                seek_pending = True
             if after_bake and screen.is_animation_playing:
                 bpy.ops.screen.animation_cancel(restore_frame=False)
+                playing = False
             if target < previous or after_bake:
                 # Without recorded inputs a seek replays the current settings.
                 # Rebuild transactionally, then catch up in bounded modal ticks.
@@ -690,7 +712,14 @@ class SimSession:
                 target = requested
                 report({'INFO'}, "Timeline rewind: replaying from start with current settings")
             self._timeline_target = target
-            self.paused = not screen.is_animation_playing
+            self._timeline_playing = playing
+            self._timeline_seek_pending = seek_pending
+            self.paused = not playing
+            if not playing and not seek_pending:
+                elapsed = getattr(self, '_timeline_elapsed', 0.0)
+                self.timeline_status = f"Paused: playhead {target}, simulated {elapsed:.3f} s"
+                _redraw_views(screen)
+                return True
             fps = self.scene.render.fps / self.scene.render.fps_base
             step_seconds = float(self.solver.dt) * int(settings.substeps)
             try:
@@ -707,6 +736,7 @@ class SimSession:
                 _redraw_views(screen)
                 return True
             if not pending:
+                self._timeline_seek_pending = False
                 self.timeline_status = f"Timeline frame {target}: ready"
                 _redraw_views(screen)
                 return True
