@@ -384,6 +384,9 @@ class SimSession:
         self.start_frame = int(getattr(scene, "frame_current", 1))
         self._timeline_target = self.start_frame
         self._timeline_elapsed = 0.0
+        render = getattr(scene, 'render', None)
+        self._timeline_fps = (float(getattr(self.solver, 'fps', render.fps / render.fps_base))
+                              if render is not None else None)
         self._timeline_playing = False
         self._timeline_seek_pending = False
         self._timeline_pause_requested = False
@@ -720,7 +723,7 @@ class SimSession:
                 self.timeline_status = f"Paused: playhead {target}, simulated {elapsed:.3f} s"
                 _redraw_views(screen)
                 return True
-            fps = self.scene.render.fps / self.scene.render.fps_base
+            fps = self._timeline_fps or self.scene.render.fps / self.scene.render.fps_base
             step_seconds = float(self.solver.dt) * int(settings.substeps)
             try:
                 pending = needs_step(target, self.start_frame, fps,
@@ -737,6 +740,7 @@ class SimSession:
                 return True
             if not pending:
                 self._timeline_seek_pending = False
+                self.step_once = False
                 self.timeline_status = f"Timeline frame {target}: ready"
                 _redraw_views(screen)
                 return True

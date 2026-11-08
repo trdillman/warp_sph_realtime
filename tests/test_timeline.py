@@ -111,6 +111,18 @@ assert rt.solver.steps==20 and not rt._timeline_rebuild
 assert not ctx.screen.is_animation_playing
 assert rt.reset(ctx,lambda *a:None) and ctx.scene.frame_current==1
 assert rt.solver.steps==0
+ctx.scene.render.fps=50  # reset-only edit must not retime the accepted run
+ctx.scene.frame_set(2)
+for _ in range(30):rt.tick(ctx,lambda *a:None)
+assert rt.solver.steps==20,'FPS edit retimed timeline before Reset'
+ctx.scene.frame_end=2
+assert addon.WM_OT_warp_sph_step_frame().execute(ctx)=={'FINISHED'}
+for _ in range(3):rt.tick(ctx,lambda *a:None)
+assert not rt.step_once,'completed end-frame step left bake admission blocked'
+assert rt.reset(ctx,lambda *a:None)
+ctx.scene.frame_set(2)
+for _ in range(20):rt.tick(ctx,lambda *a:None)
+assert rt.solver.steps==10,'Reset failed to accept new FPS'
 rt.stop(ctx)
 ctx.scene.frame_current=10
 op,result=start(ctx)
