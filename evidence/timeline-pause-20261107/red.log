@@ -1,0 +1,133 @@
+......F                                                                  [100%]
+================================== FAILURES ===================================
+________ test_real_session_timeline_pause_seek_backpressure_and_reset _________
+
+    def test_real_session_timeline_pause_seek_backpressure_and_reset():
+        import subprocess
+        import sys
+        from pathlib import Path
+    
+        from test_transport_session import LIFECYCLE
+    
+        extra = r'''
+    ctx=reset()
+    ctx.screen.is_animation_playing=False
+    ctx.scene.frame_current=1
+    ctx.scene.frame_start=1
+    ctx.scene.frame_end=20
+    ctx.scene.render=NS(fps=25,fps_base=1.0)
+    ctx.scene.frame_set=lambda f:setattr(ctx.scene,'frame_current',f)
+    op,result=start(ctx)
+    assert result=={'RUNNING_MODAL'}
+    rt=sim_session.get(ctx.scene)
+    for _ in range(4):rt.tick(ctx,lambda *a:None)
+    assert rt.solver.steps==0 and rt.paused
+    ctx.scene.frame_set(2)
+    rt.session.transport.ready=False
+    rt.tick(ctx,lambda *a:None)
+    assert rt.solver.steps==0 and rt._timeline_elapsed==0
+    rt.session.transport.ready=True
+    for _ in range(30):rt.tick(ctx,lambda *a:None)
+    assert rt.solver.steps==20,(rt.solver.steps,rt._timeline_elapsed)
+    ctx.screen.is_animation_playing=True
+    ctx.scene.frame_set(4)
+    for _ in range(60):rt.tick(ctx,lambda *a:None)
+    assert rt.solver.steps==60
+    ctx.scene.frame_set(100)
+    for _ in range(3):rt.tick(ctx,lambda *a:None)
+    before_pause=rt.solver.steps
+    assert before_pause==63
+    ctx.screen.is_animation_playing=False
+    ctx.scene.frame_set(101)  # final playback frame can arrive together with Pause
+    for _ in range(30):rt.tick(ctx,lambda *a:None)
+    assert rt.solver.steps==before_pause,'timeline Pause must cancel unfinished playback catchup'
+    assert rt._timeline_elapsed==before_pause*0.002 or abs(rt._timeline_elapsed-before_pause*0.002)<1e-10
+    ctx.scene.frame_set(4)  # explicit paused seek may evaluate the requested frame
+    for _ in range(65):rt.tick(ctx,lambda *a:None)
+    assert rt.solver.steps==60
+    ctx.screen.is_animation_playing=False
+    for _ in range(3):rt.tick(ctx,lambda *a:None)
+    assert rt.solver.steps==60
+    ctx.scene.warp_sph.particle_count=2000
+    for _ in range(65):rt.tick(ctx,lambda *a:None)
+    assert rt.start_frame==1 and ctx.scene.frame_current==4 and rt.solver.steps==60
+    ctx.scene.frame_set(2)
+    for _ in range(30):rt.tick(ctx,lambda *a:None)
+    assert rt.solver.steps==20 and ctx.scene.frame_current==2
+    rt._timeline_rebuild=True  # legacy bake completion invalidates the solver clock
+    for _ in range(30):rt.tick(ctx,lambda *a:None)
+    assert rt.solver.steps==20 and not rt._timeline_rebuild
+    assert rt.reset(ctx,lambda *a:None) and ctx.scene.frame_current==1
+    assert rt.solver.steps==0
+    rt.stop(ctx)
+    ctx.scene.frame_current=10
+    op,result=start(ctx)
+    assert ctx.scene.frame_current==1 and sim_session.get(ctx.scene).start_frame==1
+    sim_session.get(ctx.scene).stop(ctx)
+    print('TIMELINE_OK')
+    '''
+        script = LIFECYCLE.split("reset()\next.unregister()")[0] + extra
+        result = subprocess.run([sys.executable, '-'], input=script, text=True, capture_output=True,
+                                cwd=Path(__file__).resolve().parents[1], timeout=60)
+>       assert result.returncode == 0, result.stdout + result.stderr
+E       AssertionError: ok start_step_stop
+E         ok immediate_disable
+E         ok in_flight_disable_quarantines
+E         ok failed_close_requires_restart
+E         ok repeated_close
+E         ok no_view_startup_and_last_view_closure
+E         ok file_load
+E         ok failure_after_every_setup_acquisition
+E         ok recoverable_interop_falls_back_once
+E         ok fatal_tick_stops_without_cleanup
+E         ok transactional_resize
+E         ok load_demo_while_running_uses_transaction
+E         ok solver_step_error_is_fatal
+E         ok graph_rebuild_error_is_fatal
+E         ok viscosity_change_recaptures_the_graph_once
+E         ok step_once_survives_backpressure
+E         ok redraw_only_on_new_frame
+E         ok priming_failure_with_failed_close_quarantines_solver
+E         ok gl_resize_commits_solver_with_buffer
+E         ok opengl_points_runs_through_gl_texture_session
+E         ok opengl_ssfr_and_spheres_keep_the_legacy_vbo_path
+E         ok opengl_texture_failure_falls_back_once_then_uses_legacy_vbo
+E         ok opengl_texture_fatal_failure_requires_restart
+E         ok resize_never_downgrades_interop
+E         ok resize_failed_old_close_quarantines_everything
+E         ok undo_and_redo_keep_the_run
+E         ok undo_cancels_a_bake_and_keeps_the_run
+E         ok reset_rebuilds_at_the_start_frame_and_keeps_the_run
+E         ok paused_reset_retries_publication_after_backpressure
+E         ok rejected_reset_restores_the_scene_frame
+E         ok bake_builds_the_authored_scene_at_the_bake_start_frame
+E         ok live_gravity_is_one_recapture
+E         ok draw_exception_reported_once_per_distinct_error
+E         ok legacy_gl_draw_exception_is_contained_and_reported_once
+E         ok fatal_draw_error_is_not_a_draw_report
+E         ok use_opengl_operator_is_confirmed_and_decided_by_what_runs
+E         ok panel_offers_opengl_only_for_running_readback
+E         ok custom_start_builds_solver_from_description
+E         ok custom_scene_errors_are_reported_and_leave_nothing_behind
+E         ok custom_start_on_legacy_gl_sizes_vbo_from_fill
+E         ok demo_start_never_reads_tagged_objects
+E         ok load_demo_while_custom_runs
+E         ok sessions_are_per_scene_and_one_runs_at_a_time
+E         ok dispose_releases_and_forgets_the_session
+E         ok removed_scene_stops_the_run
+E         ok bake_ticks_drive_the_job_not_the_solver
+E         ok bake_viewport_shows_scene_units
+E         ok bake_cancel_and_stop_leave_no_job
+E         ok bake_step_failure_is_fatal_and_stops
+E         ok bake_needs_a_running_session
+E         Traceback (most recent call last):
+E           File "<stdin>", line 1061, in <module>
+E         AssertionError: timeline Pause must cancel unfinished playback catchup
+E         
+E       assert 1 == 0
+E        +  where 1 = CompletedProcess(args=['C:\\Python314\\python.exe', '-'], returncode=1, stdout='ok start_step_stop\nok immediate_disab...:\n  File "<stdin>", line 1061, in <module>\nAssertionError: timeline Pause must cancel unfinished playback catchup\n').returncode
+
+tests\test_timeline.py:101: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/test_timeline.py::test_real_session_timeline_pause_seek_backpressure_and_reset
+1 failed, 6 passed in 0.90s

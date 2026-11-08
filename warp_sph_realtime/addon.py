@@ -206,6 +206,8 @@ class WM_OT_warp_sph_reset(bpy.types.Operator):
         return session.running and session.bake is None
 
     def execute(self, context):
+        if hasattr(context.screen, 'is_animation_playing') and context.screen.is_animation_playing:
+            bpy.ops.screen.animation_cancel(restore_frame=False)
         return {'FINISHED'} if _session(context).reset(context, self.report) else {'CANCELLED'}
 
 
@@ -223,6 +225,14 @@ class WM_OT_warp_sph_pause(bpy.types.Operator):
         job = getattr(session, 'native_bake', None)
         if job is not None:
             job.paused = not job.paused
+            return {'FINISHED'}
+        if session.bake is None and hasattr(context.screen, 'is_animation_playing'):
+            if context.screen.is_animation_playing:
+                bpy.ops.screen.animation_cancel(restore_frame=False)
+                session._timeline_pause_requested = True
+            else:
+                bpy.ops.screen.animation_play()
+            session.paused = not context.screen.is_animation_playing
             return {'FINISHED'}
         session.paused = not session.paused
         return {'FINISHED'}
@@ -242,6 +252,14 @@ class WM_OT_warp_sph_step_frame(bpy.types.Operator):
         if getattr(session, 'native_bake', None) is not None:
             self.report({'ERROR'}, 'Resume or cancel native animation baking before manual single-stepping')
             return {'CANCELLED'}
+        if session.bake is not None:
+            self.report({'ERROR'}, 'Finish or cancel baking before timeline stepping')
+            return {'CANCELLED'}
+        if hasattr(context.screen, 'is_animation_playing'):
+            if context.screen.is_animation_playing:
+                bpy.ops.screen.animation_cancel(restore_frame=False)
+            context.scene.frame_set(min(context.scene.frame_current + 1, context.scene.frame_end))
+            session._timeline_step_requested = True
         session.paused = True
         session.step_once = True
         return {'FINISHED'}
@@ -596,6 +614,8 @@ class VIEW3D_PT_warp_sph(bpy.types.Panel):
             status_box.label(text=f"Last GPU cleanup: {session.last_close} (retained until exit)", icon='ERROR')
         if session.last_error:
             status_box.label(text=session.last_error, icon='ERROR')
+        if session.running and getattr(session, 'timeline_status', ''):
+            status_box.label(text=session.timeline_status, icon='TIME')
         if other is not None:
             status_box.label(text=f"Running in scene '{sim_session.scene_name(other.scene)}': stop it there first",
                              icon='INFO')
