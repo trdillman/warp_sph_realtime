@@ -560,8 +560,8 @@ class SimSession:
             self._set_frame(self.scene.frame_start)
         try:
             if getattr(self.scene.warp_sph, 'use_shared_sdk', False):
-                from .warp_installer import ensure_installed_warp_on_path
                 from .sdk_dependency import validate_environment
+                from .warp_installer import ensure_installed_warp_on_path
                 ensure_installed_warp_on_path()  # admit the configured source before locating the SDK
                 validate_environment()  # identity/backend admission before allocating the real solver
             activate()
