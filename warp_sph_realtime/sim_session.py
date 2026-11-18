@@ -239,10 +239,14 @@ class SimSession:
         try:
             desc = _scene_api().description_from_blender(scene, depsgraph)
             settings = scene.warp_sph
-            return runtime.RealtimeWCSPHSolver.from_scene(
-                desc, spacing_metres(settings, _scene_api().unit_scale(scene)), substeps=settings.substeps,
+            from .cache.provenance import scene_provenance
+            spacing = spacing_metres(settings, _scene_api().unit_scale(scene))
+            solver = runtime.RealtimeWCSPHSolver.from_scene(
+                desc, spacing, substeps=settings.substeps,
                 stiffness=stiffness_pa(settings), cfl_factor=settings.time_step_scale,
                 viscosity=settings.viscosity)
+            solver._cache_initial_provenance = scene_provenance(desc, spacing=spacing)
+            return solver
         except (SceneValidationError, SceneFillError) as exc:
             raise SceneSetupError(str(exc)) from exc
 
@@ -870,6 +874,7 @@ class SimSession:
         from .cache import disk as cache_disk
         from .cache.frame_store import FrameStore
         from .cache.gpu import SolverSource, VramRing
+        from .cache.provenance import at_frame, capture_scene, feed_motion, scene_provenance
 
         if not self.running or self.solver is None or runtime.wp is None:
             report({'ERROR'}, "Start the simulation before baking")
@@ -886,16 +891,35 @@ class SimSession:
         try:
             # Frame ``first`` is the initial state at the solver's start frame: emitters and animated colliders run
             # on that clock, so an authored scene built at another frame (the playhead at Start) is rebuilt there.
-            # Resume needs the same clock: restore sets the time from ``first``.
+            # BakeJob advances the solver without updating the live-preview step counter, so advanced state is
+            # reset even for an empty/interrupted Resume before restoring a prefix.
             custom = self.active_demo == CUSTOM_SCENE
-            if (custom and self.start_frame != first) or (not resume and self.step_count > 0):
+            advanced = self.step_count > 0 or getattr(self.solver, "sim_time", 0.0) > 0.0
+            if (custom and self.start_frame != first) or advanced:
                 self.paused = False
                 self._rebuild_at_start(context, first if custom else None)
             solver = self.solver
             apply_physics(solver, settings)
             solver.rebuild_cuda_graph()
             steps = cache_bake.steps_per_frame(settings.bake_steps, solver.dt, fps)
-            signature = cache_bake.solver_signature(solver, steps, fps, scene_name(scene), self.active_demo)
+            motion_keys = {}
+            if self.active_demo == CUSTOM_SCENE:
+                spacing = spacing_metres(settings, _scene_api().unit_scale(scene))
+                initial, provenance, motion_keys = capture_scene(
+                    scene, context.evaluated_depsgraph_get(), first=first, last=last,
+                    steps=steps, dt=solver.dt, spacing=spacing)
+                if initial != getattr(solver, "_cache_initial_provenance", None):
+                    raise ValueError(
+                        "scene inputs differ from the initialized solver; restart the simulation "
+                        "at the bake start frame before Bake Cache or Resume")
+            else:
+                from .scene.demo_description import demo_description, demo_spacing
+                provenance = scene_provenance(
+                    demo_description(self.active_demo, solver.num_particles),
+                    spacing=demo_spacing(solver.num_particles),
+                    initializer={"demo": self.active_demo, "particles": solver.num_particles, "version": 1})
+            signature = cache_bake.solver_signature(
+                solver, steps, fps, scene_name(scene), self.active_demo, provenance=provenance)
             disk = cache_disk.DiskCache(blender_adapter.cache_dir(scene))
             remaining = max(last - first + 1 - (disk.cached_count() if resume else 0), 0)
             free = cache_disk.free_bytes(disk.directory)
@@ -913,7 +937,14 @@ class SimSession:
             ring = VramRing(runtime.wp, solver.num_particles, BAKE_RING_SLOTS)  # the pool: emitters never overflow it
             store = FrameStore(disk, ring)
             before_step = None
-            if self.active_demo == CUSTOM_SCENE:  # animated colliders: one transform read per frame, as in tick
+            if motion_keys:
+                # A live preview may have cached keys from before this snapshot. Reload all keys
+                # from frozen provenance rather than retaining any mutable preview authority.
+                solver._key_frames.clear()
+
+                def before_step(scene=scene, solver=solver, keys=motion_keys):
+                    feed_motion(scene, solver, keys)
+            elif self.active_demo == CUSTOM_SCENE:  # animated colliders: one transform read per frame, as in tick
                 def before_step(solver=solver):
                     self._sync_colliders(solver)
             try:

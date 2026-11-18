@@ -151,9 +151,9 @@ class SolverSource:
     def advance(self, slot: Slot, steps: int) -> None:
         """Run ``steps`` solver steps (stream-ordered, no host wait)."""
         solver = self.solver
+        solver.substeps = steps
         if self.before_step is not None:
             self.before_step()
-        solver.substeps = steps
         solver.step(slot.pos, use_graph=self.use_graph)  # step() ends by copying pos_sim into slot.pos
 
     def capture(self, slot: Slot, stepped: bool) -> None:

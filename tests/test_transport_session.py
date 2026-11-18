@@ -320,11 +320,13 @@ RUNTIME.launch_demo_scene_init = lambda solver, demo: None
 HELPERS = []
 RUNTIME.build_blender_demo_helpers = lambda demo: HELPERS.append('built:' + demo)
 RUNTIME.remove_blender_demo_helpers = lambda: HELPERS.append('removed')
-DESC = NS(calls=[], error=None)
+from warp_sph_realtime.scene.description import SceneDescription
+from tests.scene_fixtures import box_mesh
+DESC = NS(calls=[], error=None, value=SceneDescription((-1,-1,-1), (1,1,1), (0,0,-9.81), (box_mesh((-0.5,-0.5,-0.5), (0.5,0.5,0.5)),), ()))
 def description_from_blender(scene, depsgraph):
     DESC.calls.append((scene, depsgraph))
     if DESC.error: raise DESC.error
-    return 'desc'
+    return DESC.value
 from warp_sph_realtime.scene import blender_scene
 blender_scene.description_from_blender = description_from_blender
 CUR = [None]
@@ -1015,7 +1017,7 @@ def custom_start_builds_solver_from_description(ctx):
     op, result = start(ctx)
     assert result == {'RUNNING_MODAL'} and RT.running and RT.active_demo == addon.CUSTOM_SCENE, result
     assert DESC.calls == [(ctx.scene, 'depsgraph')]                     # evaluated depsgraph
-    assert Solver.from_scene_calls == [('desc', 0.025, 2, 1000.0, 0.4, 0.15)]  # spacing + speed; stiffness x1000
+    assert Solver.from_scene_calls == [(DESC.value, 0.025, 2, 1000.0, 0.4, 0.15)]  # spacing + speed; stiffness x1000
     assert RT.solver.num_particles == 777 and FACTORY.counts == [777]  # output sized from the fill
     assert HELPERS == ['removed']                                       # no demo wireframes
     session = RT.session
