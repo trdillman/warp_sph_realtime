@@ -154,8 +154,6 @@ class DiskCache:
 
     def begin(self, start: int, signature: dict) -> None:
         """Create the directory and manifest, or confirm an existing manifest matches (CacheMismatchError)."""
-        self.directory.mkdir(parents=True, exist_ok=True)
-        self.remove_temporary()
         signature = json.loads(json.dumps(signature))  # compare as JSON, not as Python objects
         existing = self.manifest()
         if existing is not None:
@@ -174,10 +172,23 @@ class DiskCache:
                     raise CacheMismatchError(
                         "solver gravity changed; use Bake Cache to start a fresh bake "
                         "or choose a new cache folder")
+            if "scene_provenance" in signature:
+                old = existing.get("signature") or {}
+                if "scene_provenance" not in old:
+                    raise CacheMismatchError(
+                        "cached scene provenance is unknown (older cache); use Bake Cache to start a fresh bake "
+                        "or choose a new cache folder")
+                if old["scene_provenance"] != signature["scene_provenance"]:
+                    raise CacheMismatchError(
+                        "scene provenance changed (geometry, colliders, animation or emitters); "
+                        "use Bake Cache to start a fresh bake or choose a new cache folder")
             if existing["start"] != start or existing.get("signature") != signature:
                 raise CacheMismatchError(
                     f"{self.directory} was baked with different settings or start frame; invalidate it first")
+            self.remove_temporary()
             return
+        self.directory.mkdir(parents=True, exist_ok=True)
+        self.remove_temporary()
         document = {"format": FORMAT_VERSION, "start": int(start), "signature": signature}
         tmp = self.manifest_path.with_name(MANIFEST_NAME + ".tmp")
         with open(tmp, "w", encoding="utf-8") as handle:

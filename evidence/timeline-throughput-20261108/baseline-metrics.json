@@ -1,0 +1,15 @@
+{
+  "wall": 6.046665500005474,
+  "steps": 26,
+  "time": 0.08569739832042518,
+  "metrics": {
+    "published": 3282,
+    "solver_submit_s": 3.2479677998489933,
+    "pack_publish_s": 6.721530100738164,
+    "draws": 0,
+    "snapshot_readback_s": 25.799445100332377,
+    "snapshot_commit_s": 190.4952454999584
+  },
+  "waits": 10393,
+  "count": 100000
+}

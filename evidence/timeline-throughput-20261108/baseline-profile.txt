@@ -1,0 +1,53 @@
+         353440 function calls (353224 primitive calls) in 5.619 seconds
+
+   Ordered by: cumulative time
+   List reduced from 516 to 45 due to restriction <45>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+        6    0.000    0.000    5.363    0.894 C:\Users\Tyler\Downloads\blender-5.2.0-windows-x64\blender-5.2.0-windows-x64\5.2\python\Lib\socket.py:288(accept)
+        6    3.340    0.557    5.338    0.890 {method '_accept' of '_socket.socket' objects}
+      150    0.001    0.000    1.751    0.012 C:\Users\Tyler\.codex\blender-mcp\sessions\934d0d1301c64b0698d978b9ad9530c6\resources\extensions\demo\warp_sph_realtime\addon.py:107(modal)
+      108    0.007    0.000    1.746    0.016 C:\Users\Tyler\.codex\blender-mcp\sessions\934d0d1301c64b0698d978b9ad9530c6\resources\extensions\demo\warp_sph_realtime\sim_session.py:604(tick)
+      108    0.002    0.000    1.594    0.015 C:\Users\Tyler\.codex\blender-mcp\sessions\934d0d1301c64b0698d978b9ad9530c6\resources\extensions\demo\warp_sph_realtime\native_output.py:47(service)
+      108    0.001    0.000    1.591    0.015 C:\Users\Tyler\.codex\blender-mcp\sessions\934d0d1301c64b0698d978b9ad9530c6\resources\extensions\demo\warp_sph_realtime\interop_bridge.py:197(service_snapshot)
+       26    0.002    0.000    1.525    0.059 C:\Users\Tyler\.codex\blender-mcp\sessions\934d0d1301c64b0698d978b9ad9530c6\resources\extensions\demo\warp_sph_realtime\interop_bridge.py:432(commit_snapshot)
+       26    0.060    0.002    1.089    0.042 C:\Users\Tyler\Documents\Codex\2026-11-06\rev\work\warpsph-runtime\sdk\blender_vulkan_interop\output\particles.py:51(prepare)
+       52    0.029    0.001    0.849    0.016 C:\Users\Tyler\Documents\Codex\2026-11-06\rev\work\warpsph-runtime\sdk\blender_vulkan_interop\output\particles.py:19(arrays_for)
+       52    0.001    0.000    0.816    0.016 C:\Users\Tyler\Documents\Codex\2026-11-06\rev\work\warpsph-runtime\sdk\numpy\lib\_arraysetops_impl.py:145(unique)
+       52    0.001    0.000    0.815    0.016 C:\Users\Tyler\Documents\Codex\2026-11-06\rev\work\warpsph-runtime\sdk\numpy\lib\_arraysetops_impl.py:350(_unique1d)
+       52    0.739    0.014    0.739    0.014 {built-in method numpy._core._multiarray_umath._unique_hash}
+      182    0.638    0.004    0.638    0.004 {method 'foreach_set' of 'bpy_prop_collection' objects}
+       26    0.001    0.000    0.449    0.017 C:\Users\Tyler\Documents\Codex\2026-11-06\rev\work\warpsph-runtime\sdk\blender_vulkan_interop\output\particles.py:47(estimate)
+      108    0.003    0.000    0.353    0.003 C:\Users\Tyler\.codex\blender-mcp\sessions\934d0d1301c64b0698d978b9ad9530c6\resources\extensions\demo\warp_sph_realtime\sim_session.py:184(draw)
+      108    0.000    0.000    0.346    0.003 C:\Users\Tyler\.codex\blender-mcp\sessions\934d0d1301c64b0698d978b9ad9530c6\resources\extensions\demo\warp_sph_realtime\interop_bridge.py:172(draw)
+      108    0.003    0.000    0.346    0.003 C:\Users\Tyler\.codex\blender-mcp\sessions\934d0d1301c64b0698d978b9ad9530c6\resources\extensions\demo\warp_sph_realtime\interop_bridge.py:372(draw)
+       26    0.008    0.000    0.185    0.007 C:\Users\Tyler\Documents\Codex\2026-11-06\rev\work\warpsph-runtime\sdk\blender_vulkan_interop\output\snapshots.py:96(readback)
+      102    0.001    0.000    0.140    0.001 C:\Users\Tyler\.codex\blender-mcp\sessions\934d0d1301c64b0698d978b9ad9530c6\resources\extensions\demo\warp_sph_realtime\interop_bridge.py:115(tick)
+     7036    0.012    0.000    0.117    0.000 C:\Users\Tyler\Documents\Codex\2026-11-06\rev\work\warpsph-runtime\sdk\blender_vulkan_interop\_impl\backends\blender_vulkan.py:388(poll)
+       54    0.013    0.000    0.112    0.002 C:\Users\Tyler\.codex\blender-mcp\sessions\934d0d1301c64b0698d978b9ad9530c6\resources\extensions\demo\warp_sph_realtime\addon.py:581(draw)
+     9965    0.026    0.000    0.106    0.000 C:\Users\Tyler\Documents\Codex\2026-11-06\rev\work\warpsph-runtime\sdk\blender_vulkan_interop\_impl\backends\blender_vulkan.py:175(_owner_context)
+      156    0.002    0.000    0.104    0.001 C:\Users\Tyler\Documents\Codex\2026-11-06\rev\work\warpsph-runtime\sdk\blender_vulkan_interop\output\snapshots.py:66(_read_binding_words)
+      612    0.001    0.000    0.100    0.000 {built-in method builtins.all}
+     1816    0.002    0.000    0.095    0.000 C:\Users\Tyler\Documents\Codex\2026-11-06\rev\work\warpsph-runtime\sdk\blender_vulkan_interop\_impl\resource_publication.py:194(_readiness)
+      134    0.000    0.000    0.094    0.001 C:\Users\Tyler\Documents\Codex\2026-11-06\rev\work\warpsph-runtime\sdk\blender_vulkan_interop\_impl\particle_frames.py:126(acquire_frame)
+      134    0.002    0.000    0.094    0.001 C:\Users\Tyler\Documents\Codex\2026-11-06\rev\work\warpsph-runtime\sdk\blender_vulkan_interop\_impl\resource_publication.py:242(acquire_resources)
+       54    0.000    0.000    0.088    0.002 C:\Users\Tyler\.codex\blender-mcp\sessions\934d0d1301c64b0698d978b9ad9530c6\resources\extensions\demo\warp_sph_realtime\warp_runtime.py:69(status)
+       26    0.001    0.000    0.085    0.003 C:\Users\Tyler\Documents\Codex\2026-11-06\rev\work\warpsph-runtime\sdk\blender_vulkan_interop\_impl\particle_frames.py:96(publish)
+      130    0.083    0.001    0.083    0.001 {method 'read' of 'GPUTexture' objects}
+       52    0.069    0.001    0.069    0.001 {method 'sort' of 'numpy.ndarray' objects}
+     1616    0.002    0.000    0.065    0.000 C:\Users\Tyler\Documents\Codex\2026-11-06\rev\work\warpsph-runtime\sdk\blender_vulkan_interop\_impl\resource_publication.py:253(<genexpr>)
+     1348    0.004    0.000    0.061    0.000 C:\Users\Tyler\Documents\Codex\2026-11-06\rev\work\warpsph-runtime\sdk\blender_vulkan_interop\_impl\backends\blender_vulkan.py:426(is_ready)
+       54    0.001    0.000    0.060    0.001 C:\Users\Tyler\.codex\blender-mcp\sessions\934d0d1301c64b0698d978b9ad9530c6\resources\extensions\demo\warp_sph_realtime\warp_installer.py:606(foreign_warp_block_reason)
+       26    0.001    0.000    0.055    0.002 C:\Users\Tyler\Documents\Codex\2026-11-06\rev\work\warpsph-runtime\sdk\blender_vulkan_interop\_impl\resource_publication.py:219(publish)
+       84    0.001    0.000    0.052    0.001 C:\Users\Tyler\Documents\Codex\2026-11-06\rev\work\warpsph-runtime\sdk\blender_vulkan_interop\_impl\particle_frames.py:62(__enter__)
+       84    0.001    0.000    0.051    0.001 C:\Users\Tyler\Documents\Codex\2026-11-06\rev\work\warpsph-runtime\sdk\blender_vulkan_interop\_impl\resource_publication.py:63(__enter__)
+      130    0.050    0.000    0.050    0.000 {built-in method numpy.ascontiguousarray}
+      504    0.003    0.000    0.048    0.000 C:\Users\Tyler\Documents\Codex\2026-11-06\rev\work\warpsph-runtime\sdk\blender_vulkan_interop\_impl\backends\blender_vulkan.py:496(bind_for_draw)
+      162    0.000    0.000    0.047    0.000 C:\Users\Tyler\Downloads\blender-5.2.0-windows-x64\blender-5.2.0-windows-x64\5.2\python\Lib\pathlib\_local.py:664(resolve)
+      162    0.001    0.000    0.044    0.000 <frozen ntpath>:661(realpath)
+      156    0.002    0.000    0.042    0.000 C:\Users\Tyler\Documents\Codex\2026-11-06\rev\work\warpsph-runtime\sdk\blender_vulkan_interop\_impl\backends\blender_vulkan.py:328(enqueue_pack)
+      324    0.035    0.000    0.035    0.000 {built-in method nt._getfinalpathname}
+       26    0.000    0.000    0.035    0.001 C:\Users\Tyler\Documents\Codex\2026-11-06\rev\work\warpsph-runtime\sdk\blender_vulkan_interop\output\snapshots.py:87(pin)
+      625    0.001    0.000    0.034    0.000 {built-in method builtins.any}
+
+

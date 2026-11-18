@@ -19,7 +19,7 @@ DONE, CANCELLED, FAILED = "DONE", "CANCELLED", "FAILED"
 ACTIVE_STATES = (RUNNING, CANCELLING, FINISHING)
 
 
-def solver_signature(solver, steps: int, fps: float, scene: str, demo: str) -> dict:
+def solver_signature(solver, steps: int, fps: float, scene: str, demo: str, *, provenance=None) -> dict:
     """JSON-stable effective bake physics, taken from the initialized solver.
 
     Gravity is already in solver units (m/s^2); never round it or multiply by
@@ -39,6 +39,8 @@ def solver_signature(solver, steps: int, fps: float, scene: str, demo: str) -> d
     boundaries = getattr(solver, "boundary_fingerprint", None)  # authored scenes: colliders, emitters, domain
     if isinstance(boundaries, str):
         signature["boundaries"] = boundaries
+    if provenance is not None:
+        signature["scene_provenance"] = dict(provenance)
     return signature
 
 

@@ -1,0 +1,33 @@
+{
+  "scope": "bounded reset-trial development comparison, not hardware qualification",
+  "trials_per_arm": 16,
+  "baseline_median_s": 3.4129516500033787,
+  "candidate_median_s": 0.4886553499964066,
+  "ratio_of_medians": 6.984373853736537,
+  "baseline_range_s": [
+    2.461656999992556,
+    3.717356599998311
+  ],
+  "candidate_range_s": [
+    0.42882480000844225,
+    0.7695784999959869
+  ],
+  "baseline_adjacent_AA_ratios": [
+    0.94360657245695,
+    1.052806791598285,
+    1.2308826940629822,
+    1.0024773245717982,
+    0.9528309482581401,
+    0.9890611145539654,
+    0.9519936054072223,
+    1.0655929814400904
+  ],
+  "same_work_and_exact_final_positions_ids": true,
+  "receipt_validation_negative_controls": {
+    "wrong_positions": "workload/final-state mismatch",
+    "changed_substeps": "workload/final-state mismatch",
+    "missing_trial": "missing/duplicate trials",
+    "wrong_artifact": "candidate artifact mismatch",
+    "failed_attempt": "incomplete or failed run"
+  }
+}

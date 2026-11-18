@@ -8,8 +8,9 @@ from test_transport_session import LIFECYCLE
 
 ROOT = Path(__file__).resolve().parents[1]
 EXTRA = r"""
-from warp_sph_realtime import interop_bridge,sdk_dependency
+from warp_sph_realtime import interop_bridge,sdk_dependency,warp_installer
 shared=[];preflight=[]
+warp_installer.ensure_installed_warp_on_path=lambda:None
 sdk_dependency.validate_environment=lambda:preflight.append('checked')
 class Shared(ts.TransportSession):
     is_shared_sdk=True
@@ -73,3 +74,45 @@ def test_shared_sdk_selection_reset_snapshot_and_missing_dependency():
     result = subprocess.run([sys.executable, "-"], input=script, cwd=ROOT, capture_output=True, text=True, timeout=60)
     assert result.returncode == 0, result.stdout + result.stderr
     assert "SDK_SELECTION_LIFECYCLE_OK" in result.stdout
+
+
+def test_cold_start_admits_configured_folder_before_sdk_validation():
+    script = LIFECYCLE.split("reset()\next.unregister()")[0] + r'''
+import hashlib, tempfile
+from pathlib import Path
+from warp_sph_realtime import sdk_dependency, warp_installer
+
+with tempfile.TemporaryDirectory() as tmp:
+    folder = Path(tmp)
+    (folder / 'warp').mkdir()
+    (folder / 'warp' / '__init__.py').write_text('')
+    (folder / 'warp' / 'config.py').write_text('version = "1.17.0"')
+    sdk = folder / 'blender_vulkan_interop'
+    sdk.mkdir()
+    payload = b'VALUE = 1\n'
+    (sdk / '__init__.py').write_bytes(payload)
+    lock = {'payload_sha256': {'__init__.py': hashlib.sha256(payload).hexdigest()},
+            'blender_build': 'test-build', 'backend': 'VULKAN'}
+    sdk_dependency.read_lock = lambda: lock
+    bpy.app.build_hash = b'test-build'
+    warp_installer.active_source = lambda: warp_installer.WarpSource(warp_installer.SOURCE_FOLDER, folder)
+    warp_installer.foreign_warp_block_reason = lambda: None
+    sim_session.SimSession.reallocate = lambda *args, **kwargs: None
+    assert str(folder) not in sys.path
+    ctx = reset(); ctx.scene.warp_sph.use_shared_sdk = True
+    op, result = start(ctx)
+    assert result == {'RUNNING_MODAL'}, op.reports
+    assert str(folder) in sys.path
+    sim_session.get(ctx.scene).stop(ctx)
+    sys.path.remove(str(folder))
+    sys.modules.pop('blender_vulkan_interop', None)
+    warp_installer.active_source = lambda: warp_installer.WarpSource(warp_installer.SOURCE_FOLDER, folder / 'missing')
+    ctx = reset(); ctx.scene.warp_sph.use_shared_sdk = True
+    op, result = start(ctx)
+    assert result == {'CANCELLED'} and str(folder / 'missing') not in sys.path
+    assert any('not found' in msg for kind, msg in op.reports), op.reports
+print('COLD_SDK_ADMISSION_OK')
+'''
+    result = subprocess.run([sys.executable, "-"], input=script, cwd=ROOT, capture_output=True, text=True, timeout=60)
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "COLD_SDK_ADMISSION_OK" in result.stdout

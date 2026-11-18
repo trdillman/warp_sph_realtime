@@ -14,7 +14,9 @@ dev = [
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]
-addopts = "-p no:cacheprovider"
+# These are host tests; live Blender probes are launched explicitly through blender-gate.
+# A globally installed pytest-blender plugin must not silently redirect this suite.
+addopts = "-p no:cacheprovider -p no:pytest-blender"
 
 [tool.ruff]
 target-version = "py313"  # Blender 5.2 bundles Python 3.13

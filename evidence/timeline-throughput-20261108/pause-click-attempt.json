@@ -1,0 +1,19 @@
+{
+  "samples": [
+    {
+      "frame": 1217,
+      "steps": 8198,
+      "time": 27.02104890118125,
+      "positions": "7c10ebc1eaae4a61406786ff9d2737e04e9d5d0d6cd6e71384bd34a0fc57b725",
+      "playing": true
+    },
+    {
+      "frame": 1225,
+      "steps": 8245,
+      "time": 27.17596342891429,
+      "positions": "ddf92547c5dddc287319238976b701a642e3d02a60f883c69453fa0362572543",
+      "playing": true
+    }
+  ],
+  "passed": false
+}

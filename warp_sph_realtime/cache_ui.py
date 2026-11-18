@@ -11,7 +11,7 @@ import time
 
 import bpy
 
-from . import props, sim_session
+from . import props, sdk_snapshot_ui, sim_session
 
 
 def _adapter():
@@ -430,9 +430,11 @@ def register():
     for cls in CLASSES:
         bpy.utils.register_class(cls)
     _adapter().register()
+    sdk_snapshot_ui.register()
 
 
 def unregister():
+    sdk_snapshot_ui.unregister()
     _adapter().unregister()
     for cls in reversed(CLASSES):
         bpy.utils.unregister_class(cls)

@@ -22,6 +22,7 @@ from .props import spacing_metres, stiffness_pa
 from .render import session as transport_session
 from .render.gpu_points import settings_from_scene
 from .render.transport import COMPLETED, FAILED, QUARANTINED, FatalTransportError, process_state
+from .timeline import needs_step
 
 _LOG = logging.getLogger(__name__)
 
@@ -36,6 +37,8 @@ CUSTOM_SCENE = "CUSTOM"
 TIMER_INTERVAL_S = 0.001  # P0.5: 1 ms timer chosen by measured latency; do not change
 BAKE_CHUNK_S = 0.004      # P2.2: most time one timer tick spends queueing bake frames (never a blocking loop)
 BAKE_RING_SLOTS = 3       # frames in flight between the solver, the host copy and the disk writer
+LIVE_CHUNK_S = 0.008     # host submission budget, checked between unchanged solver steps
+LIVE_MAX_STEPS = 16      # never queue an unbounded timeline backlog in one publication
 
 _QUARANTINE: list = process_state().quarantine  # objects never freed until exit, across reloads
 
@@ -236,10 +239,14 @@ class SimSession:
         try:
             desc = _scene_api().description_from_blender(scene, depsgraph)
             settings = scene.warp_sph
-            return runtime.RealtimeWCSPHSolver.from_scene(
-                desc, spacing_metres(settings, _scene_api().unit_scale(scene)), substeps=settings.substeps,
+            from .cache.provenance import scene_provenance
+            spacing = spacing_metres(settings, _scene_api().unit_scale(scene))
+            solver = runtime.RealtimeWCSPHSolver.from_scene(
+                desc, spacing, substeps=settings.substeps,
                 stiffness=stiffness_pa(settings), cfl_factor=settings.time_step_scale,
                 viscosity=settings.viscosity)
+            solver._cache_initial_provenance = scene_provenance(desc, spacing=spacing)
+            return solver
         except (SceneValidationError, SceneFillError) as exc:
             raise SceneSetupError(str(exc)) from exc
 
@@ -558,6 +565,8 @@ class SimSession:
         try:
             if getattr(self.scene.warp_sph, 'use_shared_sdk', False):
                 from .sdk_dependency import validate_environment
+                from .warp_installer import ensure_installed_warp_on_path
+                ensure_installed_warp_on_path()  # admit the configured source before locating the SDK
                 validate_environment()  # identity/backend admission before allocating the real solver
             activate()
             scene = self.scene
@@ -680,8 +689,8 @@ class SimSession:
 
         timeline_bound = hasattr(screen, 'is_animation_playing')
         step_seconds = 0.0
+        fps, target = 0.0, self.start_frame  # batch timing is used only with a native timeline
         if timeline_bound:
-            from .timeline import needs_step
             if getattr(self, '_timeline_reset_failed', False):
                 if screen.is_animation_playing:
                     bpy.ops.screen.animation_cancel(restore_frame=False)
@@ -768,23 +777,44 @@ class SimSession:
 
         self.solver.substeps = settings.substeps
         solver, use_graph = self.solver, settings.use_cuda_graph
+        taken = 0
+
+        def produce(out):
+            nonlocal taken
+            # Admission belongs to the transport. Once admitted, amortize output
+            # over at most one timeline frame (plus <one step of rounding), with
+            # hard step and host-time caps so input events regain control.
+            begin = time.perf_counter()
+            elapsed = getattr(self, '_timeline_elapsed', 0.0)
+            while True:
+                if self.active_demo == CUSTOM_SCENE:
+                    # Sampling covers only the next solver step's interval.
+                    frame = self.scene.frame_current if timeline_bound else None
+                    try:
+                        self._sync_colliders(solver)
+                    finally:
+                        if frame is not None and self.scene.frame_current != frame:
+                            self._set_frame(frame)
+                    if getattr(self.session, 'is_shared_sdk', False):
+                        self.session.note_scene_applied()
+                solver.step(out, use_graph=use_graph)
+                taken += 1
+                if not timeline_bound or taken >= LIVE_MAX_STEPS:
+                    break
+                if (taken * step_seconds + 1e-10 >= 1.0 / fps
+                        or time.perf_counter() - begin >= LIVE_CHUNK_S
+                        or not needs_step(target, self.start_frame, fps,
+                                          elapsed + taken * step_seconds, step_seconds)):
+                    break
+
         try:
-            if self.active_demo == CUSTOM_SCENE:  # animated colliders: one transform read per frame
-                frame = self.scene.frame_current if timeline_bound else None
-                try:
-                    self._sync_colliders(solver)
-                finally:
-                    if frame is not None and self.scene.frame_current != frame:
-                        self._set_frame(frame)
-                if getattr(self.session, 'is_shared_sdk', False):
-                    self.session.note_scene_applied()
             if self.session is not None:
                 # No host sync: the adapter orders publication on the solver stream and
                 # skips the step (backpressure) while a step is in flight or both slots are busy.
-                stepped = self.session.tick(lambda out: solver.step(out, use_graph=use_graph))
+                stepped = self.session.tick(produce)
             else:
                 with self.gl_buf.mapped() as pos_vbo_wp:
-                    solver.step(pos_vbo_wp, use_graph=use_graph)
+                    produce(pos_vbo_wp)
                 runtime.wp.synchronize_device("cuda:0")
                 stepped = True
         except FatalTransportError as exc:
@@ -798,21 +828,24 @@ class SimSession:
             return False
         now = time.perf_counter()
         if self.session is None:
-            dt_ms = (now - t0) * 1000.0
-        elif stepped and self.last_tick:
-            dt_ms = (now - self.last_tick) * 1000.0  # asynchronous: wall-clock step interval
+            dt_ms = (now - t0) * 1000.0 / max(taken, 1)
+        elif taken and self.last_tick:
+            dt_ms = (now - self.last_tick) * 1000.0 / max(taken, 1)  # wall-clock per solver step
         else:
             dt_ms = None
-        if stepped and self.session is not None:
+        if taken and self.session is not None:
             self.last_tick = now
         if dt_ms is not None:
             self.frame_time_ms = 0.9 * self.frame_time_ms + 0.1 * dt_ms if self.step_count > 0 else dt_ms
             self.fps_avg = 1000.0 / max(self.frame_time_ms, 0.001)
-        if stepped:
-            self.step_count += 1
+        if taken:
+            self.step_count += taken
             if timeline_bound:
-                self._timeline_elapsed = getattr(self, '_timeline_elapsed', 0.0) + step_seconds
+                self._timeline_elapsed = getattr(self, '_timeline_elapsed', 0.0) + taken * step_seconds
             self.step_once = False  # a single-step request survives a backpressure skip
+            # A transport may admit compute then defer its final publication.
+            # Retain the advanced clock and retry output without repeating physics.
+            self._output_pending = not stepped
         if getattr(solver, "emission_exhausted", False) and solver.take_exhaustion_notice():
             report({'WARNING'}, "WarpSPH: particle budget reached; emitters stopped (raise Max Particles)")
 
@@ -841,6 +874,7 @@ class SimSession:
         from .cache import disk as cache_disk
         from .cache.frame_store import FrameStore
         from .cache.gpu import SolverSource, VramRing
+        from .cache.provenance import capture_scene, feed_motion, scene_provenance
 
         if not self.running or self.solver is None or runtime.wp is None:
             report({'ERROR'}, "Start the simulation before baking")
@@ -857,16 +891,35 @@ class SimSession:
         try:
             # Frame ``first`` is the initial state at the solver's start frame: emitters and animated colliders run
             # on that clock, so an authored scene built at another frame (the playhead at Start) is rebuilt there.
-            # Resume needs the same clock: restore sets the time from ``first``.
+            # BakeJob advances the solver without updating the live-preview step counter, so advanced state is
+            # reset even for an empty/interrupted Resume before restoring a prefix.
             custom = self.active_demo == CUSTOM_SCENE
-            if (custom and self.start_frame != first) or (not resume and self.step_count > 0):
+            advanced = self.step_count > 0 or getattr(self.solver, "sim_time", 0.0) > 0.0
+            if (custom and self.start_frame != first) or advanced:
                 self.paused = False
                 self._rebuild_at_start(context, first if custom else None)
             solver = self.solver
             apply_physics(solver, settings)
             solver.rebuild_cuda_graph()
             steps = cache_bake.steps_per_frame(settings.bake_steps, solver.dt, fps)
-            signature = cache_bake.solver_signature(solver, steps, fps, scene_name(scene), self.active_demo)
+            motion_keys = {}
+            if self.active_demo == CUSTOM_SCENE:
+                spacing = spacing_metres(settings, _scene_api().unit_scale(scene))
+                initial, provenance, motion_keys = capture_scene(
+                    scene, context.evaluated_depsgraph_get(), first=first, last=last,
+                    steps=steps, dt=solver.dt, spacing=spacing)
+                if initial != getattr(solver, "_cache_initial_provenance", None):
+                    raise ValueError(
+                        "scene inputs differ from the initialized solver; restart the simulation "
+                        "at the bake start frame before Bake Cache or Resume")
+            else:
+                from .scene.demo_description import demo_description, demo_spacing
+                provenance = scene_provenance(
+                    demo_description(self.active_demo, solver.num_particles),
+                    spacing=demo_spacing(solver.num_particles),
+                    initializer={"demo": self.active_demo, "particles": solver.num_particles, "version": 1})
+            signature = cache_bake.solver_signature(
+                solver, steps, fps, scene_name(scene), self.active_demo, provenance=provenance)
             disk = cache_disk.DiskCache(blender_adapter.cache_dir(scene))
             remaining = max(last - first + 1 - (disk.cached_count() if resume else 0), 0)
             free = cache_disk.free_bytes(disk.directory)
@@ -884,7 +937,14 @@ class SimSession:
             ring = VramRing(runtime.wp, solver.num_particles, BAKE_RING_SLOTS)  # the pool: emitters never overflow it
             store = FrameStore(disk, ring)
             before_step = None
-            if self.active_demo == CUSTOM_SCENE:  # animated colliders: one transform read per frame, as in tick
+            if motion_keys:
+                # A live preview may have cached keys from before this snapshot. Reload all keys
+                # from frozen provenance rather than retaining any mutable preview authority.
+                solver._key_frames.clear()
+
+                def before_step(scene=scene, solver=solver, keys=motion_keys):
+                    feed_motion(scene, solver, keys)
+            elif self.active_demo == CUSTOM_SCENE:  # animated colliders: one transform read per frame, as in tick
                 def before_step(solver=solver):
                     self._sync_colliders(solver)
             try:
