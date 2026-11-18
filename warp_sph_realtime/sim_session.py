@@ -874,7 +874,7 @@ class SimSession:
         from .cache import disk as cache_disk
         from .cache.frame_store import FrameStore
         from .cache.gpu import SolverSource, VramRing
-        from .cache.provenance import at_frame, capture_scene, feed_motion, scene_provenance
+        from .cache.provenance import capture_scene, feed_motion, scene_provenance
 
         if not self.running or self.solver is None or runtime.wp is None:
             report({'ERROR'}, "Start the simulation before baking")
