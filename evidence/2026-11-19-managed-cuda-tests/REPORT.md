@@ -34,6 +34,14 @@ destroyed a CUDA/OpenGL buffer. Its build, install and runtime leases
 `da49ff9bc4c1`, `d0383b39f2ba` and `4fc6fa9a8998` were released.
 The fixture substitutes a local wheel transfer for the network download.
 
+The real online installer also passed separately in a new disposable profile
+on the same Blender build. Invoking the installed extension's Install Warp
+operator downloaded the pinned Warp 1.17.0 wheel from PyPI and installed it.
+A fresh Blender process recognized the certified install. The independent
+check matched all 570 installed Warp package files against the pinned wheel.
+The first verification run's 220-second deadline expired during the download
+and left no Warp install. A second run with a longer deadline completed.
+
 The default host installation contained a foreign Warp 1.18.0 copy, which
 WarpSPH flagged. These checks used a clean portable copy with the same
 Blender executable SHA-256. The host copy was preserved.
