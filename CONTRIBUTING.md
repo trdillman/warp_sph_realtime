@@ -46,12 +46,19 @@ pytest
 ruff check .
 pyright
 
-# Or via standard library unittest
-python -m unittest discover -s tests -v
+# Or via standard library unittest with CUDA devices hidden
+CUDA_VISIBLE_DEVICES=-1 python -m unittest discover -s tests -v
 
 # Build (and optionally install) the extension zip with Blender
 python scripts/build_extension.py --blender /path/to/blender [--install]
 ```
+
+On a workstation managed by blender-gate, run the headless CUDA cases with
+`python scripts/run_cuda_tests.py` from the repository root. The runner waits
+for a shared GPU lease and holds it through pytest. Append pytest selectors
+as needed, or use `--no-wait` to return immediately if the GPU is reserved.
+On a dedicated CUDA host without blender-gate, set `WARPSPH_TEST_CUDA=1` in
+the test process environment to opt in to CUDA pytest.
 
 ### What the Test Suite Covers
 * **`tests/test_sim_core.py`:** Cubic spline kernel accuracy, gradient symmetry, $O(n)$ spatial hash + SoA reordering integrity, domain boundary clamping, NaN-free multi-step integration, and exact numerical equivalence between `use_graph=True` and `use_graph=False`.

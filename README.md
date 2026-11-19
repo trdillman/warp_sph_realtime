@@ -150,12 +150,19 @@ The repository includes a `pytest` / `unittest` suite under `tests/` that valida
 
 ```bash
 pip install numpy "warp-lang==1.17.0" "fake-bpy-module==20251003" "pytest==9.0.1" "ruff==0.14.11" "pyright==1.1.408"
-pytest                      # run from the repository root
+pytest                      # CPU-only by default
 ruff check .
 pyright
-# or using unittest directly:
-python -m unittest discover -s tests -v
+# or using unittest with CUDA devices hidden
+CUDA_VISIBLE_DEVICES=-1 python -m unittest discover -s tests -v
 ```
+
+On a workstation managed by blender-gate, run the headless CUDA cases with
+`python scripts/run_cuda_tests.py` from the repository root. The runner waits
+for a shared GPU lease and holds it through pytest. Append pytest selectors
+as needed, or use `--no-wait` to return immediately if the GPU is reserved.
+On a dedicated CUDA host without blender-gate, set `WARPSPH_TEST_CUDA=1` in
+the test process environment to opt in to CUDA pytest.
 
 ---
 
