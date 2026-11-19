@@ -23,12 +23,12 @@ _original_user_site_path = installer._user_site_warp_path
 _original_download = installer._download_wheel
 
 
-def valid_wheel():
+def valid_wheel(version="1.17.0"):
     blob = io.BytesIO()
     with zipfile.ZipFile(blob, "w") as z:
-        z.writestr("warp/__init__.py", '__version__ = "1.17.0"\n')
-        z.writestr("warp_lang-1.17.0.dist-info/METADATA", "Name: warp-lang\nVersion: 1.17.0\n")
-        z.writestr("warp_lang-1.17.0.dist-info/WHEEL", "Wheel-Version: 1.0\nTag: py3-none-win_amd64\n")
+        z.writestr("warp/__init__.py", f'__version__ = "{version}"\n')
+        z.writestr(f"warp_lang-{version}.dist-info/METADATA", f"Name: warp-lang\nVersion: {version}\n")
+        z.writestr(f"warp_lang-{version}.dist-info/WHEEL", "Wheel-Version: 1.0\nTag: py3-none-win_amd64\n")
     return blob.getvalue()
 
 
@@ -252,6 +252,78 @@ class ManagedWarpTest(unittest.TestCase):
     def _snapshot(self):
         return {p.relative_to(self.owned).as_posix(): (p.read_bytes() if p.is_file() else None)
                 for p in self.owned.rglob("*")}
+
+    @contextlib.contextmanager
+    def _successor_release(self, previous_digest=None):
+        version = "1.19.0"
+        old_wheel = self.wheel
+        data = valid_wheel(version)
+        wheel = installer.WheelInfo(
+            filename="successor.whl", sha256=hashlib.sha256(data).hexdigest(),
+            size=len(data), url=old_wheel.url, platform=old_wheel.platform,
+        )
+        path = Path(self.temp.name) / wheel.filename
+        path.write_bytes(data)
+        history = {"1.17.0": {old_wheel.platform: previous_digest or old_wheel.sha256}}
+        with (
+            mock.patch.object(installer, "get_wheel_info_for_platform", return_value=wheel),
+            mock.patch.object(installer, "_load_wheel_lock", return_value={"previous_managed": history}),
+            mock.patch.object(installer, "CERTIFIED_WARP_VERSION", version),
+            mock.patch.object(warp_runtime, "CERTIFIED_WARP_VERSION", version),
+        ):
+            yield path, wheel
+
+    def test_upgrade_replaces_only_a_verified_prior_install(self):
+        self.install()
+        with self._successor_release() as (path, _wheel):
+            before = warp_runtime.status()
+            self.assertFalse(before.available)
+            self.assertIn("Use Install Warp to upgrade to 1.19.0", before.message)
+            result = installer.install_warp(local_wheel=path)
+            self.assertTrue(result.success, result.message)
+            self.assertTrue(warp_runtime.status().available)
+            self.assertEqual(installer._owned_distribution_version(self.owned), "1.19.0")
+            self.assertTrue(installer._is_managed(self.owned))
+            self.assertFalse((self.owned / "warp_lang-1.17.0.dist-info").exists())
+
+    def test_upgrade_refuses_wrong_digest_or_mixed_distribution(self):
+        self.install()
+        before = self._snapshot()
+        with self._successor_release(previous_digest="0" * 64) as (path, wheel):
+            result = installer.install_warp(local_wheel=path)
+            self.assertFalse(result.success)
+            self.assertIn("unsupported and preserved", result.message)
+            with self.assertRaisesRegex(RuntimeError, "Unmanaged Warp"):
+                installer._promote_verified_wheel(path, self.owned, wheel)
+            self.assertEqual(self._snapshot(), before)
+        (self.owned / "warp_lang-1.16.0.dist-info").mkdir()
+        before = self._snapshot()
+        with self._successor_release() as (path, _wheel):
+            self.assertFalse(installer.install_warp(local_wheel=path).success)
+            self.assertEqual(self._snapshot(), before)
+
+    def test_failed_upgrade_restores_prior_install_exactly(self):
+        before = self._install_marked()
+        with self._successor_release() as (path, _wheel):
+            with self._failing_rename(self._nth_move_from("staging", 2)):
+                result = installer.install_warp(local_wheel=path)
+            self.assertFalse(result.success)
+            self.assertEqual(self._snapshot(), before)
+            self.assertTrue(installer.install_warp(local_wheel=path).success)
+
+    def test_loaded_prior_install_upgrades_on_restart(self):
+        self.install()
+        with self._successor_release() as (path, _wheel):
+            sys.modules["warp"] = SimpleNamespace(__file__=str(self.owned / "warp/__init__.py"))
+            result = installer.install_warp(local_wheel=path)
+            self.assertTrue(result.success, result.message)
+            self.assertTrue(installer._pending_repair_path(self.owned).is_file())
+            self.assertEqual(installer._owned_distribution_version(self.owned), "1.17.0")
+            sys.modules.pop("warp")
+            installer._pending_repair_pid_path(self.owned).write_text("0", encoding="ascii")
+            self.assertTrue(installer._apply_pending_repair(self.owned))
+            self.assertEqual(installer._owned_distribution_version(self.owned), "1.19.0")
+            self.assertTrue(installer._is_managed(self.owned))
 
     def _install_marked(self):
         """Install, then tag the copy so a restore is provably the previous install, not the new one."""

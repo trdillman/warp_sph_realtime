@@ -710,6 +710,27 @@ def _is_managed(dest: Path) -> bool:
     except (OSError, ValueError, TypeError, KeyError):
         return False
 
+def _is_previously_managed(dest: Path, version: str | None) -> bool:
+    """A prior release's exact platform receipt permits replacement, not runtime use."""
+    if version is None or version == CERTIFIED_WARP_VERSION:
+        return False
+    try:
+        wheel = get_wheel_info_for_platform()
+        if wheel is None:
+            return False
+        previous = _load_wheel_lock().get("previous_managed", {})
+        digest = previous.get(version, {}).get(wheel.platform)
+        if not isinstance(digest, str) or len(digest) != 64:
+            return False
+        # Multiple distributions in one target make the receipt ambiguous.
+        if len(list(dest.glob("warp_lang-*.dist-info"))) != 1:
+            return False
+        receipt = json.loads(_receipt_path(dest).read_text("utf8"))
+        return receipt == {"version": version, "platform": wheel.platform, "sha256": digest}
+    except (OSError, ValueError, TypeError, AttributeError, KeyError):
+        return False
+
+
 def _has_warp(dest: Path) -> bool:
     return ((dest / "warp").exists() or (dest / "warp.libs").exists()
             or any(dest.glob("warp_lang-*.dist-info")))
@@ -833,7 +854,9 @@ def _promote_verified_wheel(
         raise RuntimeError("Wheel differs from immutable SHA-256/size lock")
     _recover_interrupted_promotion(destination)
     if _has_warp(destination) and not _is_managed(destination):
-        raise RuntimeError("Unmanaged Warp already occupies the target; refusing overwrite")
+        version = _owned_distribution_version(destination)
+        if not _is_previously_managed(destination, version):
+            raise RuntimeError("Unmanaged Warp already occupies the target; refusing overwrite")
     if _owned_warp_is_loaded(destination):
         raise RuntimeError("Native Warp library is still loaded; restart to repair")
     created = not destination.exists()
@@ -1090,12 +1113,13 @@ def plan_install(
                     )
                 repairing_certified = True
                 break
-            if status != "certified":
-                return InstallResult(
-                    False,
-                    f"Existing Warp {owned_version} is unsupported and preserved. "
-                    "Do not overwrite it before determining ownership.",
-                )
+            if _is_previously_managed(owned, owned_version):
+                break
+            return InstallResult(
+                False,
+                f"Existing Warp {owned_version} is unsupported and preserved. "
+                "Do not overwrite it before determining ownership.",
+            )
 
     if local_wheel is None:
         online = _online_access_block_reason()
