@@ -151,7 +151,7 @@ def test_adapter_import_does_not_load_sdk_warp_or_blender():
     assert run.returncode == 0, run.stderr
 
 @pytest.mark.parametrize('where', ['sync', 'array'])
-def test_cuda_readback_failure_stops_session_instead_of_allowing_resume(where):
+def test_cuda_readback_failure_stops_session_instead_of_allowing_resume(where, monkeypatch):
     m = api()
     scene, session, wp, reads = setup()
 
@@ -168,14 +168,10 @@ def test_cuda_readback_failure_stops_session_instead_of_allowing_resume(where):
             if self is session.solver.pos_sim:
                 result.numpy = fail
             return result
-        session.solver.pos_sim.__class__.__getitem__ = failing_slice
-    try:
-        with pytest.raises(RuntimeError, match='CUDA'):
-            m.capture_paused(session, scene, wp_module=wp)
-        assert not session.running and session.restart_required, 'unknown CUDA state was left resumable'
-    finally:
-        if where == 'array':
-            Array.__getitem__ = original
+        monkeypatch.setattr(Array, '__getitem__', failing_slice)
+    with pytest.raises(RuntimeError, match='CUDA'):
+        m.capture_paused(session, scene, wp_module=wp)
+    assert not session.running and session.restart_required, 'unknown CUDA state was left resumable'
 
 
 def test_disposed_and_recreated_session_uses_new_identity_namespace():

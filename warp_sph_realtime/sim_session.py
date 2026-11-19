@@ -942,11 +942,15 @@ class SimSession:
                 # from frozen provenance rather than retaining any mutable preview authority.
                 solver._key_frames.clear()
 
-                def before_step(scene=scene, solver=solver, keys=motion_keys):
+                def feed_frozen_motion(scene=scene, solver=solver, keys=motion_keys):
                     feed_motion(scene, solver, keys)
+
+                before_step = feed_frozen_motion
             elif self.active_demo == CUSTOM_SCENE:  # animated colliders: one transform read per frame, as in tick
-                def before_step(solver=solver):
+                def sync_live_colliders(solver=solver):
                     self._sync_colliders(solver)
+
+                before_step = sync_live_colliders
             try:
                 self.bake = cache_bake.BakeJob(
                     store, SolverSource(runtime.wp, solver, steps, settings.use_cuda_graph,

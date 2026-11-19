@@ -113,6 +113,9 @@ with tempfile.TemporaryDirectory() as tmp:
     assert any('not found' in msg for kind, msg in op.reports), op.reports
 print('COLD_SDK_ADMISSION_OK')
 '''
-    result = subprocess.run([sys.executable, "-"], input=script, cwd=ROOT, capture_output=True, text=True, timeout=60)
+    # Ignore the harness's staged SDK on PYTHONPATH, while keeping NumPy from
+    # the test interpreter's environment available to the add-on.
+    result = subprocess.run([sys.executable, "-E", "-s", "-"], input=script, cwd=ROOT,
+                            capture_output=True, text=True, timeout=60)
     assert result.returncode == 0, result.stdout + result.stderr
     assert "COLD_SDK_ADMISSION_OK" in result.stdout
