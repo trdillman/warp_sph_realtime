@@ -136,3 +136,21 @@ def test_windows_owned_tree_stops_with_live_descendant(tmp_path, timeout):
     finally:
         outsider.terminate()
         outsider.wait(timeout=5)
+
+
+@pytest.mark.skipif(os.name != "nt", reason="requires the native Windows interpreter image")
+def test_windows_bootstrap_ignores_redirector_and_site_hooks(tmp_path, monkeypatch):
+    interpreter = sys.executable
+    monkeypatch.setattr(sys, "executable", str(tmp_path / "not-an-interpreter.exe"))
+    side_effect = tmp_path / "site-ran"
+    (tmp_path / "sitecustomize.py").write_text(
+        f"from pathlib import Path\nPath({str(side_effect)!r}).touch()\n",
+        encoding="utf-8",
+    )
+    assert run_owned(
+        [interpreter, "-I", "-S", "-c", "pass"],
+        cwd=tmp_path,
+        env=dict(os.environ, PYTHONPATH=str(tmp_path)),
+        timeout=5,
+    ) == 0
+    assert not side_effect.exists()

@@ -46,6 +46,7 @@ class _WindowsJob:
         kernel = ctypes.WinDLL("kernel32", use_last_error=True)
         signatures = {
             "CreateJobObjectW": ([wintypes.LPVOID, wintypes.LPCWSTR], wintypes.HANDLE),
+            "GetModuleFileNameW": ([wintypes.HMODULE, wintypes.LPWSTR, wintypes.DWORD], wintypes.DWORD),
             "SetInformationJobObject": ([wintypes.HANDLE, ctypes.c_int, wintypes.LPVOID,
                                          wintypes.DWORD], wintypes.BOOL),
             "AssignProcessToJobObject": ([wintypes.HANDLE, wintypes.HANDLE], wintypes.BOOL),
@@ -68,6 +69,14 @@ class _WindowsJob:
             error = ctypes.WinError(ctypes.get_last_error())
             self.close()
             raise error
+
+    def interpreter_image(self) -> str:
+        # sys.executable can refer to a venv redirector that starts a process before GO.
+        filename = ctypes.create_unicode_buffer(32768)
+        length = self.kernel.GetModuleFileNameW(None, filename, len(filename))
+        if not 0 < length < len(filename):
+            raise ctypes.WinError(ctypes.get_last_error())
+        return filename.value
 
     def assign(self, pid: int) -> None:
         # The launcher owns a Popen handle and the bootstrap cannot run the test before admission.
@@ -103,7 +112,7 @@ class _WindowsJob:
 def _run_windows(command: list[str], *, cwd: Path, env: dict[str, str], timeout: float) -> int:
     job = _WindowsJob()
     try:
-        bootstrap = [sys.executable, str(Path(__file__).resolve()), json.dumps(command)]
+        bootstrap = [job.interpreter_image(), "-I", "-S", str(Path(__file__).resolve()), json.dumps(command)]
         child = subprocess.Popen(bootstrap, cwd=cwd, env=env, stdin=subprocess.PIPE)
         assigned = False
         try:
