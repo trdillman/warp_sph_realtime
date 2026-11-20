@@ -12,6 +12,7 @@ from ctypes import wintypes
 from pathlib import Path
 
 CLEANUP_SECONDS = 5
+SUPERVISOR_FAILED = 125
 
 
 class ProcessCleanupError(RuntimeError):
@@ -138,41 +139,94 @@ def _run_windows(command: list[str], *, cwd: Path, env: dict[str, str], timeout:
         job.close()
 
 
-def _drain_process_group(group: int) -> None:
-    try:
-        os.killpg(group, signal.SIGKILL)
-    except ProcessLookupError:
-        return
+def _drain_linux_children(children: Path) -> None:
     deadline = time.monotonic() + CLEANUP_SECONDS
-    while time.monotonic() < deadline:
+    while True:
         try:
-            os.killpg(group, 0)
-        except ProcessLookupError:
-            return
+            reaped, _ = os.waitpid(-1, os.WNOHANG)
+        except ChildProcessError:
+            return  # No direct children means no descendants left to adopt.
+        if reaped:
+            continue
+        if time.monotonic() >= deadline:
+            raise ProcessCleanupError("Linux test supervisor still has active children.")
+        # Only signal our own unreaped children. Their PIDs cannot have been reused,
+        # even if they exited between reading the file and sending the signal.
+        for token in children.read_text(encoding="ascii").split():
+            try:
+                os.kill(int(token), signal.SIGKILL)
+            except ProcessLookupError:
+                pass
         time.sleep(0.02)
-    raise ProcessCleanupError("The test process group did not exit.")
+
+
+def _linux_supervisor(command: list[str]) -> int:
+    cancelled = False
+
+    def cancel(_signum, _frame):
+        nonlocal cancelled
+        cancelled = True
+
+    signal.signal(signal.SIGTERM, cancel)
+    children = Path(f"/proc/self/task/{os.getpid()}/children")
+    try:
+        children.read_text(encoding="ascii")  # Verify kernel support before starting pytest.
+        libc = ctypes.CDLL(None, use_errno=True)
+        libc.prctl.argtypes = [ctypes.c_int, *([ctypes.c_ulong] * 4)]
+        libc.prctl.restype = ctypes.c_int
+        if libc.prctl(36, 1, 0, 0, 0):  # PR_SET_CHILD_SUBREAPER.
+            raise OSError(ctypes.get_errno(), "Could not enable Linux test descendant ownership")
+        if cancelled:
+            return 0
+        child = subprocess.Popen(command)
+        try:
+            while not cancelled:
+                try:
+                    status = child.wait(timeout=0.1)
+                    return status if status >= 0 else 128 - status
+                except subprocess.TimeoutExpired:
+                    pass
+            return 0
+        finally:
+            _drain_linux_children(children)
+            child.poll()
+    except (OSError, ProcessCleanupError) as error:
+        print(f"Linux test supervisor: {error}", file=sys.stderr)
+        return SUPERVISOR_FAILED
+
+
+def _run_linux(command: list[str], *, cwd: Path, env: dict[str, str], timeout: float) -> int:
+    supervisor = subprocess.Popen(
+        [sys.executable, "-I", "-S", str(Path(__file__).resolve()), "--linux-supervisor", json.dumps(command)],
+        cwd=cwd, env=env, start_new_session=True,
+    )
+    try:
+        status = supervisor.wait(timeout=timeout)
+    except (subprocess.TimeoutExpired, KeyboardInterrupt):
+        try:
+            supervisor.terminate()
+            status = supervisor.wait(timeout=CLEANUP_SECONDS + 1)
+        except (OSError, subprocess.TimeoutExpired) as error:
+            raise ProcessCleanupError("Linux test supervisor could not confirm cleanup.") from error
+        if status == SUPERVISOR_FAILED or status < 0:
+            raise ProcessCleanupError("Linux test supervisor did not verify removal after cancellation.") from None
+        raise
+    if status == SUPERVISOR_FAILED or status < 0:
+        raise ProcessCleanupError("Linux test supervisor did not verify completion.")
+    return status
 
 
 def run_owned(command: list[str], *, cwd: Path, env: dict[str, str], timeout: float) -> int:
     if os.name == "nt":
         return _run_windows(command, cwd=cwd, env=env, timeout=timeout)
-    child = subprocess.Popen(command, cwd=cwd, env=env, start_new_session=True)
-    try:
-        return child.wait(timeout=timeout)
-    finally:
-        try:
-            if child.poll() is None:
-                try:
-                    os.killpg(child.pid, signal.SIGKILL)
-                except ProcessLookupError:
-                    pass
-                child.wait(timeout=CLEANUP_SECONDS)
-            _drain_process_group(child.pid)
-        except (OSError, subprocess.TimeoutExpired) as error:
-            raise ProcessCleanupError("Test process group cleanup failed.") from error
+    if sys.platform == "linux":
+        return _run_linux(command, cwd=cwd, env=env, timeout=timeout)
+    raise OSError(f"Managed CUDA test containment is unavailable on {sys.platform}.")
 
 
 if __name__ == "__main__":
+    if sys.argv[1] == "--linux-supervisor":
+        raise SystemExit(_linux_supervisor(json.loads(sys.argv[2])))
     # This child cannot launch pytest until its parent puts it in the non-breakaway job.
     if sys.stdin.buffer.readline() != b"GO\n":
         raise SystemExit(2)

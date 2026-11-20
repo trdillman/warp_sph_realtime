@@ -4,6 +4,7 @@ import json
 import os
 import subprocess
 import sys
+from pathlib import Path
 from unittest.mock import patch
 
 import pytest
@@ -98,18 +99,22 @@ def test_cleanup_and_release_failures(run, run_tests, failure, release_failure, 
     assert capsys.readouterr().err
 
 
-@pytest.mark.skipif(os.name != "nt", reason="requires Windows Job Objects")
+@pytest.mark.skipif(os.name != "nt" and sys.platform != "linux", reason="requires Windows or Linux containment")
+@pytest.mark.parametrize("detached", [
+    False,
+    pytest.param(True, marks=pytest.mark.skipif(sys.platform != "linux", reason="requires Linux sessions")),
+])
 @pytest.mark.parametrize("timeout", [False, True], ids=["parent exits", "parent times out"])
-def test_windows_owned_tree_stops_with_live_descendant(tmp_path, timeout):
+def test_owned_tree_stops_with_live_descendant(tmp_path, timeout, detached):
     marker = tmp_path / "descendant.txt"
     sleeper = "import time; time.sleep(90)"
     source = (
         "import pathlib, subprocess, sys\n"
-        "child = subprocess.Popen([sys.executable, '-c', sys.argv[2]])\n"
+        "child = subprocess.Popen([sys.executable, '-c', sys.argv[2]], start_new_session=sys.argv[4] == '1')\n"
         "pathlib.Path(sys.argv[1]).write_text(str(child.pid))\n"
         "if sys.argv[3] == 'wait': child.wait()\n"
     )
-    command = [sys.executable, "-c", source, str(marker), sleeper, "wait" if timeout else "exit"]
+    command = [sys.executable, "-c", source, str(marker), sleeper, "wait" if timeout else "exit", str(int(detached))]
     outsider = subprocess.Popen([sys.executable, "-c", sleeper])
     try:
         if timeout:
@@ -119,6 +124,9 @@ def test_windows_owned_tree_stops_with_live_descendant(tmp_path, timeout):
             assert run_owned(command, cwd=tmp_path, env=dict(os.environ), timeout=5.0) == 0
         assert outsider.poll() is None
         pid = int(marker.read_text())
+        if sys.platform == "linux":
+            assert not Path(f"/proc/{pid}").exists(), "The supervisor did not reap its descendant"
+            return
         kernel = ctypes.WinDLL("kernel32", use_last_error=True)
         kernel.OpenProcess.argtypes = (ctypes.c_ulong, ctypes.c_int, ctypes.c_ulong)
         kernel.OpenProcess.restype = ctypes.c_void_p
