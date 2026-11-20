@@ -11,6 +11,13 @@ pytest exits. CUDA test cases remain available on dedicated GPU hosts by opt-in.
   pytest configuration, and Warp 1.17.0 reported no visible CUDA device.
 - The full Windows host suite passed with Python 3.11.9 and Warp 1.17.0.
   Pytest reported 723 passed, 64 skipped, and 72 passing subtests.
+- A separate full Windows host run on the declared Python 3.13 series used
+  Python 3.13.13, NumPy 2.3.4, pytest 9.0.1, and the pinned Warp 1.17.0.
+  With CUDA masked and Warp reporting only the CPU device, pytest exited 0
+  with 723 passed, 64 skipped, and 72 passing subtests. The tested source head
+  was `7f4e8ce36d1384d33a1dbef055ee0a56121f0814`. The follow-up changes
+  documentation only. This run covers the host suite under Python 3.13.
+  The separately reported leased CUDA suite used Python 3.11.9.
 - An actual broker refusal while an exclusive job was running returned exit
   75 before pytest started. Tests also cover rejecting a foreign scope and
   releasing the owned lease after a failing pytest run.

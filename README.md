@@ -153,7 +153,16 @@ pip install numpy "warp-lang==1.17.0" "fake-bpy-module==20251003" "pytest==9.0.1
 pytest                      # CPU-only by default
 ruff check .
 pyright
-# or using unittest with CUDA devices hidden
+```
+
+To run the standard-library suite with CUDA hidden, use the command for your shell.
+
+```powershell
+$env:CUDA_VISIBLE_DEVICES = '-1'
+python -m unittest discover -s tests -v
+```
+
+```bash
 CUDA_VISIBLE_DEVICES=-1 python -m unittest discover -s tests -v
 ```
 

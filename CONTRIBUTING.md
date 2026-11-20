@@ -46,11 +46,19 @@ pytest
 ruff check .
 pyright
 
-# Or via standard library unittest with CUDA devices hidden
-CUDA_VISIBLE_DEVICES=-1 python -m unittest discover -s tests -v
-
 # Build (and optionally install) the extension zip with Blender
 python scripts/build_extension.py --blender /path/to/blender [--install]
+```
+
+To run the standard-library suite with CUDA hidden, use the command for your shell.
+
+```powershell
+$env:CUDA_VISIBLE_DEVICES = '-1'
+python -m unittest discover -s tests -v
+```
+
+```bash
+CUDA_VISIBLE_DEVICES=-1 python -m unittest discover -s tests -v
 ```
 
 On a workstation managed by blender-gate, run the headless CUDA cases with
