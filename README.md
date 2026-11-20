@@ -158,8 +158,13 @@ pyright
 To run the standard-library suite with CUDA hidden, use the command for your shell.
 
 ```powershell
-$env:CUDA_VISIBLE_DEVICES = '-1'
-python -m unittest discover -s tests -v
+$previousCudaMask = $env:CUDA_VISIBLE_DEVICES
+try {
+    $env:CUDA_VISIBLE_DEVICES = '-1'
+    python -m unittest discover -s tests -v
+} finally {
+    $env:CUDA_VISIBLE_DEVICES = $previousCudaMask
+}
 ```
 
 ```bash

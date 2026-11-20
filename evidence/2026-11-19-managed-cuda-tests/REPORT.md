@@ -2,8 +2,9 @@
 
 Plain pytest now sets a CPU-only device mask before test collection. The
 headless CUDA launcher acquires a shared blender-gate lease scoped to its own
-process, starts pytest after confirming that scope, and releases its lease when
-pytest exits. CUDA test cases remain available on dedicated GPU hosts by opt-in.
+process, starts pytest after confirming that scope, and releases its lease
+after verifying that its test processes have stopped. CUDA test cases remain
+available on dedicated GPU hosts by opt-in.
 
 ## Verification
 
@@ -15,9 +16,12 @@ pytest exits. CUDA test cases remain available on dedicated GPU hosts by opt-in.
   Python 3.13.13, NumPy 2.3.4, pytest 9.0.1, and the pinned Warp 1.17.0.
   With CUDA masked and Warp reporting only the CPU device, pytest exited 0
   with 723 passed, 64 skipped, and 72 passing subtests. The tested source head
-  was `7f4e8ce36d1384d33a1dbef055ee0a56121f0814`. The follow-up changes
+  was `7f4e8ce36d1384d33a1dbef055ee0a56121f0814`. Commit `16da7c9` changed
   documentation only. This run covers the host suite under Python 3.13.
   The separately reported leased CUDA suite used Python 3.11.9.
+- The updated runner at `84a1661` passed 13 focused Windows tests with two
+  Linux-only skips on the Blender-bundled Python 3.13.13 and pytest 9.1.1.
+  This run exercised process ownership and release handling with CUDA hidden.
 - An actual broker refusal while an exclusive job was running returned exit
   75 before pytest started. Tests also cover rejecting a foreign scope and
   releasing the owned lease after a failing pytest run.
