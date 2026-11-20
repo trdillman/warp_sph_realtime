@@ -65,6 +65,9 @@ On a workstation managed by blender-gate, run the headless CUDA cases with
 `python scripts/run_cuda_tests.py` from the repository root. The runner waits
 for a shared GPU lease and holds it through pytest. Append pytest selectors
 as needed, or use `--no-wait` to return immediately if the GPU is reserved.
+If the PowerShell CPU command above left CUDA masked in your session, run
+`Remove-Item Env:CUDA_VISIBLE_DEVICES` or set the mask to the device you intend
+to test before invoking the CUDA runner.
 On a dedicated CUDA host without blender-gate, set `WARPSPH_TEST_CUDA=1` in
 the test process environment to opt in to CUDA pytest.
 

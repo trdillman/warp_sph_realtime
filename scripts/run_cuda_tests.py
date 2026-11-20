@@ -18,6 +18,15 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--no-wait", action="store_true", help="fail if a shared lease cannot start immediately")
     options, pytest_args = parser.parse_known_args(argv)
 
+    mask = os.environ.get("CUDA_VISIBLE_DEVICES")
+    if mask is not None and mask.split(",", 1)[0].strip() in {"", "-1"}:
+        print(
+            "CUDA_VISIBLE_DEVICES hides all CUDA devices. Unset it or select a visible CUDA device "
+            "before running the CUDA suite.",
+            file=sys.stderr,
+        )
+        return 2
+
     pid = str(os.getpid())
     acquire = [
         "bgate", "acquire", "--class", "shared", "--label", "warpsph-headless-cuda-tests",

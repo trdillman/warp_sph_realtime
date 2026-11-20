@@ -4,7 +4,24 @@ import os
 import subprocess
 from unittest.mock import patch
 
+import pytest
+
 from scripts.run_cuda_tests import REPO, main
+
+
+@pytest.fixture(autouse=True)
+def clear_inherited_cuda_mask(monkeypatch):
+    monkeypatch.delenv("CUDA_VISIBLE_DEVICES", raising=False)
+
+
+@pytest.mark.parametrize("mask", ["", "-1", " -1,0"])
+@patch("scripts.run_cuda_tests.subprocess.run")
+def test_cpu_mask_refuses_before_lease(run, mask, monkeypatch, capsys):
+    monkeypatch.setenv("CUDA_VISIBLE_DEVICES", mask)
+
+    assert main([]) == 2
+    run.assert_not_called()
+    assert "CUDA_VISIBLE_DEVICES" in capsys.readouterr().err
 
 
 @patch("scripts.run_cuda_tests.subprocess.run")
@@ -18,7 +35,8 @@ def test_broker_refusal_prevents_test_launch(run):
 
 
 @patch("scripts.run_cuda_tests.subprocess.run")
-def test_leased_pytest_inherits_scope_and_releases_after_failure(run):
+def test_leased_pytest_inherits_scope_and_releases_after_failure(run, monkeypatch):
+    monkeypatch.setenv("CUDA_VISIBLE_DEVICES", "GPU-explicit-device")
     run.side_effect = [
         subprocess.CompletedProcess([], 0, stdout=json.dumps({
             "id": "lease-one", "state": "active", "cls": "shared", "scope_pid": os.getpid(),
@@ -36,6 +54,7 @@ def test_leased_pytest_inherits_scope_and_releases_after_failure(run):
     assert pytest.args[0][1:] == ["-m", "pytest", "-q", "-k", "graph"]
     assert pytest.kwargs["cwd"] == REPO
     assert pytest.kwargs["env"]["WARPSPH_TEST_CUDA"] == "1"
+    assert pytest.kwargs["env"]["CUDA_VISIBLE_DEVICES"] == "GPU-explicit-device"
     assert release.args[0] == ["bgate", "release", "lease-one"]
 
 
