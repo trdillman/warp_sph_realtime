@@ -8,6 +8,11 @@ import subprocess
 import sys
 from pathlib import Path
 
+if __package__:
+    from .cuda_test_process import ProcessCleanupError, run_owned
+else:
+    from cuda_test_process import ProcessCleanupError, run_owned
+
 REPO = Path(__file__).resolve().parents[1]
 LEASE_SECONDS = 3600
 TEST_TIMEOUT_SECONDS = LEASE_SECONDS - 60
@@ -60,21 +65,34 @@ def main(argv: list[str] | None = None) -> int:
         return 2
     lease_id = lease["id"]
 
+    release_code = 0
+    cleanup_verified = True
     try:
-        result = subprocess.run(
+        result = run_owned(
             [sys.executable, "-m", "pytest", *pytest_args],
             cwd=REPO,
             env=dict(os.environ, WARPSPH_TEST_CUDA="1"),
             timeout=TEST_TIMEOUT_SECONDS,
-            check=False,
         )
     except subprocess.TimeoutExpired:
         print(f"CUDA tests exceeded their {TEST_TIMEOUT_SECONDS}s runtime limit.", file=sys.stderr)
-        return 124
+        result = 124
+    except ProcessCleanupError as error:
+        cleanup_verified = False
+        print(f"{error} Refusing to release lease {lease_id} explicitly.", file=sys.stderr)
+        result = 1
+    except OSError as error:
+        print(f"Could not start CUDA tests: {error}", file=sys.stderr)
+        result = 2
     finally:
-        release = subprocess.run(["bgate", "release", lease_id], check=False)
+        if cleanup_verified:
+            try:
+                release_code = subprocess.run(["bgate", "release", lease_id], check=False).returncode
+            except OSError as error:
+                print(f"Could not release lease {lease_id}: {error}", file=sys.stderr)
+                release_code = 1
 
-    return result.returncode or release.returncode
+    return result or release_code
 
 
 if __name__ == "__main__":
