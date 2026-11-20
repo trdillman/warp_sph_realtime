@@ -2,8 +2,10 @@
 import ctypes
 import json
 import os
+import shlex
 import subprocess
 import sys
+import time
 from pathlib import Path
 from unittest.mock import patch
 
@@ -11,6 +13,60 @@ import pytest
 
 from scripts.cuda_test_process import ProcessCleanupError, run_owned
 from scripts.run_cuda_tests import REPO, main
+
+
+@pytest.mark.skipif(sys.platform != "linux", reason="requires Linux signal and process ownership")
+def test_launcher_sigterm_drains_detached_process_before_releasing(tmp_path):
+    marker = tmp_path / "pids.json"
+    release = tmp_path / "release.json"
+    broker = tmp_path / "bgate"
+    broker.write_text(
+        "#!/bin/sh\nexec " + shlex.quote(sys.executable) + " - \"$@\" <<'PY'\n"
+        "import json, pathlib, sys\n"
+        "if sys.argv[1] == 'acquire':\n"
+        "    scope = int(sys.argv[sys.argv.index('--scope-pid') + 1])\n"
+        "    print(json.dumps(dict(id='fixture', state='active', cls='shared', scope_pid=scope)))\n"
+        "else:\n"
+        f"    pids = json.loads(pathlib.Path({str(marker)!r}).read_text())\n"
+        f"    pathlib.Path({str(release)!r}).write_text(json.dumps([\n"
+        "        pid for pid in pids if pathlib.Path(f'/proc/{pid}').exists()]))\n"
+        "PY\n",
+        encoding="utf-8",
+    )
+    broker.chmod(0o700)
+    fixture = tmp_path / "test_cancellation_fixture.py"
+    fixture.write_text(
+        "import json, os, pathlib, subprocess, sys\n"
+        "def test_descendant():\n"
+        "    child = subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(10)'],\n"
+        "                             start_new_session=True)\n"
+        f"    marker = pathlib.Path({str(marker)!r})\n"
+        "    pending = marker.with_suffix('.tmp')\n"
+        "    pending.write_text(json.dumps([os.getppid(), os.getpid(), child.pid]))\n"
+        "    pending.replace(marker)\n"
+        "    child.wait()\n",
+        encoding="utf-8",
+    )
+    env = dict(os.environ, PATH=f"{tmp_path}{os.pathsep}{os.environ['PATH']}", PYTEST_DISABLE_PLUGIN_AUTOLOAD="1")
+    with subprocess.Popen(
+        [sys.executable, str(REPO / "scripts/run_cuda_tests.py"), "--no-wait", "-q", str(fixture)],
+        cwd=tmp_path, env=env,
+    ) as launcher:
+        try:
+            deadline = time.monotonic() + 8
+            while not marker.exists() and launcher.poll() is None and time.monotonic() < deadline:
+                time.sleep(0.02)
+            assert marker.is_file(), "The launcher did not start the real pytest fixture"
+            launcher.terminate()
+            assert launcher.wait(timeout=5) == 143
+            assert json.loads(release.read_text()) == []
+        finally:
+            if launcher.poll() is None:
+                launcher.terminate()
+                try:
+                    launcher.wait(timeout=5)
+                except subprocess.TimeoutExpired:
+                    launcher.kill()
 
 
 @pytest.fixture(autouse=True)

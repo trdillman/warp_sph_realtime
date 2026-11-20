@@ -195,25 +195,51 @@ def _linux_supervisor(command: list[str]) -> int:
         return SUPERVISOR_FAILED
 
 
-def _run_linux(command: list[str], *, cwd: Path, env: dict[str, str], timeout: float) -> int:
-    supervisor = subprocess.Popen(
-        [sys.executable, "-I", "-S", str(Path(__file__).resolve()), "--linux-supervisor", json.dumps(command)],
-        cwd=cwd, env=env, start_new_session=True,
-    )
+def _cancel_linux_supervisor(supervisor: subprocess.Popen) -> None:
     try:
-        status = supervisor.wait(timeout=timeout)
-    except (subprocess.TimeoutExpired, KeyboardInterrupt):
-        try:
-            supervisor.terminate()
-            status = supervisor.wait(timeout=CLEANUP_SECONDS + 1)
-        except (OSError, subprocess.TimeoutExpired) as error:
-            raise ProcessCleanupError("Linux test supervisor could not confirm cleanup.") from error
-        if status == SUPERVISOR_FAILED or status < 0:
-            raise ProcessCleanupError("Linux test supervisor did not verify removal after cancellation.") from None
-        raise
+        supervisor.terminate()
+        status = supervisor.wait(timeout=CLEANUP_SECONDS + 1)
+    except (OSError, subprocess.TimeoutExpired) as error:
+        raise ProcessCleanupError("Linux test supervisor could not confirm cleanup.") from error
     if status == SUPERVISOR_FAILED or status < 0:
-        raise ProcessCleanupError("Linux test supervisor did not verify completion.")
-    return status
+        raise ProcessCleanupError("Linux test supervisor did not verify removal after cancellation.")
+
+
+def _run_linux(command: list[str], *, cwd: Path, env: dict[str, str], timeout: float) -> int:
+    cancelled = False
+
+    def cancel(_signum, _frame):
+        nonlocal cancelled
+        cancelled = True
+
+    # The supervisor is in a separate session. Keep control here through cleanup
+    # so the caller can release its lease once the supervisor has reaped its tree.
+    previous_handler = signal.signal(signal.SIGTERM, cancel)
+    try:
+        supervisor = subprocess.Popen(
+            [sys.executable, "-I", "-S", str(Path(__file__).resolve()), "--linux-supervisor", json.dumps(command)],
+            cwd=cwd, env=env, start_new_session=True,
+        )
+        deadline = time.monotonic() + timeout
+        try:
+            while not cancelled:
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    raise subprocess.TimeoutExpired(command, timeout)
+                try:
+                    status = supervisor.wait(timeout=min(0.1, remaining))
+                except subprocess.TimeoutExpired:
+                    continue
+                if status == SUPERVISOR_FAILED or status < 0:
+                    raise ProcessCleanupError("Linux test supervisor did not verify completion.")
+                return 128 + signal.SIGTERM if cancelled else status
+        except (subprocess.TimeoutExpired, KeyboardInterrupt):
+            _cancel_linux_supervisor(supervisor)
+            raise
+        _cancel_linux_supervisor(supervisor)
+        return 128 + signal.SIGTERM
+    finally:
+        signal.signal(signal.SIGTERM, previous_handler)
 
 
 def run_owned(command: list[str], *, cwd: Path, env: dict[str, str], timeout: float) -> int:

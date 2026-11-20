@@ -22,6 +22,11 @@ available on dedicated GPU hosts by opt-in.
 - The updated runner at `84a1661` passed 13 focused Windows tests with two
   Linux-only skips on the Blender-bundled Python 3.13.13 and pytest 9.1.1.
   This run exercised process ownership and release handling with CUDA hidden.
+- On Ubuntu WSL2, the real launcher exited with signal status 143 on SIGTERM.
+  Its simulated broker verified that the supervisor, pytest, and a detached
+  descendant had all been reaped before release. On `3082bef` the same
+  regression exited by SIGTERM before cleanup. The focused Linux suite passed
+  15 tests with one Windows-only skip.
 - An actual broker refusal while an exclusive job was running returned exit
   75 before pytest started. Tests also cover rejecting a foreign scope and
   releasing the owned lease after a failing pytest run.
