@@ -121,8 +121,9 @@ All paths are relative to the `warp_sph_realtime/` package folder. Use relative 
 Whenever you modify any physics kernel or module:
 1. Run the headless unit test suite:
    ```bash
-   pytest          # from the repository root; or: python -m unittest discover -s tests -v
+   pytest          # CPU-only by default
    ruff check .
    pyright
    ```
+   On a blender-gate workstation, run CUDA tests with `python scripts/run_cuda_tests.py` to acquire a shared lease.
 2. Verify that all tests in `tests/` pass with zero NaNs, strict domain boundary enforcement, and identical results between eager kernel launches (`use_graph=False`) and CUDA Graph launches (`use_graph=True`).

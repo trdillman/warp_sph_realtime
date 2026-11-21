@@ -1,0 +1,220 @@
+"""Regression coverage for broker entry and exit around headless pytest."""
+import ctypes
+import json
+import os
+import shlex
+import subprocess
+import sys
+import time
+from pathlib import Path
+from unittest.mock import patch
+
+import pytest
+
+from scripts.cuda_test_process import ProcessCleanupError, run_owned
+from scripts.run_cuda_tests import REPO, main
+
+
+@pytest.mark.skipif(sys.platform != "linux", reason="requires Linux signal and process ownership")
+def test_launcher_sigterm_drains_detached_process_before_releasing(tmp_path):
+    marker = tmp_path / "pids.json"
+    release = tmp_path / "release.json"
+    broker = tmp_path / "bgate"
+    broker.write_text(
+        "#!/bin/sh\nexec " + shlex.quote(sys.executable) + " - \"$@\" <<'PY'\n"
+        "import json, pathlib, sys\n"
+        "if sys.argv[1] == 'acquire':\n"
+        "    scope = int(sys.argv[sys.argv.index('--scope-pid') + 1])\n"
+        "    print(json.dumps(dict(id='fixture', state='active', cls='shared', scope_pid=scope)))\n"
+        "else:\n"
+        f"    pids = json.loads(pathlib.Path({str(marker)!r}).read_text())\n"
+        f"    pathlib.Path({str(release)!r}).write_text(json.dumps([\n"
+        "        pid for pid in pids if pathlib.Path(f'/proc/{pid}').exists()]))\n"
+        "PY\n",
+        encoding="utf-8",
+    )
+    broker.chmod(0o700)
+    fixture = tmp_path / "test_cancellation_fixture.py"
+    fixture.write_text(
+        "import json, os, pathlib, subprocess, sys\n"
+        "def test_descendant():\n"
+        "    child = subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(10)'],\n"
+        "                             start_new_session=True)\n"
+        f"    marker = pathlib.Path({str(marker)!r})\n"
+        "    pending = marker.with_suffix('.tmp')\n"
+        "    pending.write_text(json.dumps([os.getppid(), os.getpid(), child.pid]))\n"
+        "    pending.replace(marker)\n"
+        "    child.wait()\n",
+        encoding="utf-8",
+    )
+    env = dict(os.environ, PATH=f"{tmp_path}{os.pathsep}{os.environ['PATH']}", PYTEST_DISABLE_PLUGIN_AUTOLOAD="1")
+    with subprocess.Popen(
+        [sys.executable, str(REPO / "scripts/run_cuda_tests.py"), "--no-wait", "-q", str(fixture)],
+        cwd=tmp_path, env=env,
+    ) as launcher:
+        try:
+            deadline = time.monotonic() + 8
+            while not marker.exists() and launcher.poll() is None and time.monotonic() < deadline:
+                time.sleep(0.02)
+            assert marker.is_file(), "The launcher did not start the real pytest fixture"
+            launcher.terminate()
+            assert launcher.wait(timeout=5) == 143
+            assert json.loads(release.read_text()) == []
+        finally:
+            if launcher.poll() is None:
+                launcher.terminate()
+                try:
+                    launcher.wait(timeout=5)
+                except subprocess.TimeoutExpired:
+                    launcher.kill()
+
+
+@pytest.fixture(autouse=True)
+def clear_inherited_cuda_mask(monkeypatch):
+    monkeypatch.delenv("CUDA_VISIBLE_DEVICES", raising=False)
+
+
+@pytest.mark.parametrize("mask", ["", "-1", " -1,0"])
+@patch("scripts.run_cuda_tests.subprocess.run")
+def test_cpu_mask_refuses_before_lease(run, mask, monkeypatch, capsys):
+    monkeypatch.setenv("CUDA_VISIBLE_DEVICES", mask)
+
+    assert main([]) == 2
+    run.assert_not_called()
+    assert "CUDA_VISIBLE_DEVICES" in capsys.readouterr().err
+
+
+@patch("scripts.run_cuda_tests.subprocess.run")
+def test_broker_refusal_prevents_test_launch(run):
+    run.return_value = subprocess.CompletedProcess([], 75, stdout="GPU reserved\n")
+
+    assert main(["--no-wait", "-q"]) == 75
+
+    run.assert_called_once()
+    assert run.call_args.args[0][-1] == "--no-wait"
+
+
+@patch("scripts.run_cuda_tests.run_owned")
+@patch("scripts.run_cuda_tests.subprocess.run")
+def test_leased_pytest_inherits_scope_and_releases_after_failure(run, run_tests, monkeypatch):
+    monkeypatch.setenv("CUDA_VISIBLE_DEVICES", "GPU-explicit-device")
+    run.side_effect = [
+        subprocess.CompletedProcess([], 0, stdout=json.dumps({
+            "id": "lease-one", "state": "active", "cls": "shared", "scope_pid": os.getpid(),
+        })),
+        subprocess.CompletedProcess([], 0),
+    ]
+    run_tests.return_value = 1
+
+    assert main(["-q", "-k", "graph"]) == 1
+
+    acquire, release = run.call_args_list
+    tests = run_tests.call_args
+    command = acquire.args[0]
+    for flag in ("--holder-pid", "--scope-pid"):
+        assert command[command.index(flag) + 1] == str(os.getpid())
+    assert tests.args[0][1:] == ["-m", "pytest", "-q", "-k", "graph"]
+    assert tests.kwargs["cwd"] == REPO
+    assert tests.kwargs["env"]["WARPSPH_TEST_CUDA"] == "1"
+    assert tests.kwargs["env"]["CUDA_VISIBLE_DEVICES"] == "GPU-explicit-device"
+    assert release.args[0] == ["bgate", "release", "lease-one"]
+
+
+@patch("scripts.run_cuda_tests.subprocess.run")
+def test_foreign_scope_prevents_test_launch_and_is_preserved(run):
+    run.return_value = subprocess.CompletedProcess([], 0, stdout=json.dumps({
+        "id": "another-job", "state": "active", "cls": "shared", "scope_pid": os.getpid() + 1,
+    }))
+
+    assert main([]) == 2
+
+    run.assert_called_once()
+
+
+@pytest.mark.parametrize(
+    ("failure", "release_failure", "expected", "released"),
+    [
+        (subprocess.TimeoutExpired("pytest", 1), False, 124, True),
+        (ProcessCleanupError("still active"), False, 1, False),
+        (None, True, 1, True),
+        (subprocess.TimeoutExpired("pytest", 1), True, 124, True),
+    ],
+)
+@patch("scripts.run_cuda_tests.run_owned")
+@patch("scripts.run_cuda_tests.subprocess.run")
+def test_cleanup_and_release_failures(run, run_tests, failure, release_failure, expected, released, capsys):
+    grant = subprocess.CompletedProcess([], 0, stdout=json.dumps({
+        "id": "lease-one", "state": "active", "cls": "shared", "scope_pid": os.getpid(),
+    }))
+    run.side_effect = [grant, FileNotFoundError("bgate") if release_failure else subprocess.CompletedProcess([], 0)]
+    run_tests.side_effect = failure
+    run_tests.return_value = 0
+
+    assert main([]) == expected
+    assert run.call_count == (2 if released else 1)
+    assert capsys.readouterr().err
+
+
+@pytest.mark.skipif(os.name != "nt" and sys.platform != "linux", reason="requires Windows or Linux containment")
+@pytest.mark.parametrize("detached", [
+    False,
+    pytest.param(True, marks=pytest.mark.skipif(sys.platform != "linux", reason="requires Linux sessions")),
+])
+@pytest.mark.parametrize("timeout", [False, True], ids=["parent exits", "parent times out"])
+def test_owned_tree_stops_with_live_descendant(tmp_path, timeout, detached):
+    marker = tmp_path / "descendant.txt"
+    sleeper = "import time; time.sleep(90)"
+    source = (
+        "import pathlib, subprocess, sys\n"
+        "child = subprocess.Popen([sys.executable, '-c', sys.argv[2]], start_new_session=sys.argv[4] == '1')\n"
+        "pathlib.Path(sys.argv[1]).write_text(str(child.pid))\n"
+        "if sys.argv[3] == 'wait': child.wait()\n"
+    )
+    command = [sys.executable, "-c", source, str(marker), sleeper, "wait" if timeout else "exit", str(int(detached))]
+    outsider = subprocess.Popen([sys.executable, "-c", sleeper])
+    try:
+        if timeout:
+            with pytest.raises(subprocess.TimeoutExpired):
+                run_owned(command, cwd=tmp_path, env=dict(os.environ), timeout=2.0)
+        else:
+            assert run_owned(command, cwd=tmp_path, env=dict(os.environ), timeout=5.0) == 0
+        assert outsider.poll() is None
+        pid = int(marker.read_text())
+        if sys.platform == "linux":
+            assert not Path(f"/proc/{pid}").exists(), "The supervisor did not reap its descendant"
+            return
+        kernel = ctypes.WinDLL("kernel32", use_last_error=True)
+        kernel.OpenProcess.argtypes = (ctypes.c_ulong, ctypes.c_int, ctypes.c_ulong)
+        kernel.OpenProcess.restype = ctypes.c_void_p
+        kernel.WaitForSingleObject.argtypes = (ctypes.c_void_p, ctypes.c_ulong)
+        kernel.WaitForSingleObject.restype = ctypes.c_ulong
+        kernel.CloseHandle.argtypes = (ctypes.c_void_p,)
+        handle = kernel.OpenProcess(0x100000, False, pid)
+        if not handle:
+            assert ctypes.get_last_error() == 87
+        else:
+            try:
+                assert kernel.WaitForSingleObject(handle, 0) == 0
+            finally:
+                kernel.CloseHandle(handle)
+    finally:
+        outsider.terminate()
+        outsider.wait(timeout=5)
+
+
+@pytest.mark.skipif(os.name != "nt", reason="requires the native Windows interpreter image")
+def test_windows_bootstrap_ignores_redirector_and_site_hooks(tmp_path, monkeypatch):
+    interpreter = sys.executable
+    monkeypatch.setattr(sys, "executable", str(tmp_path / "not-an-interpreter.exe"))
+    side_effect = tmp_path / "site-ran"
+    (tmp_path / "sitecustomize.py").write_text(
+        f"from pathlib import Path\nPath({str(side_effect)!r}).touch()\n",
+        encoding="utf-8",
+    )
+    assert run_owned(
+        [interpreter, "-I", "-S", "-c", "pass"],
+        cwd=tmp_path,
+        env=dict(os.environ, PYTHONPATH=str(tmp_path)),
+        timeout=5,
+    ) == 0
+    assert not side_effect.exists()
