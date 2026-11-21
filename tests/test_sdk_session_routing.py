@@ -79,7 +79,9 @@ def test_shared_sdk_selection_reset_snapshot_and_missing_dependency():
 def test_cold_start_admits_configured_folder_before_sdk_validation():
     script = LIFECYCLE.split("reset()\next.unregister()")[0] + r'''
 import hashlib, tempfile
+import importlib.machinery
 from pathlib import Path
+from unittest import mock
 from warp_sph_realtime import sdk_dependency, warp_installer
 
 with tempfile.TemporaryDirectory() as tmp:
@@ -99,6 +101,19 @@ with tempfile.TemporaryDirectory() as tmp:
     warp_installer.foreign_warp_block_reason = lambda: None
     sim_session.SimSession.reallocate = lambda *args, **kwargs: None
     assert str(folder) not in sys.path
+    # Simulate an environment with no preinstalled SDK. Other packages, including NumPy,
+    # stay available to the subprocess. The fixture SDK is discoverable only after admission.
+    sdk_name = 'blender_vulkan_interop'
+    find_spec = importlib.machinery.PathFinder.find_spec
+
+    def find_fixture_sdk(fullname, path=None, target=None):
+        if fullname == sdk_name:
+            path = [entry for entry in (sys.path if path is None else path)
+                    if Path(entry).resolve() == folder.resolve()]
+        return find_spec(fullname, path, target)
+
+    sdk_finder = mock.patch.object(importlib.machinery.PathFinder, 'find_spec', find_fixture_sdk)
+    sdk_finder.start()
     ctx = reset(); ctx.scene.warp_sph.use_shared_sdk = True
     op, result = start(ctx)
     assert result == {'RUNNING_MODAL'}, op.reports
@@ -111,6 +126,7 @@ with tempfile.TemporaryDirectory() as tmp:
     op, result = start(ctx)
     assert result == {'CANCELLED'} and str(folder / 'missing') not in sys.path
     assert any('not found' in msg for kind, msg in op.reports), op.reports
+    sdk_finder.stop()
 print('COLD_SDK_ADMISSION_OK')
 '''
     # Ignore the harness's staged SDK on PYTHONPATH, while keeping NumPy from
