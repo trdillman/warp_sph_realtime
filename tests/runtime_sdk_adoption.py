@@ -43,7 +43,8 @@ class AdoptionProbe:
         assert self.output.is_absolute() and not self.output.exists()
         self.output.parent.mkdir(parents=True, exist_ok=True)
         assert gpu.platform.backend_type_get() == "VULKAN" and bpy.app.build_hash.decode() == "fbe6228777e7"
-        assert wp.__version__ == "1.17.0"
+        runtime = importlib.import_module(MODULE + ".warp_runtime")
+        assert wp.__version__ == runtime.CERTIFIED_WARP_VERSION
         self.smod = importlib.import_module(MODULE + ".sim_session")
         self.steps = steps
         self.count = count
@@ -70,7 +71,15 @@ class AdoptionProbe:
     def save(self):
         temp = self.output.with_suffix(".tmp")
         temp.write_text(json.dumps(self.report, indent=2), encoding="utf-8")
-        temp.replace(self.output)
+        for attempt in range(5):
+            try:
+                temp.replace(self.output)
+                return
+            except PermissionError as exc:
+                # Windows readers can briefly block replacement while polling the receipt.
+                if getattr(exc, "winerror", None) not in (5, 32, 33) or attempt == 4:
+                    raise
+                time.sleep(0.02)
 
     def check(self, name, value):
         self.report["checks"].append({"name": name, "passed": bool(value)})
@@ -93,6 +102,11 @@ class AdoptionProbe:
         self.session = self.smod.get(self.scene)
         self.check("actual_start_operator", result == {"RUNNING_MODAL"} and self.session.running)
         self.check("shared_sdk_is_actual_render_session", getattr(self.session.session, "is_shared_sdk", False))
+        if not bpy.context.window.screen.is_animation_playing:
+            self.check(
+                "actual_resume_operator",
+                bpy.ops.wm.warp_sph_pause() == {"FINISHED"} and bpy.context.window.screen.is_animation_playing,
+            )
         self.report["consumer_origin"] = importlib.import_module(MODULE).__file__
         self.report["solver_class"] = type(self.session.solver).__module__ + "." + type(self.session.solver).__name__
         self.report["solver_capacity"] = self.session.solver.num_particles
@@ -212,15 +226,30 @@ class AdoptionProbe:
                 )
                 self.check("reset_remains_paused", self.session.paused)
                 self.reset_source = self.session.solver
+                self.reset_frame = self.scene.frame_current
+                self.reset_elapsed = self.session._timeline_elapsed
                 self.check("actual_single_step_operator", bpy.ops.wm.warp_sph_step_frame() == {"FINISHED"})
                 self.phase = "single_step"
             if (
                 self.phase == "single_step"
                 and self.session.step_count >= 1
                 and not self.session.step_once
+                and not self.session._timeline_seek_pending
+                and not self.session._output_pending
                 and bridge._receipt.source_released()
             ):
-                self.check("exactly_one_step_after_reset", self.session.step_count == 1 and self.session.paused)
+                fps = self.session._timeline_fps
+                frame_seconds = 1.0 / fps
+                step_seconds = float(self.session.solver.dt) * int(self.scene.warp_sph.substeps)
+                elapsed = self.session._timeline_elapsed - self.reset_elapsed
+                self.check(
+                    "exactly_one_timeline_frame_after_reset",
+                    self.session.paused
+                    and self.scene.frame_current == self.reset_frame + 1
+                    and frame_seconds - 1e-10 <= elapsed < frame_seconds + step_seconds + 1e-10,
+                )
+                self.report["single_frame_elapsed"] = elapsed
+                self.report["solver_steps_in_single_frame"] = self.session.step_count
                 self.report["after_reset_epoch"] = bridge._epoch
                 self.report["after_reset_sim_time"] = self.session.solver.sim_time
                 self.report["final_transport_metrics"] = dict(bridge.metrics)
