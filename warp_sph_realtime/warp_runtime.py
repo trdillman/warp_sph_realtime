@@ -85,6 +85,8 @@ def status() -> RuntimeStatus:
             return RuntimeStatus(False, "NVIDIA Warp is not installed for WarpSPH")
         support, reason = warp_version_support(version)
         if support != "certified":
+            if installer._is_previously_managed(target, version):
+                reason = f"Warp {version} is managed by WarpSPH. Use Install Warp to upgrade to {CERTIFIED_WARP_VERSION}."
             return RuntimeStatus(False, reason, version=version)
         if not installer._is_managed(target):
             return RuntimeStatus(False, "Unmanaged Warp files; preserved but unavailable", version=version)
