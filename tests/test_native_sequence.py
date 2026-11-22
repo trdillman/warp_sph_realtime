@@ -124,6 +124,18 @@ def test_live_throttle_uses_epoch_and_does_not_queue_duplicates():
     assert gate.due(("source", 1, 1), 10, 2.0, False)
 
 
+def test_playing_live_output_coalesces_partial_frames_and_pause_flushes():
+    from warp_sph_realtime.native_output import LiveGate
+
+    gate = LiveGate()
+    gate.queued(("source", 0, 1), 1.0, timeline_frame=0)
+    partial = ("source", 0, 2)
+    assert not gate.due(partial, 12, 2.0, False, timeline_frame=0)
+    assert gate.due(partial, 12, 2.0, False)  # Pause can show the actual frozen state.
+    assert gate.due(("source", 0, 3), 12, 2.0, False, timeline_frame=1)
+    assert gate.due(("source", 1, 1), 12, 2.0, False, timeline_frame=0)
+
+
 def test_frame_parse_uses_the_same_verified_bytes(tmp_path, monkeypatch):
     m = api()
     writer = m.SequenceWriter(tmp_path / 'a', first=1, last=1, fps=24, signature={})

@@ -631,7 +631,9 @@ class SimSession:
             from . import native_output
             if getattr(bpy.app, 'is_job_running', lambda kind: False)('RENDER'):
                 return True
-            native_output.service(self)  # main-thread native mutation, never inside draw
+            # Main-thread mutation stays outside draw. Pace automatic captures
+            # against completed simulation frames while the timeline plays.
+            native_output.service(self, timeline_playing=bool(getattr(screen, 'is_animation_playing', False)))
             if getattr(self, 'native_bake', None) is not None:
                 return self.native_bake.tick(context, report)
         if self.tracker is not None:
