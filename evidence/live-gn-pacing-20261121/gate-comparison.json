@@ -1,0 +1,47 @@
+{
+  "id": "bb3adcf9a38a",
+  "label": "WarpSPH installed Live GN pacing comparison",
+  "cls": "exclusive",
+  "state": "released",
+  "end_reason": "",
+  "exit_code": 0,
+  "verdict": "clean",
+  "session": "codex:01a1b27d-ac2e-7bc1-9f7d-41142a402d51",
+  "cwd": "C:\\Users\\Tyler\\.codex\\worktrees\\warpsph-live-output\\warp_sph_realtime",
+  "argv": [
+    "--factory-startup",
+    "--gpu-backend",
+    "vulkan",
+    "--python-exit-code",
+    "1",
+    "--python",
+    "C:\\Users\\Tyler\\.codex\\worktrees\\warpsph-live-output\\warp_sph_realtime\\evidence\\live-gn-pacing-20261121\\demo_probe.py"
+  ],
+  "exe": "C:\\Users\\Tyler\\Downloads\\blender-5.2.0-windows-x64\\blender-5.2.0-windows-x64\\blender.exe",
+  "logs": [
+    "C:\\Users\\Tyler\\AppData\\Local\\blender-gate\\logs\\codex-01a1b27d-ac2e-7bc1-9f7d-41142a402d51\\20261121-223135-bb3adcf9a38a.log"
+  ],
+  "created": 1795318169.0160885,
+  "granted": 1795318295.0219781,
+  "ended": 1795318371.702491,
+  "wait_seconds": 126.006,
+  "run_seconds": 76.681,
+  "restarts": 0,
+  "contamination": [],
+  "max_seconds": 120.0,
+  "delivered": "queued",
+  "resume": {
+    "cmd": [
+      "C:\\Users\\Tyler\\AppData\\Roaming\\npm\\node_modules\\@openai\\codex\\node_modules\\@openai\\codex-win32-x64\\vendor\\x86_64-pc-windows-msvc\\bin\\codex.exe",
+      "exec",
+      "resume",
+      "--skip-git-repo-check",
+      "01a1b27d-ac2e-7bc1-9f7d-41142a402d51",
+      "-"
+    ],
+    "cwd": "C:\\Users\\Tyler\\.codex\\worktrees\\warpsph-live-output\\warp_sph_realtime",
+    "started": 1795318371.705113,
+    "exit_code": 1,
+    "queue_exit_code": 0
+  }
+}

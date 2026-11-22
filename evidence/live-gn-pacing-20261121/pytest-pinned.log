@@ -1,0 +1,88 @@
+Installed 6 packages in 1.23s
+.ss.sss..s.s.................................................. [  7%]
+..............................................sssssss................... [ 16%]
+.................ssss....................................... [ 24%]
+.......sss............ss.s........s.s......................... [ 31%]
+............................................................. [ 39%]
+.....................................ssssss..ss...........s.s........... [ 48%]
+.sssssssssssssss............sssss.s.......................F............. [ 57%]
+............................................................ [ 64%]
+.................s.s.........................................s.s.... [ 73%]
+...................................................................... [ 81%]
+..................................s..................s.............sss.. [ 90%]
+...................................s............................ [ 98%]
+..........                                                            [100%]
+================================== FAILURES ===================================
+_______ test_cold_start_admits_configured_folder_before_sdk_validation ________
+
+    def test_cold_start_admits_configured_folder_before_sdk_validation():
+        script = LIFECYCLE.split("reset()\next.unregister()")[0] + r'''
+    import hashlib, tempfile
+    import importlib.machinery
+    from pathlib import Path
+    from unittest import mock
+    from warp_sph_realtime import sdk_dependency, warp_installer
+    
+    with tempfile.TemporaryDirectory() as tmp:
+        folder = Path(tmp)
+        (folder / 'warp').mkdir()
+        (folder / 'warp' / '__init__.py').write_text('')
+        (folder / 'warp' / 'config.py').write_text('version = "1.17.0"')
+        sdk = folder / 'blender_vulkan_interop'
+        sdk.mkdir()
+        payload = b'VALUE = 1\n'
+        (sdk / '__init__.py').write_bytes(payload)
+        lock = {'payload_sha256': {'__init__.py': hashlib.sha256(payload).hexdigest()},
+                'blender_build': 'test-build', 'backend': 'VULKAN'}
+        sdk_dependency.read_lock = lambda: lock
+        bpy.app.build_hash = b'test-build'
+        warp_installer.active_source = lambda: warp_installer.WarpSource(warp_installer.SOURCE_FOLDER, folder)
+        warp_installer.foreign_warp_block_reason = lambda: None
+        sim_session.SimSession.reallocate = lambda *args, **kwargs: None
+        assert str(folder) not in sys.path
+        # Simulate an environment with no preinstalled SDK. Other packages, including NumPy,
+        # stay available to the subprocess. The fixture SDK is discoverable only after admission.
+        sdk_name = 'blender_vulkan_interop'
+        find_spec = importlib.machinery.PathFinder.find_spec
+    
+        def find_fixture_sdk(fullname, path=None, target=None):
+            if fullname == sdk_name:
+                path = [entry for entry in (sys.path if path is None else path)
+                        if Path(entry).resolve() == folder.resolve()]
+            return find_spec(fullname, path, target)
+    
+        sdk_finder = mock.patch.object(importlib.machinery.PathFinder, 'find_spec', find_fixture_sdk)
+        sdk_finder.start()
+        ctx = reset(); ctx.scene.warp_sph.use_shared_sdk = True
+        op, result = start(ctx)
+        assert result == {'RUNNING_MODAL'}, op.reports
+        assert str(folder) in sys.path
+        sim_session.get(ctx.scene).stop(ctx)
+        sys.path.remove(str(folder))
+        sys.modules.pop('blender_vulkan_interop', None)
+        warp_installer.active_source = lambda: warp_installer.WarpSource(warp_installer.SOURCE_FOLDER, folder / 'missing')
+        ctx = reset(); ctx.scene.warp_sph.use_shared_sdk = True
+        op, result = start(ctx)
+        assert result == {'CANCELLED'} and str(folder / 'missing') not in sys.path
+        assert any('not found' in msg for kind, msg in op.reports), op.reports
+        sdk_finder.stop()
+    print('COLD_SDK_ADMISSION_OK')
+    '''
+        # Ignore the harness's staged SDK on PYTHONPATH, while keeping NumPy from
+        # the test interpreter's environment available to the add-on.
+        result = subprocess.run([sys.executable, "-E", "-s", "-"], input=script, cwd=ROOT,
+                                capture_output=True, text=True, timeout=60)
+>       assert result.returncode == 0, result.stdout + result.stderr
+E       AssertionError: Traceback (most recent call last):
+E           File "<stdin>", line 51, in <module>
+E           File "C:\Users\Tyler\.codex\worktrees\warpsph-live-output\warp_sph_realtime\warp_sph_realtime\scene\description.py", line 14, in <module>
+E             import numpy as np
+E         ModuleNotFoundError: No module named 'numpy'
+E         
+E       assert 1 == 0
+E        +  where 1 = CompletedProcess(args=['C:\\Users\\Tyler\\AppData\\Local\\uv\\cache\\builds-v0\\.tmp8gkthj\\Scripts\\python.exe', '-E'...cene\\description.py", line 14, in <module>\n    import numpy as np\nModuleNotFoundError: No module named \'numpy\'\n').returncode
+
+tests\test_sdk_session_routing.py:136: AssertionError
+=========================== short test summary info ===========================
+FAILED tests/test_sdk_session_routing.py::test_cold_start_admits_configured_folder_before_sdk_validation
+1 failed, 737 passed, 67 skipped, 72 subtests passed in 80.47s (0:01:20)
