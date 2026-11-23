@@ -164,6 +164,10 @@ def on_frame_change_post(scene, depsgraph=None):
 
     A frame that cannot be shown leaves the previous one in place; it is logged once and kept in
     ``playback_failures`` so the UI and export can tell the user."""
+    from .provenance import internal_frame_change
+
+    if internal_frame_change(scene):
+        return
     directory = None
     try:
         if find_playback_object(scene) is None:

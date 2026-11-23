@@ -4,13 +4,36 @@ from __future__ import annotations
 import hashlib
 import json
 import math
-from contextlib import contextmanager
+from contextlib import contextmanager, nullcontext
+from contextvars import ContextVar
 
 import numpy as np
 
 from ..scene.description import rigid_key
 
 PROVENANCE_VERSION = 1
+_INTERNAL_SCENES: ContextVar[tuple] = ContextVar("cache_internal_scenes", default=())
+
+
+def internal_frame_change(scene) -> bool:
+    """Whether cache-owned synchronous evaluation is in progress for this scene."""
+    return any(item is scene for item in _INTERNAL_SCENES.get())
+
+
+@contextmanager
+def internal_frames(scene):
+    token = _INTERNAL_SCENES.set((*_INTERNAL_SCENES.get(), scene))
+    try:
+        yield
+    finally:
+        _INTERNAL_SCENES.reset(token)
+
+
+def _set_frame(scene, frame, *, session=None, **kwargs):
+    # Resolve on each call: reallocate can replace PR26's tracker inside at_frame.
+    tracker = getattr(session, "tracker", None)
+    with tracker.muted() if tracker is not None else nullcontext():
+        scene.frame_set(frame, **kwargs)
 
 
 def _digest(value) -> str:
@@ -63,18 +86,19 @@ def scene_provenance(desc, *, spacing: float, motion_keys=None, initializer=None
 
 
 @contextmanager
-def at_frame(scene, frame: int):
+def at_frame(scene, frame: int, *, session=None):
     """Always restore the user's frame/subframe, including when evaluated geometry fails."""
     previous = scene.frame_current
     subframe = float(getattr(scene, "frame_subframe", 0.0))
-    try:
-        scene.frame_set(frame)
-        yield
-    finally:
-        scene.frame_set(previous, subframe=subframe)
+    with internal_frames(scene):
+        try:
+            _set_frame(scene, frame, session=session)
+            yield
+        finally:
+            _set_frame(scene, previous, subframe=subframe, session=session)
 
 
-def capture_scene(scene, depsgraph, *, first: int, last: int, steps: int, dt: float, spacing: float):
+def capture_scene(scene, depsgraph, *, first: int, last: int, steps: int, dt: float, spacing: float, session=None):
     """Read initial evaluated geometry once, and freeze all integer keys needed by this bake.
 
     These are the same evaluated world matrices sync_collider_keyframes feeds to the solver.
@@ -83,7 +107,7 @@ def capture_scene(scene, depsgraph, *, first: int, last: int, steps: int, dt: fl
     """
     from ..scene.blender_scene import description_from_blender
 
-    with at_frame(scene, first):
+    with at_frame(scene, first, session=session):
         desc = description_from_blender(scene, depsgraph)
         initial = scene_provenance(desc, spacing=spacing)
         keys = {}
@@ -92,7 +116,7 @@ def capture_scene(scene, depsgraph, *, first: int, last: int, steps: int, dt: fl
             # including the key immediately after the final time.
             end = math.floor(first + (last - first) * steps * dt * desc.fps) + 2
             for frame in range(first, end + 1):
-                scene.frame_set(frame)
+                _set_frame(scene, frame, session=session)
                 matrices = []
                 for motion in desc.collider_motion:
                     matrix = np.array(scene.objects[motion.name].matrix_world, dtype=np.float64, copy=True)

@@ -335,6 +335,10 @@ def make_standalone(scene, player, *, name="WarpSPH Standalone Animation", max_b
 
 
 def _frame_handler(scene, depsgraph=None):
+    from .provenance import internal_frame_change
+
+    if internal_frame_change(scene):
+        return
     # A standalone baked output is independent of this handler and remains valid
     # when the extension, SDK and Warp are all absent.
     if any(obj.get(_MARKER) and obj.get(_MARKER + "_enabled", True) for obj in getattr(scene, "objects", ())):
