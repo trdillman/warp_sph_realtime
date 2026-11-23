@@ -8,14 +8,24 @@ class LiveGate:
     def __init__(self):
         self.last_stamp = None
         self.last_time = -math.inf
+        self.last_timeline_frame = None
 
-    def due(self, stamp, fps, now, pending):
+    def due(self, stamp, fps, now, pending, *, timeline_frame=None):
         if not math.isfinite(fps) or fps <= 0:
             raise ValueError("positive finite live output rate required")
-        return stamp is not None and stamp != self.last_stamp and not pending and now - self.last_time >= 1.0 / fps
+        if (stamp is None or stamp == self.last_stamp or pending
+                or now - self.last_time < 1.0 / fps):
+            return False
+        # After the first snapshot in an epoch, coalesce intermediate solver
+        # publications within the same simulated timeline frame. An idle playhead
+        # takes the latest output even if Pause interrupted a partial frame.
+        return (timeline_frame is None or self.last_stamp is None
+                or stamp[:2] != self.last_stamp[:2]
+                or self.last_timeline_frame is None or timeline_frame > self.last_timeline_frame)
 
-    def queued(self, stamp, now):
+    def queued(self, stamp, now, *, timeline_frame=None):
         self.last_stamp, self.last_time = stamp, now
+        self.last_timeline_frame = timeline_frame
 
 
 def _stamp_key(stamp):
@@ -44,7 +54,7 @@ def live_request(scene):
     }
 
 
-def service(session):
+def service(session, *, timeline_playing=False):
     """One main-thread boundary: complete queued work then request latest live frame."""
     bridge = session.session
     if not getattr(bridge, "is_shared_sdk", False):
@@ -75,10 +85,14 @@ def service(session):
     stamp = _stamp_key(bridge._stamp)
     now = time.monotonic()
     pending = bridge.snapshot_status in ("QUEUED", "CAPTURED")
-    if gate.due(stamp, float(settings.sdk_live_rate), now, pending):
+    timeline_fps = getattr(session, '_timeline_fps', 0.0)
+    completed_frame = (math.floor((session._timeline_elapsed + 1e-10) * timeline_fps)
+                       if timeline_fps > 0 else None)
+    pacing_frame = completed_frame if timeline_playing else None
+    if gate.due(stamp, float(settings.sdk_live_rate), now, pending, timeline_frame=pacing_frame):
         try:
             bridge.request_snapshot(live_request(session.scene))
-            gate.queued(stamp, now)
+            gate.queued(stamp, now, timeline_frame=completed_frame)
             session._native_live_pending = True
             settings.sdk_native_status = "Live native update queued (bounded GPU readback)"
         except (ValueError, RuntimeError) as exc:
