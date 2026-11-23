@@ -200,3 +200,38 @@ def test_spacing_and_initializer_change_identity():
     desc = scene()
     assert provenance(desc) != scene_provenance(desc, spacing=0.05)
     assert provenance(desc) != provenance(desc, initializer={"version": 2})
+
+
+@pytest.mark.parametrize("fail_at", [None, 2])
+def test_capture_and_restore_mute_tracker_and_mark_internal_frames(fail_at):
+    from contextlib import contextmanager
+    from types import SimpleNamespace
+
+    from warp_sph_realtime.cache.provenance import capture_scene, internal_frame_change
+    scene = adapter_scene()
+    scene.fail_at = fail_at
+    class Tracker:
+        muted_now = False
+        @contextmanager
+        def muted(self):
+            previous, self.muted_now = self.muted_now, True
+            try:
+                yield
+            finally:
+                self.muted_now = previous
+    tracker = Tracker()
+    session = SimpleNamespace(tracker=tracker)
+    original = scene.frame_set
+    calls = []
+    def frame_set(frame, **kwargs):
+        calls.append((frame, tracker.muted_now, internal_frame_change(scene)))
+        original(frame, **kwargs)
+    scene.frame_set = frame_set
+    if fail_at is None:
+        capture_scene(scene, None, first=1, last=10, steps=5, dt=.001, spacing=.04, session=session)
+    else:
+        with pytest.raises(ValueError, match="evaluation failed"):
+            capture_scene(scene, None, first=1, last=10, steps=5, dt=.001, spacing=.04, session=session)
+    assert all(muted and internal for _, muted, internal in calls)
+    assert (scene.frame_current, scene.frame_subframe) == (7, .25)
+    assert not tracker.muted_now and not internal_frame_change(scene)

@@ -909,7 +909,7 @@ class SimSession:
                 spacing = spacing_metres(settings, _scene_api().unit_scale(scene))
                 initial, provenance, motion_keys = capture_scene(
                     scene, context.evaluated_depsgraph_get(), first=first, last=last,
-                    steps=steps, dt=solver.dt, spacing=spacing)
+                    steps=steps, dt=solver.dt, spacing=spacing, session=self)
                 if initial != getattr(solver, "_cache_initial_provenance", None):
                     raise ValueError(
                         "scene inputs differ from the initialized solver; restart the simulation "
