@@ -42,7 +42,8 @@ jobs:
       - name: Validate and build the extension
         # Checks tag == v<manifest version>, runs `blender --command extension validate`, then `build`,
         # and verifies the zip (no experimental/, packaged version == manifest version).
-        run: python scripts/build_extension.py --blender "$BLENDER" --tag "$GITHUB_REF_NAME"
+        # --no-sdk: the shared SDK is private and must never ship in a public GitHub Release.
+        run: python scripts/build_extension.py --blender "$BLENDER" --tag "$GITHUB_REF_NAME" --no-sdk
       - name: Validate the built zip
         run: |
           zip=$(ls dist/warp_sph_realtime-*.zip)

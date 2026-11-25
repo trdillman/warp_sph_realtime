@@ -1,4 +1,4 @@
-"""Explicit real-solver snapshots into the separately installed shared SDK.
+"""Explicit real-solver snapshots into the shared SDK (bundled in private builds, else installed).
 
 No imports of bpy, GPU, Warp or the SDK at registration. No live-step hook or
 solver mutation. Native conversion is an explicit user action on a paused run.
@@ -6,15 +6,14 @@ solver mutation. Native conversion is an explicit user action on a paused run.
 from __future__ import annotations
 
 import hashlib
-import importlib
-import importlib.util
 import json
-import sys
 import threading
 import uuid
 import weakref
 from math import isfinite
 from pathlib import Path
+
+from . import sdk_bundle
 
 DEFAULT_CAPTURE_BYTES = 256 * 1024 * 1024
 _DEFAULT_LOCK = Path(__file__).with_name('sdk_snapshot.lock.json')
@@ -44,17 +43,13 @@ def verify_sdk_payload(root, lock):
 
 
 def require_sdk():
-    """Load only the byte-bound candidate; no automatic install or fallback."""
+    """Load only the byte-bound candidate (bundled, else installed); no automatic install or fallback."""
     lock = json.loads(_DEFAULT_LOCK.read_text(encoding='utf-8'))
-    spec = importlib.util.find_spec('blender_vulkan_interop')
-    if spec is None or not spec.origin:
-        raise RuntimeError('Native snapshots need the separately installed, qualified Blender Vulkan Interop SDK candidate')
-    root = Path(spec.origin).resolve().parent
+    root = sdk_bundle.locate()
+    if root is None:
+        raise RuntimeError('Native snapshots need the qualified Blender Vulkan Interop SDK bundled in a private add-on build')
     verify_sdk_payload(root, lock)
-    loaded = sys.modules.get('blender_vulkan_interop')
-    if loaded is not None and Path(loaded.__file__).resolve().parent != root:
-        raise RuntimeError('Loaded SDK identity differs from the snapshot candidate; restart Blender')
-    return importlib.import_module('blender_vulkan_interop')
+    return sdk_bundle.load(root)
 
 
 def eligibility(session, scene):

@@ -21,7 +21,7 @@ addopts = "-p no:cacheprovider -p no:pytest-blender"
 [tool.ruff]
 target-version = "py313"  # Blender 5.2 bundles Python 3.13
 line-length = 120
-extend-exclude = [".codex", "research_notes", "sdk", "reports"]  # research probes kept verbatim as evidence
+extend-exclude = [".codex", "research_notes", "sdk", "reports", "vendor"]  # research probes kept verbatim as evidence
 
 [tool.ruff.lint]
 select = ["E4", "E7", "E9", "F", "B", "UP", "I"]
