@@ -11,13 +11,20 @@ Thank you for contributing to **WarpSPH Realtime**! Because this extension bridg
    * NVIDIA GPU with CUDA 12.x or 13.x drivers.
    * Python `3.13` (matches Blender 5.2's internal Python interpreter).
 
-2. **Install Dependencies:**
+2. **Fetch the shared SDK (private):**
+   The opt-in Shared SDK features (and their tests) use the private Blender Vulkan Interop SDK, pinned as the
+   git submodule `vendor/blender-vulkan-interop`. With access to that private repository, fetch it once:
+   `git submodule update --init vendor/blender-vulkan-interop` (or clone with `--recurse-submodules`). `pytest`
+   uses that copy automatically, and `scripts/build_extension.py` bundles it into the zip; pass `--no-sdk` for a
+   public build without it.
+
+3. **Install Dependencies:**
    ```bash
    pip install "warp-lang==1.17.0" "fake-bpy-module==20251003" numpy pytest ruff "pyright==1.1.408"
    ```
    (The same list is declared as the `dev` dependency group in `pyproject.toml`.)
 
-3. **Symlink for Live Reloading in Blender 5.2:**
+4. **Symlink for Live Reloading in Blender 5.2:**
    Link the inner `warp_sph_realtime/` package folder (not the repository root) into your Blender user extensions directory so edits can be reloaded via `Blender > System > Reload Scripts`:
    * **Windows:** `%APPDATA%\Blender Foundation\Blender\5.2\extensions\user_default\warp_sph_realtime`
    * **Linux:** `~/.config/blender/5.2/extensions/user_default/warp_sph_realtime`
@@ -47,7 +54,7 @@ ruff check .
 pyright
 
 # Build (and optionally install) the extension zip with Blender
-python scripts/build_extension.py --blender /path/to/blender [--install]
+python scripts/build_extension.py --blender /path/to/blender [--install] [--no-sdk]
 ```
 
 To run the standard-library suite with CUDA hidden, use the command for your shell.
@@ -83,7 +90,8 @@ the test process environment to opt in to CUDA pytest.
 * **`tests/test_ssfr_renderer.py`:** SSFR filter/shading math and framebuffer-binding preservation during allocation and resize.
 
 ### CI and releases
-* CI (`.github/workflows/ci.yml`) runs ruff, pyright and pytest on `ubuntu-latest` and `windows-latest` (Python 3.13, no GPU, so CUDA-gated tests skip).
+* Public CI runs Ruff, Pyright and `pytest -m "not private_sdk"` on Ubuntu and Windows. Run plain `pytest` with the pinned submodule to include the SDK integration cases.
+* The Blender gate builds the SDK-free release ZIP and installs it into a clean offline profile. On a tag push, release publication waits for all three jobs and verifies the uploaded ZIP checksum.
 * Ruff selects `E4 E7 E9 F B UP I`. Tighten gradually: add a rule only after fixing its violations (no blanket `noqa`). `UP018` stays off because Warp kernels need `float(0.0)` / `int(0)` to declare mutable variables.
 * **The version lives only in `warp_sph_realtime/blender_manifest.toml`.** The add-on reads it at runtime and `tests/test_version_consistency.py` fails on any hard-coded copy.
 * To release: set the manifest `version` (e.g. `0.2.0-ea`), merge, then push tag `v<version>` (e.g. `v0.2.0-ea`). `.github/workflows/release.yml` re-runs CI, refuses a tag that differs from the manifest, validates and builds the zip with a SHA-256-pinned Blender 5.2.0 (`extension validate`, `extension build`, then validates the zip), uploads it as a workflow artifact and attaches it with `SHA256SUMS.txt` to a GitHub Release (a hyphenated version is marked pre-release).

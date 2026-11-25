@@ -9,55 +9,12 @@ on:
 permissions:
   contents: read
 
-env:
-  # Pinned official Blender build used for `extension validate` / `extension build`.
-  # Checksum from https://download.blender.org/release/Blender5.2/blender-5.2.0.sha256
-  BLENDER_URL: https://download.blender.org/release/Blender5.2/blender-5.2.0-linux-x64.tar.xz
-  BLENDER_SHA256: 96f6c181a30f4950607839dc84d42a354b250d8a0231b098b59b7bc69c351c48
-
 jobs:
   check:
     uses: ./.github/workflows/ci.yml
 
-  build:
-    needs: check
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4.4.0
-      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065  # v5.6.0
-        with:
-          python-version: "3.13"
-      - name: Install Blender runtime libraries
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends libxi6 libxxf86vm1 libxfixes3 libxrender1 libxkbcommon0 libsm6 libgl1 libegl1
-      - name: Download pinned Blender 5.2.0
-        run: |
-          curl -fsSL --retry 3 -o "$RUNNER_TEMP/blender.tar.xz" "$BLENDER_URL"
-          echo "$BLENDER_SHA256  $RUNNER_TEMP/blender.tar.xz" | sha256sum --check -
-          mkdir "$RUNNER_TEMP/blender"
-          tar -xJf "$RUNNER_TEMP/blender.tar.xz" -C "$RUNNER_TEMP/blender" --strip-components=1
-          "$RUNNER_TEMP/blender/blender" --version
-          echo "BLENDER=$RUNNER_TEMP/blender/blender" >> "$GITHUB_ENV"
-      - name: Validate and build the extension
-        # Checks tag == v<manifest version>, runs `blender --command extension validate`, then `build`,
-        # and verifies the zip (no experimental/, packaged version == manifest version).
-        run: python scripts/build_extension.py --blender "$BLENDER" --tag "$GITHUB_REF_NAME"
-      - name: Validate the built zip
-        run: |
-          zip=$(ls dist/warp_sph_realtime-*.zip)
-          "$BLENDER" --factory-startup --command extension validate "$zip"
-          (cd dist && sha256sum "$(basename "$zip")" | tee SHA256SUMS.txt)
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4.6.2
-        with:
-          name: warp_sph_realtime-extension
-          path: |
-            dist/warp_sph_realtime-*.zip
-            dist/SHA256SUMS.txt
-          if-no-files-found: error
-
   release:
-    needs: build
+    needs: check
     runs-on: ubuntu-latest
     permissions:
       contents: write  # create the GitHub Release
@@ -66,6 +23,9 @@ jobs:
         with:
           name: warp_sph_realtime-extension
           path: dist
+      - name: Verify the downloaded package checksum
+        working-directory: dist
+        run: sha256sum --check SHA256SUMS.txt
       - name: Create GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}

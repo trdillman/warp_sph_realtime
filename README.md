@@ -148,6 +148,15 @@ on the same GPU and driver. Changing the scene's objects after a bake is not det
 ## Running the Test Suite
 The repository includes a `pytest` / `unittest` suite under `tests/` that validates physics kernels, mass/bounds conservation, CUDA Graph equivalence, demo scene initializers, the transports, the installer, and the build file list (running headless on CUDA without requiring an active Blender UI window):
 
+The opt-in Shared SDK features (and their tests) use the private Blender Vulkan Interop SDK, pinned as the
+git submodule `vendor/blender-vulkan-interop`. With access to that private repository, fetch it once:
+`git -c core.autocrlf=false -c core.eol=lf submodule update --init vendor/blender-vulkan-interop`.
+This preserves the SDK bytes required by both locks, including on Windows with automatic line-ending
+conversion enabled. Use a fresh checkout if the submodule was already populated with converted files.
+`pytest`
+uses that copy automatically, and `scripts/build_extension.py` bundles it into the zip; pass `--no-sdk` for a
+public build without it.
+
 ```bash
 pip install numpy "warp-lang==1.17.0" "fake-bpy-module==20251003" "pytest==9.0.1" "ruff==0.14.11" "pyright==1.1.408"
 pytest                      # CPU-only by default

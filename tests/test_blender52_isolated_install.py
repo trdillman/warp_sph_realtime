@@ -13,6 +13,7 @@ ROOT=Path(__file__).resolve().parents[1]
 _MANIFEST=tomllib.loads((ROOT/"warp_sph_realtime"/"blender_manifest.toml").read_text(encoding="utf8"))
 PACKAGE_NAME=f"{_MANIFEST['id']}-{_MANIFEST['version']}.zip"  # version single-sourced from the manifest
 BLENDER=os.environ.get("WARPSPH_BLENDER_EXE","")
+BUILT_ZIP=os.environ.get("WARPSPH_TEST_EXTENSION_ZIP","")
 
 SMOKE=textwrap.dedent("""
 import bpy
@@ -60,11 +61,16 @@ class Blender52IsolatedInstallTest(unittest.TestCase):
                                       env=env,text=True,errors="replace",capture_output=True,timeout=120)
                 self.assertEqual(result.returncode,0,result.stdout+"\n"+result.stderr)
                 return result.stdout+"\n"+result.stderr
-            output=base/"dist"
-            output.mkdir()
-            build=run("--factory-startup","--command","extension","build","--source-dir",ROOT/"warp_sph_realtime","--output-dir",output)
-            package=output/PACKAGE_NAME
-            self.assertTrue(package.is_file(),build)
+            if BUILT_ZIP:
+                package = Path(BUILT_ZIP).resolve()
+                self.assertEqual(package.name, PACKAGE_NAME)
+                self.assertTrue(package.is_file(), package)
+            else:
+                output=base/"dist"
+                output.mkdir()
+                build=run("--factory-startup","--command","extension","build","--source-dir",ROOT/"warp_sph_realtime","--output-dir",output)
+                package=output/PACKAGE_NAME
+                self.assertTrue(package.is_file(),build)
             installed=run("--factory-startup","--command","extension","install-file","-r","user_default","-e",package)
             self.assertIn('Installed "warp_sph_realtime"',installed)
             smoke=base/"test_blender52.py"

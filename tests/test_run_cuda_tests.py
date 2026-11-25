@@ -218,3 +218,41 @@ def test_windows_bootstrap_ignores_redirector_and_site_hooks(tmp_path, monkeypat
         timeout=5,
     ) == 0
     assert not side_effect.exists()
+
+def test_windows_drain_releases_process_references_before_accounting(monkeypatch):
+    from scripts.cuda_test_process import _WindowsJob
+
+    class Kernel:
+        def __init__(self):
+            self.events = []
+
+        def OpenProcess(self, access, inherit, pid):
+            return pid + 100
+
+        def IsProcessInJob(self, process, job, member):
+            member._obj.value = 1
+            return True
+
+        def TerminateJobObject(self, job, exit_code):
+            self.events.append("terminate")
+            return True
+
+        def WaitForSingleObject(self, process, timeout):
+            self.events.append("signal")
+            return 0
+
+        def CloseHandle(self, process):
+            self.events.append("close")
+            return True
+
+    job = _WindowsJob.__new__(_WindowsJob)
+    kernel = Kernel()
+    monkeypatch.setattr(job, "kernel", kernel, raising=False)
+    job.handle = 1
+    monkeypatch.setattr(job, "_process_ids", lambda deadline: [42])
+
+    def check_accounting(deadline):
+        assert kernel.events == ["terminate", "signal", "close"]
+
+    monkeypatch.setattr(job, "_wait_until_empty", check_accounting)
+    job.drain()

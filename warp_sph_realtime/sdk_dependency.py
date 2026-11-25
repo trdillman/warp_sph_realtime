@@ -7,10 +7,10 @@ normal WarpSPH route never imports this dependency unless explicitly selected.
 from __future__ import annotations
 
 import hashlib
-import importlib
-import importlib.util
 import json
 from pathlib import Path
+
+from . import sdk_bundle
 
 _LOCK = Path(__file__).with_name("interop_sdk_lock.json")
 
@@ -31,18 +31,14 @@ def verify_payload(package_root, expected):
 
 def require_sdk():
     lock = read_lock()
-    spec = importlib.util.find_spec("blender_vulkan_interop")
-    if spec is None or not spec.origin:
+    root = sdk_bundle.locate()
+    if root is None:
         raise RuntimeError(
-            "Shared SDK is not installed. This opt-in requires the pinned development wheel; "
+            "Shared SDK is not installed. This opt-in requires the pinned SDK, bundled in a private add-on build or installed separately; "
             "disable Shared SDK Output to use the existing WarpSPH renderer."
         )
-    root = Path(spec.origin).resolve().parent
     verify_payload(root, lock["payload_sha256"])
-    module = importlib.import_module("blender_vulkan_interop")
-    if Path(module.__file__).resolve().parent != root:
-        raise RuntimeError("Shared SDK import identity changed during activation")
-    return module
+    return sdk_bundle.load(root)
 
 
 def validate_environment():

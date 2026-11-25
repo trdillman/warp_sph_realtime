@@ -18,6 +18,8 @@ reports/review-project-progress/
 reports/cleanup-audit/
 # Local vendor SDKs (e.g. Vulkan/CUDA headers for interop probes), hundreds of MB
 /sdk/
+# Bundled shared SDK is staged here only inside built zips (scripts/build_extension.py), never committed.
+/warp_sph_realtime/_vendor/
 .claude/worktrees/
 
 # Owner-private business research and tracker notes (public repo: keep local)

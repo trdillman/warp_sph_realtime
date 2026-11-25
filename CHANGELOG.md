@@ -6,6 +6,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Added
+- The pinned private Blender Vulkan Interop SDK (commit `1b3e4be`) is now a git submodule at
+  `vendor/blender-vulkan-interop`. `scripts/build_extension.py` checks it against both SDK byte locks and bundles it
+  into the zip as `_vendor/blender_vulkan_interop`, which the add-on loads first without editing `sys.path`. Public
+  release builds pass `--no-sdk` (enforced with `--tag`) because the SDK may not be redistributed publicly. `pytest`
+  uses the submodule copy, so the SDK snapshot tests no longer fail on a machine without the SDK installed.
 - Interactive simulation, foundation (P2.9 phase 1): the run keeps going while the scene is edited. Scene Gravity
   applies live (one CUDA graph recapture); every other scene change is classified by one table
   (`warp_sph_realtime/live_edits.py`) and listed in the panel as "Reset to apply: ...". New **Reset** button rebuilds

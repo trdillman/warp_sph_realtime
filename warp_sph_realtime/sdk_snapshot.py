@@ -1,4 +1,4 @@
-"""Explicit real-solver snapshots into the separately installed shared SDK.
+"""Explicit real-solver snapshots into the shared SDK (bundled in private builds, else installed).
 
 No imports of bpy, GPU, Warp or the SDK at registration. No live-step hook or
 solver mutation. Native conversion is an explicit user action on a paused run.
@@ -6,15 +6,14 @@ solver mutation. Native conversion is an explicit user action on a paused run.
 from __future__ import annotations
 
 import hashlib
-import importlib
-import importlib.util
 import json
-import sys
 import threading
 import uuid
 import weakref
 from math import isfinite
 from pathlib import Path
+
+from . import sdk_bundle
 
 DEFAULT_CAPTURE_BYTES = 256 * 1024 * 1024
 _DEFAULT_LOCK = Path(__file__).with_name('sdk_snapshot.lock.json')
@@ -44,17 +43,13 @@ def verify_sdk_payload(root, lock):
 
 
 def require_sdk():
-    """Load only the byte-bound candidate; no automatic install or fallback."""
+    """Load only the byte-bound candidate (bundled, else installed); no automatic install or fallback."""
     lock = json.loads(_DEFAULT_LOCK.read_text(encoding='utf-8'))
-    spec = importlib.util.find_spec('blender_vulkan_interop')
-    if spec is None or not spec.origin:
-        raise RuntimeError('Native snapshots need the separately installed, qualified Blender Vulkan Interop SDK candidate')
-    root = Path(spec.origin).resolve().parent
+    root = sdk_bundle.locate()
+    if root is None:
+        raise RuntimeError('Native snapshots need the qualified Blender Vulkan Interop SDK, bundled in a private add-on build or installed separately')
     verify_sdk_payload(root, lock)
-    loaded = sys.modules.get('blender_vulkan_interop')
-    if loaded is not None and Path(loaded.__file__).resolve().parent != root:
-        raise RuntimeError('Loaded SDK identity differs from the snapshot candidate; restart Blender')
-    return importlib.import_module('blender_vulkan_interop')
+    return sdk_bundle.load(root)
 
 
 def eligibility(session, scene):
@@ -158,8 +153,13 @@ def capture_paused(session, scene, *, wp_module, max_readback_bytes=DEFAULT_CAPT
             raise ValueError(f'invalid authoritative solver array: {name}')
     require_sdk()
     import numpy as np
-    from blender_vulkan_interop.frames import FrameStamp, SpatialMetadata
-    from blender_vulkan_interop.output.contracts import HostArray, SnapshotPayload
+
+    # These optional imports run only after require_sdk() verifies and loads the private SDK.
+    from blender_vulkan_interop.frames import FrameStamp, SpatialMetadata  # pyright: ignore[reportMissingImports]
+    from blender_vulkan_interop.output.contracts import (  # pyright: ignore[reportMissingImports]
+        HostArray,
+        SnapshotPayload,
+    )
     token = session.token
     _gpu_read(session, lambda: wp.synchronize_device('cuda:0'))
     values = {}
@@ -262,7 +262,7 @@ class _NodeConverter:
         self.base, self.bpy, self.create_nodes = base, bpy_module, create_nodes
 
     def estimate(self, payload, target):
-        from blender_vulkan_interop.output.contracts import OutputEstimate
+        from blender_vulkan_interop.output.contracts import OutputEstimate  # pyright: ignore[reportMissingImports]
         base = self.base.estimate(payload, target)
         # Unit icosphere: 12 vertices, 20 triangles, 60 corners. Charge generous
         # native geometry/attribute overhead plus graph/material storage. This
@@ -295,11 +295,16 @@ def snapshot_to_native(session, scene, *, wp_module, object_name='WarpSPH Native
             raise ValueError('Snapshot object already exists; choose a new name or explicitly update it')
         validate_target_owner(existing, _source_id(session))
     payload = capture_paused(session, scene, wp_module=wp_module, max_readback_bytes=max_readback_bytes)
-    from blender_vulkan_interop.output.contracts import SnapshotTarget
-    from blender_vulkan_interop.output.geometry_nodes import create_particle_instancer
-    from blender_vulkan_interop.output.particles import ParticleConverter
-    from blender_vulkan_interop.output.registry import ConverterRegistry
-    from blender_vulkan_interop.output.snapshots import PayloadSource, SnapshotService
+    from blender_vulkan_interop.output.contracts import SnapshotTarget  # pyright: ignore[reportMissingImports]
+    from blender_vulkan_interop.output.geometry_nodes import (  # pyright: ignore[reportMissingImports]
+        create_particle_instancer,
+    )
+    from blender_vulkan_interop.output.particles import ParticleConverter  # pyright: ignore[reportMissingImports]
+    from blender_vulkan_interop.output.registry import ConverterRegistry  # pyright: ignore[reportMissingImports]
+    from blender_vulkan_interop.output.snapshots import (  # pyright: ignore[reportMissingImports]
+        PayloadSource,
+        SnapshotService,
+    )
     registry = ConverterRegistry()
     base = ParticleConverter()
     registry.register(_NodeConverter(base, bpy, create_particle_instancer) if geometry_nodes else base)

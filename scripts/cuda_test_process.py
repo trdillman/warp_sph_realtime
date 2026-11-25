@@ -54,6 +54,8 @@ class _WindowsJob:
             "TerminateJobObject": ([wintypes.HANDLE, wintypes.UINT], wintypes.BOOL),
             "QueryInformationJobObject": ([wintypes.HANDLE, ctypes.c_int, wintypes.LPVOID,
                                            wintypes.DWORD, wintypes.LPVOID], wintypes.BOOL),
+            "IsProcessInJob": ([wintypes.HANDLE, wintypes.HANDLE, ctypes.POINTER(wintypes.BOOL)], wintypes.BOOL),
+            "WaitForSingleObject": ([wintypes.HANDLE, wintypes.DWORD], wintypes.DWORD),
             "OpenProcess": ([wintypes.DWORD, wintypes.BOOL, wintypes.DWORD], wintypes.HANDLE),
             "CloseHandle": ([wintypes.HANDLE], wintypes.BOOL),
         }
@@ -90,10 +92,59 @@ class _WindowsJob:
         finally:
             self.kernel.CloseHandle(process)
 
+    def _process_ids(self, deadline: float) -> list[int]:
+        capacity = 16
+        while True:
+            # JOBOBJECT_BASIC_PROCESS_ID_LIST ends with a variable-length ULONG_PTR array.
+            class ProcessIds(ctypes.Structure):
+                _fields_ = [("assigned", wintypes.DWORD), ("listed", wintypes.DWORD),
+                            ("ids", ctypes.c_size_t * capacity)]
+
+            processes = ProcessIds()
+            if self.kernel.QueryInformationJobObject(
+                self.handle, 3, ctypes.byref(processes), ctypes.sizeof(processes), None,
+            ):
+                return list(processes.ids[:processes.listed])
+            error = ctypes.get_last_error()
+            if error != 234:  # ERROR_MORE_DATA
+                raise ctypes.WinError(error)
+            if time.monotonic() >= deadline:
+                raise ProcessCleanupError("Could not enumerate the Windows test job before termination.")
+            capacity = max(capacity * 2, processes.assigned)
+
     def drain(self) -> None:
-        if not self.kernel.TerminateJobObject(self.handle, 1):
-            raise ctypes.WinError(ctypes.get_last_error())
         deadline = time.monotonic() + CLEANUP_SECONDS
+        processes = []
+        try:
+            for pid in self._process_ids(deadline):
+                # SYNCHRONIZE | PROCESS_QUERY_LIMITED_INFORMATION
+                process = self.kernel.OpenProcess(0x101000, False, pid)
+                if not process:
+                    error = ctypes.get_last_error()
+                    if error == 87:  # The process exited before OpenProcess.
+                        continue
+                    raise ctypes.WinError(error)
+                processes.append(process)
+                member = wintypes.BOOL()
+                if not self.kernel.IsProcessInJob(process, self.handle, ctypes.byref(member)):
+                    raise ctypes.WinError(ctypes.get_last_error())
+                if not member.value:
+                    self.kernel.CloseHandle(processes.pop())  # A recycled PID outside this job.
+
+            if not self.kernel.TerminateJobObject(self.handle, 1):
+                raise ctypes.WinError(ctypes.get_last_error())
+            # Confirm termination while the process handles are still valid.
+            for process in processes:
+                remaining_ms = max(0, int((deadline - time.monotonic()) * 1000))
+                if self.kernel.WaitForSingleObject(process, remaining_ms) != 0:
+                    raise ProcessCleanupError("A Windows test process did not signal termination.")
+        finally:
+            for process in processes:
+                self.kernel.CloseHandle(process)
+        # Open process references can keep terminated members in job accounting.
+        self._wait_until_empty(deadline)
+
+    def _wait_until_empty(self, deadline: float) -> None:
         while True:
             accounting = _JobAccounting()
             if not self.kernel.QueryInformationJobObject(

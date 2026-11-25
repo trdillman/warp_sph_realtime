@@ -1,1 +1,93 @@
+name: CI
 
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_call:  # release tags must pass the same gates as pull requests
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    # GitHub-hosted runners have no CUDA GPU: CUDA-only tests skip, CPU kernels and mocks still run.
+    # The public runner has no private SDK checkout. The full local suite still requires it.
+    name: check (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4.4.0
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065  # v5.6.0
+        with:
+          python-version: "3.13"  # Blender 5.2 bundled Python
+      - name: Install dev dependencies
+        run: pip install numpy matplotlib "warp-lang==1.17.0" "fake-bpy-module==20251003" "pytest==9.0.1" "ruff==0.14.11" "pyright==1.1.408"
+      - name: Install glslangValidator (viewport shader compile tests)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update -q && sudo apt-get install -y -q glslang-tools
+      - name: Lint
+        run: ruff check .
+      - name: Type check
+        run: pyright
+      - name: Test
+        run: python -m pytest -rs -m "not private_sdk"
+
+  blender:
+    name: blender 5.2 (ubuntu)
+    runs-on: ubuntu-latest
+    env:
+      BLENDER_URL: https://download.blender.org/release/Blender5.2/blender-5.2.3-linux-x64.tar.xz
+      BLENDER_SHA256: 78486c018b4443efe5e75ab54c290ed8c15abafd249b862c2c9ce2530a918eec
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4.4.0
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065  # v5.6.0
+        with:
+          python-version: "3.13"
+      - name: Install Blender runtime libraries
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libxi6 libxxf86vm1 libxfixes3 libxrender1 libxkbcommon0 libxkbcommon-x11-0 libsm6 libgl1 libegl1
+      - name: Download pinned Blender 5.2.3
+        run: |
+          curl -fsSL --retry 3 -o "$RUNNER_TEMP/blender.tar.xz" "$BLENDER_URL"
+          echo "$BLENDER_SHA256  $RUNNER_TEMP/blender.tar.xz" | sha256sum --check -
+          mkdir "$RUNNER_TEMP/blender"
+          tar -xJf "$RUNNER_TEMP/blender.tar.xz" -C "$RUNNER_TEMP/blender" --strip-components=1
+          "$RUNNER_TEMP/blender/blender" --version
+          echo "BLENDER=$RUNNER_TEMP/blender/blender" >> "$GITHUB_ENV"
+      - name: Validate and build the extension
+        # Checks tag == v<manifest version>, runs `blender --command extension validate`, then `build`,
+        # and verifies the zip (no experimental/, packaged version == manifest version).
+        # --no-sdk: the shared SDK is private and must never ship in a public GitHub Release.
+        run: |
+          if [[ "$GITHUB_REF_TYPE" == tag ]]; then
+            tag="$GITHUB_REF_NAME"
+          else
+            tag=$(python -c 'from scripts.build_extension import manifest_version; print("v" + manifest_version())')
+          fi
+          python scripts/build_extension.py --blender "$BLENDER" --no-sdk --tag "$tag"
+      - name: Validate the built zip
+        run: |
+          zip=$(ls dist/warp_sph_realtime-*.zip)
+          "$BLENDER" --factory-startup --command extension validate "$zip"
+          (cd dist && sha256sum "$(basename "$zip")" | tee SHA256SUMS.txt)
+      - name: Install and test the exact built ZIP in an isolated Blender profile
+        run: |
+          python -m pip install "pytest==9.0.1"
+          export WARPSPH_BLENDER_EXE="$BLENDER"
+          export WARPSPH_TEST_EXTENSION_ZIP="$(realpath dist/warp_sph_realtime-*.zip)"
+          python -m pytest -rs tests/test_blender52_isolated_install.py
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4.6.2
+        with:
+          name: warp_sph_realtime-extension
+          path: |
+            dist/warp_sph_realtime-*.zip
+            dist/SHA256SUMS.txt
+          if-no-files-found: error
