@@ -153,9 +153,13 @@ def capture_paused(session, scene, *, wp_module, max_readback_bytes=DEFAULT_CAPT
             raise ValueError(f'invalid authoritative solver array: {name}')
     require_sdk()
     import numpy as np
+
     # These optional imports run only after require_sdk() verifies and loads the private SDK.
     from blender_vulkan_interop.frames import FrameStamp, SpatialMetadata  # pyright: ignore[reportMissingImports]
-    from blender_vulkan_interop.output.contracts import HostArray, SnapshotPayload  # pyright: ignore[reportMissingImports]
+    from blender_vulkan_interop.output.contracts import (  # pyright: ignore[reportMissingImports]
+        HostArray,
+        SnapshotPayload,
+    )
     token = session.token
     _gpu_read(session, lambda: wp.synchronize_device('cuda:0'))
     values = {}
@@ -292,10 +296,15 @@ def snapshot_to_native(session, scene, *, wp_module, object_name='WarpSPH Native
         validate_target_owner(existing, _source_id(session))
     payload = capture_paused(session, scene, wp_module=wp_module, max_readback_bytes=max_readback_bytes)
     from blender_vulkan_interop.output.contracts import SnapshotTarget  # pyright: ignore[reportMissingImports]
-    from blender_vulkan_interop.output.geometry_nodes import create_particle_instancer  # pyright: ignore[reportMissingImports]
+    from blender_vulkan_interop.output.geometry_nodes import (  # pyright: ignore[reportMissingImports]
+        create_particle_instancer,
+    )
     from blender_vulkan_interop.output.particles import ParticleConverter  # pyright: ignore[reportMissingImports]
     from blender_vulkan_interop.output.registry import ConverterRegistry  # pyright: ignore[reportMissingImports]
-    from blender_vulkan_interop.output.snapshots import PayloadSource, SnapshotService  # pyright: ignore[reportMissingImports]
+    from blender_vulkan_interop.output.snapshots import (  # pyright: ignore[reportMissingImports]
+        PayloadSource,
+        SnapshotService,
+    )
     registry = ConverterRegistry()
     base = ParticleConverter()
     registry.register(_NodeConverter(base, bpy, create_particle_instancer) if geometry_nodes else base)
