@@ -67,11 +67,12 @@ jobs:
         # and verifies the zip (no experimental/, packaged version == manifest version).
         # --no-sdk: the shared SDK is private and must never ship in a public GitHub Release.
         run: |
-          tag_args=()
           if [[ "$GITHUB_REF_TYPE" == tag ]]; then
-            tag_args=(--tag "$GITHUB_REF_NAME")
+            tag="$GITHUB_REF_NAME"
+          else
+            tag=$(python -c 'from scripts.build_extension import manifest_version; print("v" + manifest_version())')
           fi
-          python scripts/build_extension.py --blender "$BLENDER" --no-sdk "${tag_args[@]}"
+          python scripts/build_extension.py --blender "$BLENDER" --no-sdk --tag "$tag"
       - name: Validate the built zip
         run: |
           zip=$(ls dist/warp_sph_realtime-*.zip)
