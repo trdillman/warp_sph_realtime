@@ -77,4 +77,4 @@ def test_addon_loads_the_bundled_copy_without_path_changes(tmp_path):
     run = subprocess.run([sys.executable, "-I", "-c", code], capture_output=True, text=True, timeout=30)
     assert run.returncode == 0, run.stderr
     bundled = str(install / "warp_sph_realtime" / "_vendor" / "blender_vulkan_interop")
-    assert all(line.startswith(bundled) for line in run.stdout.split()), run.stdout
+    assert all(line.startswith(bundled) for line in run.stdout.splitlines()), run.stdout

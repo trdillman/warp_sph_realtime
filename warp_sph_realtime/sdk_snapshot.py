@@ -47,7 +47,7 @@ def require_sdk():
     lock = json.loads(_DEFAULT_LOCK.read_text(encoding='utf-8'))
     root = sdk_bundle.locate()
     if root is None:
-        raise RuntimeError('Native snapshots need the qualified Blender Vulkan Interop SDK bundled in a private add-on build')
+        raise RuntimeError('Native snapshots need the qualified Blender Vulkan Interop SDK, bundled in a private add-on build or installed separately')
     verify_sdk_payload(root, lock)
     return sdk_bundle.load(root)
 

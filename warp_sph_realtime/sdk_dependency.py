@@ -34,7 +34,7 @@ def require_sdk():
     root = sdk_bundle.locate()
     if root is None:
         raise RuntimeError(
-            "Shared SDK is not installed. This opt-in requires the pinned SDK bundled in a private add-on build; "
+            "Shared SDK is not installed. This opt-in requires the pinned SDK, bundled in a private add-on build or installed separately; "
             "disable Shared SDK Output to use the existing WarpSPH renderer."
         )
     verify_payload(root, lock["payload_sha256"])
