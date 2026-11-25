@@ -89,6 +89,7 @@ def test_foreign_scene_and_memory_budget_reject_before_readback():
         m.capture_paused(session, scene, wp_module=wp, max_readback_bytes=1)
     assert not reads
 
+@pytest.mark.private_sdk
 @pytest.mark.parametrize('ids', [[-1, 1, 3], [4, 4, 1], [6, 1, 3]])
 def test_invalid_or_reused_ids_reject_without_payload(ids):
     m = api()
