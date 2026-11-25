@@ -133,8 +133,7 @@ class _WindowsJob:
 
             if not self.kernel.TerminateJobObject(self.handle, 1):
                 raise ctypes.WinError(ctypes.get_last_error())
-            self._wait_until_empty(deadline)
-            # Job accounting can reach zero before the process objects are signaled.
+            # Confirm termination while the process handles are still valid.
             for process in processes:
                 remaining_ms = max(0, int((deadline - time.monotonic()) * 1000))
                 if self.kernel.WaitForSingleObject(process, remaining_ms) != 0:
@@ -142,6 +141,8 @@ class _WindowsJob:
         finally:
             for process in processes:
                 self.kernel.CloseHandle(process)
+        # Open process references can keep terminated members in job accounting.
+        self._wait_until_empty(deadline)
 
     def _wait_until_empty(self, deadline: float) -> None:
         while True:
