@@ -150,7 +150,10 @@ The repository includes a `pytest` / `unittest` suite under `tests/` that valida
 
 The opt-in Shared SDK features (and their tests) use the private Blender Vulkan Interop SDK, pinned as the
 git submodule `vendor/blender-vulkan-interop`. With access to that private repository, fetch it once:
-`git submodule update --init vendor/blender-vulkan-interop` (or clone with `--recurse-submodules`). `pytest`
+`git -c core.autocrlf=false -c core.eol=lf submodule update --init vendor/blender-vulkan-interop`.
+This preserves the SDK bytes required by both locks, including on Windows with automatic line-ending
+conversion enabled. Use a fresh checkout if the submodule was already populated with converted files.
+`pytest`
 uses that copy automatically, and `scripts/build_extension.py` bundles it into the zip; pass `--no-sdk` for a
 public build without it.
 
