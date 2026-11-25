@@ -13,6 +13,7 @@ dev = [
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+markers = ["private_sdk: requires the pinned private Blender Vulkan Interop SDK checkout"]
 pythonpath = ["."]
 # These are host tests; live Blender probes are launched explicitly through blender-gate.
 # A globally installed pytest-blender plugin must not silently redirect this suite.

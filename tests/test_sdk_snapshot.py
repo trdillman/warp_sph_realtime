@@ -55,6 +55,7 @@ def setup():
     wp = NS(__version__='1.17.0', array=Array, vec3='vec3', int32='int32', float32='float32', get_device=lambda name: name, synchronize_device=lambda name: reads.append('sync'))
     return (scene, session, wp, reads)
 
+@pytest.mark.private_sdk
 def test_paused_capture_preserves_solver_ids_sort_order_and_units():
     m = api()
     scene, session, wp, reads = setup()
@@ -96,6 +97,7 @@ def test_invalid_or_reused_ids_reject_without_payload(ids):
     with pytest.raises(ValueError, match='identit|ID'):
         m.capture_paused(session, scene, wp_module=wp)
 
+@pytest.mark.private_sdk
 def test_solver_generation_changes_epoch_not_survivor_identity():
     m = api()
     scene, session, wp, _ = setup()
@@ -111,6 +113,7 @@ def test_solver_generation_changes_epoch_not_survivor_identity():
     assert third.stamp.epoch == first.stamp.epoch + 1
     assert 'density' not in {a.name for a in third.arrays}, 'initial zero buffer is not a measured density'
 
+@pytest.mark.private_sdk
 def test_zero_count_does_not_read_capacity_or_export_ghosts():
     m = api()
     scene, session, wp, reads = setup()
@@ -151,6 +154,7 @@ def test_adapter_import_does_not_load_sdk_warp_or_blender():
     assert run.returncode == 0, run.stderr
 
 @pytest.mark.parametrize('where', ['sync', 'array'])
+@pytest.mark.private_sdk
 def test_cuda_readback_failure_stops_session_instead_of_allowing_resume(where, monkeypatch):
     m = api()
     scene, session, wp, reads = setup()
@@ -174,6 +178,7 @@ def test_cuda_readback_failure_stops_session_instead_of_allowing_resume(where, m
     assert not session.running and session.restart_required, 'unknown CUDA state was left resumable'
 
 
+@pytest.mark.private_sdk
 def test_disposed_and_recreated_session_uses_new_identity_namespace():
     m = api()
     scene, session, wp, _ = setup()

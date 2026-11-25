@@ -17,6 +17,7 @@ build_extension = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(build_extension)
 
 
+@pytest.mark.private_sdk
 def test_vendored_sdk_matches_every_lock_exactly():
     payload = build_extension.check_sdk()
     for name in build_extension.SDK_LOCKS:
@@ -34,6 +35,7 @@ def test_submodule_is_pinned_to_the_reconciled_sdk_commit():
     assert staged.stdout.split()[1].startswith("1b3e4be"), "SDK submodule moved off the locked commit"
 
 
+@pytest.mark.private_sdk
 def test_staged_build_bundles_sdk_and_no_sdk_build_does_not(tmp_path):
     with_sdk = build_extension.stage_source(tmp_path / "a", build_extension.SDK_PACKAGE)
     bundled = with_sdk / "_vendor" / "blender_vulkan_interop"
@@ -59,6 +61,7 @@ def test_release_build_refuses_to_bundle_the_private_sdk(monkeypatch):
         build_extension.main()
 
 
+@pytest.mark.private_sdk
 def test_addon_loads_the_bundled_copy_without_path_changes(tmp_path):
     staged = build_extension.stage_source(tmp_path, build_extension.SDK_PACKAGE)
     with zipfile.ZipFile(tmp_path / "addon.zip", "w") as archive:  # what Blender installs: a package folder
