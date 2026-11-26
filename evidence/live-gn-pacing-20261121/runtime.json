@@ -1,0 +1,77 @@
+{
+  "passed": true,
+  "rows": [
+    {
+      "arm": "baseline",
+      "wall_s": 5.015642800000933,
+      "simulation_s": 0.21753954958261854,
+      "frame": 22,
+      "steps": 66,
+      "metrics": {
+        "published": 13,
+        "solver_submit_s": 0.13283189999492606,
+        "pack_publish_s": 0.059884399986913195,
+        "draws": 0,
+        "snapshot_readback_s": 0.14609840000775876,
+        "snapshot_commit_s": 1.3578213000037067
+      }
+    },
+    {
+      "arm": "paced",
+      "wall_s": 5.0279392000011285,
+      "simulation_s": 0.6625068100925167,
+      "frame": 29,
+      "steps": 201,
+      "metrics": {
+        "published": 28,
+        "solver_submit_s": 0.2372548000093957,
+        "pack_publish_s": 0.1331242000014754,
+        "draws": 0,
+        "snapshot_readback_s": 0.14976950000345823,
+        "snapshot_commit_s": 1.187889599998016
+      }
+    },
+    {
+      "arm": "paced",
+      "wall_s": 5.066302399998676,
+      "simulation_s": 0.6262502184954146,
+      "frame": 32,
+      "steps": 190,
+      "metrics": {
+        "published": 28,
+        "solver_submit_s": 0.24389279999377322,
+        "pack_publish_s": 0.14784470001177397,
+        "draws": 0,
+        "snapshot_readback_s": 0.13123440000708797,
+        "snapshot_commit_s": 1.2160963999958767
+      }
+    },
+    {
+      "arm": "baseline",
+      "wall_s": 5.018110400000296,
+      "simulation_s": 0.2735724638690508,
+      "frame": 23,
+      "steps": 83,
+      "metrics": {
+        "published": 14,
+        "solver_submit_s": 0.12365020000288496,
+        "pack_publish_s": 0.051640499994391575,
+        "draws": 0,
+        "snapshot_readback_s": 0.1581330000080925,
+        "snapshot_commit_s": 1.5199011000004248
+      }
+    }
+  ],
+  "step_count": 13,
+  "pid": 65204,
+  "identity": {
+    "sha256": "bab5497d3d79893db1023466c1c34e03de78bf02fc5a8b0198d0559bc2d497bc",
+    "files": 64,
+    "module": "C:\\Users\\Tyler\\.codex\\worktrees\\warpsph-live-output\\warp_sph_realtime\\evidence\\live-gn-pacing-20261121\\installed\\warp_sph_realtime\\__init__.py",
+    "blender": "5.2.0 LTS",
+    "warp": "1.17.0",
+    "sdk": "0.1.0a2",
+    "gpu": "NVIDIA GeForce RTX 4080 SUPER",
+    "backend": "VULKAN"
+  }
+}
