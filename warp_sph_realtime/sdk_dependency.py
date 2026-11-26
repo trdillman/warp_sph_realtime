@@ -6,7 +6,6 @@ normal WarpSPH route never imports this dependency unless explicitly selected.
 
 from __future__ import annotations
 
-import hashlib
 import json
 from pathlib import Path
 
@@ -25,7 +24,7 @@ def verify_payload(package_root, expected):
         path = (root / relative).resolve()
         if not path.is_relative_to(root) or not path.is_file():
             raise RuntimeError(f"Shared SDK candidate identity mismatch: missing {relative}")
-        if hashlib.sha256(path.read_bytes()).hexdigest() != digest:
+        if sdk_bundle.payload_sha256(path) != digest:
             raise RuntimeError(f"Shared SDK candidate hash mismatch: {relative}")
 
 

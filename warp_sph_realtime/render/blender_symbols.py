@@ -116,7 +116,7 @@ def _same_json(actual: Any, expected: Any) -> bool:
 
 def load_profile() -> dict[str, Any]:
     raw = PROFILE_PATH.read_bytes()
-    if hashlib.sha256(raw).hexdigest() != _PROFILE_SHA256:
+    if hashlib.sha256(raw.replace(b'\r\n', b'\n')).hexdigest() != _PROFILE_SHA256:
         raise PreflightError('profile_integrity', 'Packaged ABI profile differs from reviewed code anchor')
     profile = _json_bytes(raw)
     if profile['schema_version'] != 1 or profile['abi_version'] != 1:

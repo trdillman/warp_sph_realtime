@@ -189,6 +189,15 @@ def test_linux_stub_does_not_import_blender(monkeypatch):
     assert bs.resolve_current_blender().reason == 'platform_unavailable'
 
 
+def test_packaged_profile_hash_accepts_windows_newlines(tmp_path, monkeypatch):
+    canonical = bs.PROFILE_PATH.read_bytes().replace(b'\r\n', b'\n')
+    path = tmp_path / 'profile-crlf.json'
+    path.write_bytes(canonical.replace(b'\n', b'\r\n'))
+    monkeypatch.setattr(bs, 'PROFILE_PATH', path)
+
+    assert bs.load_profile()['schema_version'] == 1
+
+
 def test_no_gpu_binding_or_pointer_extraction_in_resolver():
     import ast
     tree = ast.parse(Path(bs.__file__).read_text())

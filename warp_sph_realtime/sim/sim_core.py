@@ -999,7 +999,7 @@ class RealtimeWCSPHSolver:
         if the count does not fit the pool (or differs from it without emitters).
         """
         n = len(position)
-        if not 0 < n <= self.num_particles or (n != self.num_particles and not self._emitters):
+        if n > self.num_particles or (n != self.num_particles and not self._emitters):
             raise ValueError(f"cached frame has {n} particles, the scene has {self.num_particles}")
         pos = np.full((self.num_particles, 3), PARKED_POSITION, dtype=np.float32)
         vel = np.zeros((self.num_particles, 3), dtype=np.float32)
@@ -1022,7 +1022,7 @@ class RealtimeWCSPHSolver:
         self.emission_exhausted = bool(self._emitters) and n >= self.num_particles
         self._exhaustion_unreported = False
         self._set_active_count(n)
-        self._next_id = max(int(np.max(ids)) + 1, n)
+        self._next_id = max(int(np.max(ids)) + 1, n) if n else 0
 
     def take_exhaustion_notice(self) -> bool:
         """True once, after emission stopped because the particle budget is used up."""
