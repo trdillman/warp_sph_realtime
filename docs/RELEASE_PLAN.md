@@ -185,7 +185,7 @@ Merged since the previous refresh:
 
 | Phase | Done on main | Open |
 |---|---|---|
-| 0 | P0.1–P0.8, P0.10–P0.13; P0.11b merged; M5 passes the revised 4M one-frame target (original ≤2 ms gate FAIL, kept on record) and Linux M6 is unrun (lifecycle, transport seam, GL/Vulkan interop with the latency fix, gpu-module points and SSFR, Warp self-test, experimental excluded) | P0.9 rename (D1; licence part done); exit soak on Blender **5.3** Vulkan, which needs a new exact-build Vulkan profile, or else it runs Readback |
+| 0 | P0.1–P0.8, P0.10–P0.13; P0.11b merged; the frozen M5 v4 candidate (2026-10-19) passes the revised 4M one-frame target, which does not qualify later main commits (original ≤2 ms gate FAIL, kept on record), and Linux M6 is unrun (lifecycle, transport seam, GL/Vulkan interop with the latency fix, gpu-module points and SSFR, Warp self-test, experimental excluded) | P0.9 rename (D1; licence part done); exit soak on Blender **5.3** Vulkan, which needs a new exact-build Vulkan profile, or else it runs Readback |
 | 1 | P1.1, P1.3–P1.7, P1.11 | P1.2 Readback tuning + count advisor; P1.8 GPU runner; P1.9 benchmark table; P1.10 launch kit; first tagged release (`release.yml` unproven) |
 | 2 | P2.1, P2.2, P2.3, P2.5, P2.6, P2.8 | P2.7 free edition; P2.9 interactive simulation workflow; showcase reruns under the strengthened checks; certification on 5.2 LTS + current stable |
 
