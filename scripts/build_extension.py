@@ -100,9 +100,13 @@ def shipped_files(source_dir: Path = SOURCE_DIR) -> list[str]:
 
 
 def sdk_payload(package: Path) -> dict[str, str]:
-    """SHA-256 of every .py/.json file in the SDK package, keyed like the add-on's lock files."""
+    """SHA-256 of every .py/.json file in the SDK package, keyed like the add-on's lock files.
+
+    Git for Windows may check the pinned submodule out with CRLF. Hash its canonical LF text so
+    the same pinned payload is accepted on every platform; the staged package is normalized too.
+    """
     return {
-        path.relative_to(package).as_posix(): hashlib.sha256(path.read_bytes()).hexdigest()
+        path.relative_to(package).as_posix(): hashlib.sha256(path.read_bytes().replace(b"\r\n", b"\n")).hexdigest()
         for path in sorted(package.rglob("*"))
         if path.is_file() and path.suffix in (".py", ".json") and "__pycache__" not in path.parts
     }
@@ -130,7 +134,14 @@ def stage_source(dest: Path, sdk_package: Path | None, source_dir: Path = SOURCE
     shutil.copytree(source_dir, staged, ignore=shutil.ignore_patterns("__pycache__", VENDOR_DIR))
     if sdk_package is not None:
         check_sdk(sdk_package, source_dir)
-        shutil.copytree(sdk_package, staged / VENDOR_DIR / sdk_package.name, ignore=shutil.ignore_patterns("__pycache__"))
+        bundled = staged / VENDOR_DIR / sdk_package.name
+        shutil.copytree(sdk_package, bundled, ignore=shutil.ignore_patterns("__pycache__"))
+        for path in bundled.rglob("*"):
+            if path.is_file() and path.suffix in (".py", ".json"):
+                content = path.read_bytes()
+                normalized = content.replace(b"\r\n", b"\n")
+                if normalized != content:
+                    path.write_bytes(normalized)
         notice = sdk_package.parents[1] / "DISTRIBUTION.md"
         if notice.is_file():
             shutil.copy2(notice, staged / VENDOR_DIR / "SDK_DISTRIBUTION.md")

@@ -24,6 +24,25 @@ def test_vendored_sdk_matches_every_lock_exactly():
         assert payload == json.loads((PACKAGE / name).read_text(encoding="utf-8"))["payload_sha256"]
 
 
+@pytest.mark.private_sdk
+def test_windows_crlf_submodule_is_normalized_to_locked_lf_bytes(tmp_path):
+    source = tmp_path / "crlf-sdk"
+    import shutil
+
+    shutil.copytree(build_extension.SDK_PACKAGE, source)
+    for path in source.rglob("*"):
+        if path.is_file() and path.suffix in (".py", ".json"):
+            canonical = path.read_bytes().replace(b"\r\n", b"\n")
+            path.write_bytes(canonical.replace(b"\n", b"\r\n"))
+
+    expected = build_extension.check_sdk(source)
+    staged = build_extension.stage_source(tmp_path / "stage", source)
+    bundled = staged / "_vendor" / source.name
+    assert build_extension.sdk_payload(bundled) == expected
+    assert all(b"\r\n" not in path.read_bytes() for path in bundled.rglob("*")
+               if path.is_file() and path.suffix in (".py", ".json"))
+
+
 def test_submodule_is_pinned_to_the_reconciled_sdk_commit():
     gitmodules = (ROOT / ".gitmodules").read_text(encoding="utf-8")
     assert "path = vendor/blender-vulkan-interop" in gitmodules

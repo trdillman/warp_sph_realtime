@@ -5,7 +5,6 @@ solver mutation. Native conversion is an explicit user action on a paused run.
 """
 from __future__ import annotations
 
-import hashlib
 import json
 import threading
 import uuid
@@ -38,7 +37,7 @@ def verify_sdk_payload(root, lock):
         raise RuntimeError('SDK package identity mismatch: missing or unexpected payload files')
     for name, digest in expected.items():
         path = root / name
-        if not path.resolve().is_relative_to(root) or hashlib.sha256(path.read_bytes()).hexdigest() != digest:
+        if not path.resolve().is_relative_to(root) or sdk_bundle.payload_sha256(path) != digest:
             raise RuntimeError(f'SDK package identity mismatch: {name}')
 
 
