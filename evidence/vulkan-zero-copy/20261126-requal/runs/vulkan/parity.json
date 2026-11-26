@@ -1,0 +1,192 @@
+[
+ {
+  "count": 1,
+  "kind": "readback",
+  "width": 4096,
+  "height": 1,
+  "frame_count": 1,
+  "exact": true,
+  "max_abs": 0.0,
+  "padding_zero": true,
+  "sha256": "8fce4e1f642816b5d289cff0d497ea086cac8fe507367a5fc99baa3ac5a98b56",
+  "close": "completed",
+  "capabilities": {
+   "transport": "READBACK",
+   "zero_copy": false,
+   "max_count": 4194304,
+   "ready": false,
+   "reason": ""
+  }
+ },
+ {
+  "count": 1,
+  "kind": "interop",
+  "width": 4096,
+  "height": 1,
+  "frame_count": 1,
+  "exact": true,
+  "max_abs": 0.0,
+  "padding_zero": true,
+  "sha256": "8fce4e1f642816b5d289cff0d497ea086cac8fe507367a5fc99baa3ac5a98b56",
+  "close": "completed",
+  "capabilities": {
+   "transport": "VULKAN_INTEROP",
+   "zero_copy": true,
+   "max_count": 4194304,
+   "ready": false,
+   "reason": "closed: completed"
+  }
+ },
+ {
+  "count": 4095,
+  "kind": "readback",
+  "width": 4096,
+  "height": 1,
+  "frame_count": 4095,
+  "exact": true,
+  "max_abs": 0.0,
+  "padding_zero": true,
+  "sha256": "b0abb7638f6a6804da4f57d101b83d6cbc9362114590146ac0ccfcba80822c7b",
+  "close": "completed",
+  "capabilities": {
+   "transport": "READBACK",
+   "zero_copy": false,
+   "max_count": 4194304,
+   "ready": false,
+   "reason": ""
+  }
+ },
+ {
+  "count": 4095,
+  "kind": "interop",
+  "width": 4096,
+  "height": 1,
+  "frame_count": 4095,
+  "exact": true,
+  "max_abs": 0.0,
+  "padding_zero": true,
+  "sha256": "b0abb7638f6a6804da4f57d101b83d6cbc9362114590146ac0ccfcba80822c7b",
+  "close": "completed",
+  "capabilities": {
+   "transport": "VULKAN_INTEROP",
+   "zero_copy": true,
+   "max_count": 4194304,
+   "ready": false,
+   "reason": "closed: completed"
+  }
+ },
+ {
+  "count": 4096,
+  "kind": "readback",
+  "width": 4096,
+  "height": 1,
+  "frame_count": 4096,
+  "exact": true,
+  "max_abs": 0.0,
+  "padding_zero": true,
+  "sha256": "41a989f0511be5f488a0726a09689da4c15691dfc02bd2045f5d30846a8e2faa",
+  "close": "completed",
+  "capabilities": {
+   "transport": "READBACK",
+   "zero_copy": false,
+   "max_count": 4194304,
+   "ready": false,
+   "reason": ""
+  }
+ },
+ {
+  "count": 4096,
+  "kind": "interop",
+  "width": 4096,
+  "height": 1,
+  "frame_count": 4096,
+  "exact": true,
+  "max_abs": 0.0,
+  "padding_zero": true,
+  "sha256": "41a989f0511be5f488a0726a09689da4c15691dfc02bd2045f5d30846a8e2faa",
+  "close": "completed",
+  "capabilities": {
+   "transport": "VULKAN_INTEROP",
+   "zero_copy": true,
+   "max_count": 4194304,
+   "ready": false,
+   "reason": "closed: completed"
+  }
+ },
+ {
+  "count": 4097,
+  "kind": "readback",
+  "width": 4096,
+  "height": 2,
+  "frame_count": 4097,
+  "exact": true,
+  "max_abs": 0.0,
+  "padding_zero": true,
+  "sha256": "2fb68d082df810fc3869f0c3daf45a74ebe8881057d9863881ffeee15a980f45",
+  "close": "completed",
+  "capabilities": {
+   "transport": "READBACK",
+   "zero_copy": false,
+   "max_count": 4194304,
+   "ready": false,
+   "reason": ""
+  }
+ },
+ {
+  "count": 4097,
+  "kind": "interop",
+  "width": 4096,
+  "height": 2,
+  "frame_count": 4097,
+  "exact": true,
+  "max_abs": 0.0,
+  "padding_zero": true,
+  "sha256": "2fb68d082df810fc3869f0c3daf45a74ebe8881057d9863881ffeee15a980f45",
+  "close": "completed",
+  "capabilities": {
+   "transport": "VULKAN_INTEROP",
+   "zero_copy": true,
+   "max_count": 4194304,
+   "ready": false,
+   "reason": "closed: completed"
+  }
+ },
+ {
+  "count": 4194304,
+  "kind": "readback",
+  "width": 4096,
+  "height": 1024,
+  "frame_count": 4194304,
+  "exact": true,
+  "max_abs": 0.0,
+  "padding_zero": true,
+  "sha256": "501d35b8859e08e53ad0374e3a747a33ecea10857830369de60b91d2efbfef10",
+  "close": "completed",
+  "capabilities": {
+   "transport": "READBACK",
+   "zero_copy": false,
+   "max_count": 4194304,
+   "ready": false,
+   "reason": ""
+  }
+ },
+ {
+  "count": 4194304,
+  "kind": "interop",
+  "width": 4096,
+  "height": 1024,
+  "frame_count": 4194304,
+  "exact": true,
+  "max_abs": 0.0,
+  "padding_zero": true,
+  "sha256": "501d35b8859e08e53ad0374e3a747a33ecea10857830369de60b91d2efbfef10",
+  "close": "completed",
+  "capabilities": {
+   "transport": "VULKAN_INTEROP",
+   "zero_copy": true,
+   "max_count": 4194304,
+   "ready": false,
+   "reason": "closed: completed"
+  }
+ }
+]
