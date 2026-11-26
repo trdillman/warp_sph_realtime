@@ -252,18 +252,25 @@ def sync_collider_keyframes(scene, solver, objects=None, held=None) -> None:
     if objects is None:
         objects = [scene.objects.get(n) for n in solver.animated_collider_names]
     held = {} if held is None else held
-    for frame in frames:
-        scene.frame_set(frame)
-        matrices = []
-        for index, obj in enumerate(objects):
-            matrix = _matrix_or_none(obj)
-            if matrix is None:
-                matrix = held.get(index)
-                if matrix is None:
-                    raise SceneValidationError(f"animated collider {index} is missing and has no pose yet")
-            held[index] = matrix
-            matrices.append(matrix)
-        solver.set_collider_keyframe(frame, matrices)
     current = solver.current_frame
-    if scene.frame_current != current:
-        scene.frame_set(current)
+    try:
+        for frame in frames:
+            scene.frame_set(frame)
+            matrices = []
+            for index, obj in enumerate(objects):
+                matrix = _matrix_or_none(obj)
+                if matrix is None:
+                    matrix = held.get(index)
+                    if matrix is None:
+                        raise SceneValidationError(f"animated collider {index} is missing and has no pose yet")
+                matrices.append(matrix)
+            solver.set_collider_keyframe(frame, matrices)
+    finally:
+        if scene.frame_current != current:
+            scene.frame_set(current)
+    # Prefetched keys can be ahead of the displayed simulation frame. Only a completed
+    # sync may replace the deletion fallback, and it must use the restored current pose.
+    for index, obj in enumerate(objects):
+        matrix = _matrix_or_none(obj)
+        if matrix is not None:
+            held[index] = matrix
