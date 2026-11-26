@@ -1,0 +1,30 @@
+{
+ "blender": "5.2.0 LTS",
+ "build_hash": "fbe6228777e7",
+ "gpu_backend": "OPENGL",
+ "gpu_renderer": "NVIDIA GeForce RTX 4080 SUPER/PCIe/SSE2",
+ "gpu_version": "4.6.0 NVIDIA 621.14",
+ "python": "3.13.13 (main, May  8 2026, 12:37:03) [MSC v.1944 64 bit (AMD64)]",
+ "warp": "1.17.0",
+ "warp_file": "C:\\Users\\Tyler\\projects\\warpsph-m5-requal-20261126\\evidence\\vulkan-zero-copy\\20261126-requal\\profiles\\opengl\\extensions\\.user\\user_default\\warp_sph_realtime\\.local\\warp\\__init__.py",
+ "device": "NVIDIA GeForce RTX 4080 SUPER",
+ "install_message": "FINISHED",
+ "owned_install": "certified",
+ "wheel_requests": [],
+ "wheel_lock": {
+  "filename": "warp_lang-1.17.0-py3-none-win_amd64.whl",
+  "sha256": "ca35c82242a7553046f09023bbe56750b5c3d9af72625bd1a905a56d3189771d",
+  "size": 151236515,
+  "url": "https://files.pythonhosted.org/packages/ff/7a/36306a503085cbfc79c35a28e441c59dd1d8070d2dd65152345ebf2dfec2/warp_lang-1.17.0-py3-none-win_amd64.whl",
+  "platform": "windows-x64"
+ },
+ "addon_file": "C:\\Users\\Tyler\\projects\\warpsph-m5-requal-20261126\\evidence\\vulkan-zero-copy\\20261126-requal\\profiles\\opengl\\extensions\\user_default\\warp_sph_realtime\\addon.py",
+ "window": [
+  1600,
+  900
+ ],
+ "region": [
+  1311,
+  775
+ ]
+}

@@ -1,0 +1,10 @@
++ C:\Program Files\Blender Foundation\Blender 5.2\blender.exe --factory-startup --command extension validate C:\Users\Tyler\AppData\Local\Temp\tmpbtvq6dly\warp_sph_realtime
+Success parsing TOML in "C:\Users\Tyler\AppData\Local\Temp\tmpbtvq6dly\warp_sph_realtime"
++ C:\Program Files\Blender Foundation\Blender 5.2\blender.exe --factory-startup --command extension build --source-dir C:\Users\Tyler\AppData\Local\Temp\tmpbtvq6dly\warp_sph_realtime --output-dir C:\Users\Tyler\projects\warpsph-m5-requal-20261126\dist
+building: warp_sph_realtime-0.1.0.zip
+complete
+created: "C:\Users\Tyler\projects\warpsph-m5-requal-20261126\dist\warp_sph_realtime-0.1.0.zip", 323221
+Built C:\Users\Tyler\projects\warpsph-m5-requal-20261126\dist\warp_sph_realtime-0.1.0.zip sha256=9d2f3c2c9a57844ffcedb60eb87b5f361557ae35ebbd1c44429b9a14d42a79ca
+
+[bgate] log saved: C:\Users\Tyler\AppData\Local\blender-gate\logs\claude-45a79101-c0e5-4e58-89a8-6bb0ac60cf79\20261126-122645-677cb39a9207.log
+[bgate] log saved: C:\Users\Tyler\AppData\Local\blender-gate\logs\claude-45a79101-c0e5-4e58-89a8-6bb0ac60cf79\20261126-122648-fe7d4870d1f5.log

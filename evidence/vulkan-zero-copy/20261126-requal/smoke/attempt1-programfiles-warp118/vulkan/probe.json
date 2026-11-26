@@ -1,0 +1,6 @@
+{
+ "lane": "vulkan",
+ "status": "FAILED",
+ "steps": [],
+ "error": "Traceback (most recent call last):\n  File \"C:\\Users\\Tyler\\projects\\warpsph-m5-requal-20261126\\evidence\\vulkan-zero-copy\\20261126-requal\\harness\\m5_probe.py\", line 804, in driver\n    return next(GEN)\n  File \"C:\\Users\\Tyler\\projects\\warpsph-m5-requal-20261126\\evidence\\vulkan-zero-copy\\20261126-requal\\harness\\m5_probe.py\", line 777, in main\n    yield from step_setup()\n  File \"C:\\Users\\Tyler\\projects\\warpsph-m5-requal-20261126\\evidence\\vulkan-zero-copy\\20261126-requal\\harness\\m5_probe.py\", line 273, in step_setup\n    result = bpy.ops.wm.warp_sph_install()\nRuntimeError: Error: Warp 1.18.0 is already loaded from C:\\Program Files\\Blender Foundation\\Blender 5.2\\5.2\\python\\lib\\site-packages\\warp\\__init__.py, which WarpSPH does not own. Remove that copy, then press Install Warp. WarpSPH will not change it.\n\n"
+}
