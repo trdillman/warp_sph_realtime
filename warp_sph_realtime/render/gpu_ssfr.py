@@ -192,7 +192,7 @@ void main() {
         fragColor = vec4(vec3(0.98 * 0.72) * (1.0 - fresnel) * transmittance + vec3(0.02), 1.0);
     } else {
         vec3 own = (1.0 - fresnel) * transmittance * 0.28 * u_base.rgb + fresnel * sky + vec3(spec * 0.85 + foam);
-        fragColor = vec4(0.98 * own, 0.0);
+        fragColor = vec4(0.98 * own, 1.0);
     }
 }
 """

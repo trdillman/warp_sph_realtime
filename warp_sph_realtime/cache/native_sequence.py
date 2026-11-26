@@ -101,12 +101,17 @@ class NativeFrame:
 
 def from_payload(payload):
     """SDK frame positions/radii use spatial scale; velocities already mean m/s."""
-    arrays = {
-        a.name: np.frombuffer(a.data, dtype="<u8" if a.scalar_type == "uint64" else "<f4").reshape(a.shape)
-        for a in payload.arrays
-    }
-    if set(arrays) != set(_REQUIRED) or payload.spatial is None:
+    channels = tuple(payload.arrays)
+    names = tuple(a.name for a in channels)
+    if len(names) != len(_REQUIRED) or set(names) != set(_REQUIRED) or payload.spatial is None:
         raise ValueError("unsupported rich particle payload")
+    arrays = {}
+    for channel in channels:
+        expected_type = "uint64" if channel.name == "id" else "float32"
+        if channel.scalar_type != expected_type:
+            raise ValueError(f"unsupported scalar type for {channel.name}")
+        dtype = "<u8" if expected_type == "uint64" else "<f4"
+        arrays[channel.name] = np.frombuffer(channel.data, dtype=dtype).reshape(channel.shape)
     scale = float(payload.spatial.meters_per_unit)
     origin = np.asarray(payload.spatial.origin_m, dtype=np.float64)
     arrays["position"] = (arrays["position"].astype(np.float64) * scale + origin).astype(np.float32)

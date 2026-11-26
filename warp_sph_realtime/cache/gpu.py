@@ -79,16 +79,17 @@ class VramRing:
 
     def submit(self, slot: Slot, frame: int, count: int) -> None:
         """Queue the slot's device snapshot for the asynchronous host copy. ``count`` <= capacity rows."""
-        if not 1 <= count <= self.capacity:
-            raise ValueError(f"frame has {count} particles, the ring holds 1 to {self.capacity}")
+        if not 0 <= count <= self.capacity:
+            raise ValueError(f"frame has {count} particles, the ring holds 0 to {self.capacity}")
         wp = self.wp
         slot.frame, slot.count = frame, count
         compute = wp.get_stream(self.device)
         self.copy_stream.wait_stream(compute)  # the snapshot copies are ordered before the host copies
-        host_pos, host_vel, host_pid = slot._host
-        wp.copy(host_pos, slot.pos, count=count, stream=self.copy_stream)
-        wp.copy(host_vel, slot.vel, count=count, stream=self.copy_stream)
-        wp.copy(host_pid, slot.pid, count=count, stream=self.copy_stream)
+        if count:
+            host_pos, host_vel, host_pid = slot._host
+            wp.copy(host_pos, slot.pos, count=count, stream=self.copy_stream)
+            wp.copy(host_vel, slot.vel, count=count, stream=self.copy_stream)
+            wp.copy(host_pid, slot.pid, count=count, stream=self.copy_stream)
         self.copy_stream.record_event(slot.event)
         self._inflight.append(slot)
 

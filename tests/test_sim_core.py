@@ -1,5 +1,6 @@
 import logging
 import unittest
+from types import SimpleNamespace
 
 import numpy as np
 import warp as wp
@@ -68,6 +69,18 @@ def test_viscosity_cap_is_reported_once(caplog):
         solver.rebuild_cuda_graph()
     assert solver.viscosity_limited and solver.effective_viscosity < 1e6
     assert len(caplog.records) == 1 and "limited to" in caplog.records[0].getMessage()
+
+
+def test_restore_state_accepts_empty_emitter_frame():
+    solver = RealtimeWCSPHSolver(num_particles=8, h=0.04, enable_obstacles=0, device="cpu")
+    solver._emitters = [SimpleNamespace(rate=1.0, t_start=0.0, t_end=1.0, emitted=0)]
+    solver.restore_state(
+        np.empty((0, 3), dtype=np.float32),
+        np.empty((0, 3), dtype=np.float32),
+        np.empty(0, dtype=np.int32),
+    )
+    assert solver.active_count == 0
+    assert solver._next_id == 0
 
 
 class TestSimCorePhysics(unittest.TestCase):
