@@ -69,8 +69,9 @@ cleanup pass the exact-build bounded prerequisites. Final reconciliation and sup
 limit/cadence/generation/completion probes close the bounded M0 checklist.
 The shared DRW context is entered through its
 paired locked scope, then the incoming window context is restored. M1–M5 were later implemented
-and merged in #5 (P0.11b); M5 v4 passes parity, images, lifecycle and faults but still FAILS the
-4M latency gate (completed p95 5.20 ms vs ≤2 ms), and Linux M6 is unrun. The M0 qualification
+and merged in #5 (P0.11b); M5 v4 passes parity, images, lifecycle and faults. It failed the
+original 4M ≤2 ms latency gate (completed p95 5.20 ms); on 2026-11-26 the owner changed that target to
+one 60 Hz frame (≤16.67 ms), which v4 passes (p95 5.20, max 13.20 ms). Linux M6 is unrun. The M0 qualification
 results are kept in local, untracked research notes (removed from the public repo in #20).
 
 | ID | Work | Files | Size | Acceptance evidence |
@@ -86,7 +87,7 @@ results are kept in local, untracked research notes (removed from the public rep
 | P0.9 | **Rename + licence switch** (after D1, D2): manifest id/name/tagline, panel labels, operator idnames, README, LICENSE, THIRD_PARTY_NOTICES, "not affiliated with NVIDIA" line | package-wide | S | `blender --command extension validate` passes; grep finds no "WarpSPH" brand use |
 | P0.10 | **Regression coverage** for P0.1–P0.7 and P0.11–P0.13 in the env-gated Blender test suite | `tests/` | S | All new tests pass locally on the RTX 4080 SUPER box; failing-first evidence kept |
 | P0.11 | **Texture transport seam + Readback**: publish(positions), positions_texture(), capabilities(), close(); explicit count/dimensions/readiness. Add GLInterop texture bridge and preallocated Readback staging; prove stream/lifetime ordering before claiming overlap | render/interop_bridge.py, new render/transport_readback.py | M | Position parity, no readback in accelerated paths, labelled compatibility fallback and per-adapter timings on both backends |
-| P0.11b | **VulkanInterop**: execute M0–M5 of docs/VULKAN_ZERO_COPY_PLAN.md after an execution request; complete ABI profiles, independently validated RVAs, UUID equality before import, bounded slots and synchronous cleanup; classify fatal CUDA errors separately | new render/transport_vulkan.py, render/blender_symbols.py, resolver helper/profiles | M (re-estimate after M0) | Pinned Warp 1.17 full parity/lifecycle/fault matrix; zero native calls on invalid ABI/cache, zero imports on UUID mismatch; completed transport p95 ≤2 ms at 4,194,304 particles per M5; Linux separately gated by M6 |
+| P0.11b | **VulkanInterop**: execute M0–M5 of docs/VULKAN_ZERO_COPY_PLAN.md after an execution request; complete ABI profiles, independently validated RVAs, UUID equality before import, bounded slots and synchronous cleanup; classify fatal CUDA errors separately | new render/transport_vulkan.py, render/blender_symbols.py, resolver helper/profiles | M (re-estimate after M0) | Pinned Warp 1.17 full parity/lifecycle/fault matrix; zero native calls on invalid ABI/cache, zero imports on UUID mismatch; completed transport p95 ≤16.67 ms (one 60 Hz frame) at 4,194,304 particles per M5 (owner target change 2026-11-26; was ≤2 ms); Linux separately gated by M6 |
 | P0.12 | **Points + spheres on the `gpu` module** (backend-neutral shaders), drawing from any transport | `render/viewport_draw.py` | M | Points/spheres render on 5.2 OpenGL and 5.3 Vulkan; screenshots match within tolerance |
 | P0.13 | **SSFR ported to the `gpu` module**: depth pass, narrow-range filter, thickness and composite as `gpu` shaders + `GPUOffScreen`; delete raw ctypes GL calls from the renderer | `render/ssfr_shaders.py`, `render/viewport_draw.py` | L (3–4 weeks est.) | Liquid look works on Vulkan; image matches the current GL SSFR reference screenshots within tolerance; frame time measured on both backends |
 
@@ -184,13 +185,13 @@ Merged since the previous refresh:
 
 | Phase | Done on main | Open |
 |---|---|---|
-| 0 | P0.1–P0.8, P0.10–P0.13; P0.11b merged with its 4M ≤2 ms gate still FAIL and Linux M6 unrun (lifecycle, transport seam, GL/Vulkan interop with the latency fix, gpu-module points and SSFR, Warp self-test, experimental excluded) | P0.9 rename (D1; licence part done); exit soak on Blender **5.3** Vulkan, which needs a new exact-build Vulkan profile, or else it runs Readback |
+| 0 | P0.1–P0.8, P0.10–P0.13; P0.11b merged; the frozen M5 v4 candidate (2026-10-19) passes the revised 4M one-frame target, which does not qualify later main commits (original ≤2 ms gate FAIL, kept on record), and Linux M6 is unrun (lifecycle, transport seam, GL/Vulkan interop with the latency fix, gpu-module points and SSFR, Warp self-test, experimental excluded) | P0.9 rename (D1; licence part done); exit soak on Blender **5.3** Vulkan, which needs a new exact-build Vulkan profile, or else it runs Readback |
 | 1 | P1.1, P1.3–P1.7, P1.11 | P1.2 Readback tuning + count advisor; P1.8 GPU runner; P1.9 benchmark table; P1.10 launch kit; first tagged release (`release.yml` unproven) |
 | 2 | P2.1, P2.2, P2.3, P2.5, P2.6, P2.8 | P2.7 free edition; P2.9 interactive simulation workflow; showcase reruns under the strengthened checks; certification on 5.2 LTS + current stable |
 
-Owner decisions D1, D2, D6 and the Vulkan 4M latency target are **not blocking engineering**. Work proceeds with
+Owner decisions D1, D2 and D6 are **not blocking engineering**. The Vulkan 4M latency target was decided on 2026-11-26 (one 60 Hz frame). Work proceeds with
 reversible placeholders: brand and licence strings are kept in one place for P0.9, and the P2.7 cap values are
-set in one setting. The 4M target stays recorded as open; nothing is relabelled as passed.
+set in one setting. The original 4M ≤2 ms result stays recorded as FAIL; the PASS is against the revised target only.
 
 ## Immediate next actions
 
