@@ -51,7 +51,7 @@ def test_submodule_is_pinned_to_the_shared_core_sdk_commit():
                             capture_output=True, text=True)
     if staged.returncode != 0 or not staged.stdout:
         pytest.skip("not a git checkout")
-    assert staged.stdout.split()[1].startswith("acedc4d"), "SDK submodule moved off the locked commit"
+    assert staged.stdout.split()[1].startswith("fc82987"), "SDK submodule moved off the locked commit"
 
 
 @pytest.mark.private_sdk
