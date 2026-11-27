@@ -18,7 +18,9 @@ headless-verified 2026-10-18 (pytest/ruff/pyright, two independent reviews). M5 
 fatal PASS; latency gate FAILS (4194304 completed p95 11.66 ms vs ≤2 ms; ≤2.27 ms up to 2M).
 At 4M the copy queues behind the viewport's own GPU point rendering. M5 v4 rerun 2026-10-19
 (Codex review fixes + latency fix: one step in flight, redraw only on a new frame): same
-PASS/FAIL pattern; 4194304 completed p95 5.20 ms. Awaiting the owner's target decision. M6 blocked (no Linux hardware); M7 proposal drafted, not posted. Evidence:
+PASS/FAIL pattern; 4194304 completed p95 5.20 ms. Owner target change 2026-11-26: the 4M gate is now
+"completed p95 within one 60 Hz frame (≤16.67 ms)"; the frozen v4 run passes it (p95 5.20, max 13.20 ms).
+The original ≤2 ms gate stays recorded as FAIL. See "M5 target decision" below. M6 blocked (no Linux hardware); M7 proposal drafted, not posted. Evidence:
 `evidence/vulkan-zero-copy/20261018-m5-fence/m5-verdict.json` (v2:
 `evidence/vulkan-zero-copy/20261018-m2plus/`).
 Owner: engineering. Parent: `docs/RELEASE_PLAN.md` P0.11/P0.11b.
@@ -390,6 +392,11 @@ Report user-visible publish-to-draw latency separately. The old copy-only median
 predict this stricter gate. Failure requires explicit reviewed target/design changes,
 never redefining metrics after measurement.
 
+Revised acceptance (owner target change, 2026-11-26): at 4194304 particles, completed transport
+latency p95 ≤16.67 ms (one 60 Hz frame), with p50/p95/max, zero drops and every other condition
+above unchanged. The metric definition is unchanged; only the threshold moved. The ≤2 ms figure
+is kept as an informational target at ≤1M particles. See "M5 target decision" below.
+
 **M5 result (2026-10-18, frozen manifest v2 `7c7d67bb…17e2`, Blender 5.2.0 fbe6228777e7,
 Warp 1.17.0, RTX 4080 SUPER, driver 610.88).** Criteria pre-registered in
 `evidence/vulkan-zero-copy/20261018-m2plus/M5_PROTOCOL.md`; verdict `m5-verdict.json`;
@@ -469,7 +476,23 @@ note appended); verdict `m5-verdict.json`; benchmarks
   18.06 steps/s, step→draw p50/p95 60.9/64.8 ms, tick host-block 0.04 ms. The baseline was 10.52 steps/s and
   163/212 ms. Today's OpenGL runs were noisy (12.1–16.4 steps/s across archives, with other GPU apps open),
   so the OpenGL-vs-Vulkan comparison should be redone on a quiet machine.
-- Next (owner): unchanged. The 4M target decision is still open.
+- Next (owner): unchanged at the time. Decided 2026-11-26, see below.
+
+**M5 target decision (2026-11-26, owner).** The owner chose the frame-budget option listed under
+v3.1: completed transport latency p95 at 4194304 must fit within one 60 Hz frame (≤16.67 ms).
+Reason: the remaining 4M time is the copy queuing behind Blender's own drawing of 4M points in the
+same GPU queue, which no transport change can remove, and a one-frame budget matches what the user
+sees. This is a reviewed target change, not a reinterpretation: the metric, its definition and the
+frozen v4 data are unchanged, and the original ≤2 ms result stays recorded as FAIL.
+- Verdict under the revised target, from the frozen v4 run (no new measurement):
+  `reports/benchmarks/vulkan-zero-copy-m5-20261019-latency-fix.{json,md}`. 4194304: p50/p95/max
+  3.80/5.20/13.20 ms, 3000 samples, 300 warm-up, zero drops, zero missing completions, timer uploads
+  3299/3300, 5 slot waits → **PASS** (max is also under one frame). Informational ≤2 ms at ≤1M:
+  p95 1.50 (0.5M) and 1.60 (1M) → met. 2M p95 2.22 ms (no gate).
+- Scope of this PASS: Windows, RTX 4080 SUPER, driver 610.88, Blender 5.2.0 fbe6228777e7, Warp
+  1.17.0, the 2026-10-19 v4 candidate (manifest `2cac72e3…c916`). It does not qualify later main
+  commits, Blender 5.3 (needs its own exact-build profile) or Linux (M6). Upload GPU time remains
+  unmeasured. A rerun of the M5 benchmark on current main is recommended before release.
 
 ### M6 — Linux after Windows qualification
 

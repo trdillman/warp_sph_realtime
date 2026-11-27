@@ -5,6 +5,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Changed
+- Vulkan M5 4M latency target (owner decision, 2026-11-26): completed transport p95 at 4,194,304 particles must fit
+  in one 60 Hz frame (≤16.67 ms) instead of ≤2 ms. The frozen 2026-10-19 v4 run passes it (p95 5.20 ms, max
+  13.20 ms); the original ≤2 ms result stays recorded as a fail. Docs only; no code or measurement changed.
+
 ### Added
 - The pinned private Blender Vulkan Interop SDK (commit `1b3e4be`) is now a git submodule at
   `vendor/blender-vulkan-interop`. `scripts/build_extension.py` checks it against both SDK byte locks and bundles it
