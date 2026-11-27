@@ -20,7 +20,7 @@ from types import MappingProxyType
 from typing import Any
 
 PROFILE_PATH = Path(__file__).with_name('profiles') / 'blender-5.2.0-fbe6228777e7-windows-amd64-cp313-v1.json'
-_PROFILE_SHA256 = 'ad33ae7ce58b1744a4af821d6dbe462ad9518ffce7b96cab7cb3a6d819577ad3'
+_PROFILE_SHA256 = '0dd8152ea416340633daf2d6e18d7961ed941998e658b3d828cebac3ad4ba862'
 _MAX_JSON = 1024 * 1024
 _MSF_MAGIC = b'Microsoft C/C++ MSF 7.00\r\n\x1aDS\0\0\0'
 

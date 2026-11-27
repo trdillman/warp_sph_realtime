@@ -1,0 +1,52 @@
+{
+  "schema_version": 1,
+  "description": "Files that the public add-on (trdillman/warp_sph_realtime) and the private SDK (trdillman/blender-vulkan-interop) keep identical. Edit them in both repositories in the same change, then run check_shared_core.py --update --bump. This file is identical in both repositories.",
+  "version": "1.0",
+  "history": [
+    {
+      "version": "1.0",
+      "change": "First shared core: SDK takes the add-on's slow-step fix (5 s stall deadline, close waits for in-flight work) and LF-tolerant profile check; add-on takes the SDK's integer-texture upload and profile entry."
+    }
+  ],
+  "files": [
+    {
+      "name": "transport_vulkan",
+      "addon": "warp_sph_realtime/render/transport_vulkan.py",
+      "sdk": "src/blender_vulkan_interop/_impl/transport_vulkan.py",
+      "sha256": "44d87b8add4e10155e4f983e94ab46f4f5bced00d7a41fc2b7712af0b45d8174"
+    },
+    {
+      "name": "transport",
+      "addon": "warp_sph_realtime/render/transport.py",
+      "sdk": "src/blender_vulkan_interop/_impl/transport.py",
+      "addon_only": [
+        "ReadbackTransport"
+      ],
+      "sha256": "16f1391b5748a10038ba0533535099f9e0d3c54edbf7a9cbc9ff3fc81a25a36e"
+    },
+    {
+      "name": "blender_symbols",
+      "addon": "warp_sph_realtime/render/blender_symbols.py",
+      "sdk": "src/blender_vulkan_interop/_impl/blender_symbols.py",
+      "sha256": "c27343a488149c2e880360bf59153007fac3ace48234e2bf57721689e3936fd8"
+    },
+    {
+      "name": "blender_symbols_helper",
+      "addon": "warp_sph_realtime/render/blender_symbols_helper.py",
+      "sdk": "src/blender_vulkan_interop/_impl/blender_symbols_helper.py",
+      "sha256": "bdc56afbe65d77e8dd41a1a1c1daaa407172230e8cddd54e7a82e71850e7ca3b"
+    },
+    {
+      "name": "profile",
+      "addon": "warp_sph_realtime/render/profiles/blender-5.2.0-fbe6228777e7-windows-amd64-cp313-v1.json",
+      "sdk": "src/blender_vulkan_interop/_impl/profiles/blender-5.2.0-fbe6228777e7-windows-amd64-cp313-v1.json",
+      "sha256": "0dd8152ea416340633daf2d6e18d7961ed941998e658b3d828cebac3ad4ba862"
+    },
+    {
+      "name": "checker",
+      "addon": "scripts/check_shared_core.py",
+      "sdk": "tools/check_shared_core.py",
+      "sha256": "f24c737a3780029e2ac0b4e463e6775e6b7b19f1cddc4dea2b94f3fe3a3fccae"
+    }
+  ]
+}

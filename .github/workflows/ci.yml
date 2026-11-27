@@ -32,6 +32,8 @@ jobs:
       - name: Install glslangValidator (viewport shader compile tests)
         if: runner.os == 'Linux'
         run: sudo apt-get update -q && sudo apt-get install -y -q glslang-tools
+      - name: Shared transport core matches SHARED_CORE.json
+        run: python scripts/check_shared_core.py
       - name: Lint
         run: ruff check .
       - name: Type check
