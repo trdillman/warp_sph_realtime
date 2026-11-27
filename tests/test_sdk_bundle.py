@@ -43,15 +43,15 @@ def test_windows_crlf_submodule_is_normalized_to_locked_lf_bytes(tmp_path):
                if path.is_file() and path.suffix in (".py", ".json"))
 
 
-def test_submodule_is_pinned_to_the_reconciled_sdk_commit():
+def test_submodule_is_pinned_to_the_shared_core_sdk_commit():
     gitmodules = (ROOT / ".gitmodules").read_text(encoding="utf-8")
     assert "path = vendor/blender-vulkan-interop" in gitmodules
-    assert "branch = interop/reconcile-20261102" in gitmodules
+    assert "branch = main" in gitmodules
     staged = subprocess.run(["git", "-C", str(ROOT), "ls-files", "-s", "vendor/blender-vulkan-interop"],
                             capture_output=True, text=True)
     if staged.returncode != 0 or not staged.stdout:
         pytest.skip("not a git checkout")
-    assert staged.stdout.split()[1].startswith("1b3e4be"), "SDK submodule moved off the locked commit"
+    assert staged.stdout.split()[1].startswith("a4c83b6"), "SDK submodule moved off the locked commit"
 
 
 @pytest.mark.private_sdk
