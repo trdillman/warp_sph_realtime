@@ -1,0 +1,429 @@
+{
+ "lanes": {
+  "vulkan": {
+   "supervisor": {
+    "lane": "vulkan",
+    "smoke": false,
+    "command": [
+     "C:\\Users\\Tyler\\Downloads\\blender-5.2.0-windows-x64\\blender-5.2.0-windows-x64\\blender.exe",
+     "--factory-startup",
+     "--online-mode",
+     "--gpu-backend",
+     "vulkan",
+     "--window-geometry",
+     "0",
+     "0",
+     "1600",
+     "900",
+     "--python",
+     "C:\\Users\\Tyler\\projects\\warpsph-m5-requal-20261126\\evidence\\vulkan-zero-copy\\20261126-requal\\harness\\m5_probe.py"
+    ],
+    "deadline_seconds": 5400,
+    "started": 1795715138.412,
+    "pid": 56864,
+    "job_member": true,
+    "reason": "natural_exit",
+    "exit_code": 0,
+    "elapsed_s": 965.7,
+    "queued_s": 5.0
+   },
+   "probe": {
+    "lane": "vulkan",
+    "status": "DONE",
+    "steps": [
+     "setup",
+     "parity",
+     "cycles",
+     "faults",
+     "bench",
+     "fatal"
+    ]
+   },
+   "identity": {
+    "blender": "5.2.0 LTS",
+    "build_hash": "fbe6228777e7",
+    "gpu_backend": "VULKAN",
+    "gpu_renderer": "NVIDIA GeForce RTX 4080 SUPER",
+    "gpu_version": "NVIDIA 621.14",
+    "python": "3.13.13 (main, May  8 2026, 12:37:03) [MSC v.1944 64 bit (AMD64)]",
+    "warp": "1.17.0",
+    "warp_file": "C:\\Users\\Tyler\\projects\\warpsph-m5-requal-20261126\\evidence\\vulkan-zero-copy\\20261126-requal\\profiles\\vulkan\\extensions\\.user\\user_default\\warp_sph_realtime\\.local\\warp\\__init__.py",
+    "device": "NVIDIA GeForce RTX 4080 SUPER",
+    "install_message": "FINISHED",
+    "owned_install": "certified",
+    "wheel_requests": [
+     "https://files.pythonhosted.org/packages/ff/7a/36306a503085cbfc79c35a28e441c59dd1d8070d2dd65152345ebf2dfec2/warp_lang-1.17.0-py3-none-win_amd64.whl"
+    ],
+    "wheel_lock": {
+     "filename": "warp_lang-1.17.0-py3-none-win_amd64.whl",
+     "sha256": "ca35c82242a7553046f09023bbe56750b5c3d9af72625bd1a905a56d3189771d",
+     "size": 151236515,
+     "url": "https://files.pythonhosted.org/packages/ff/7a/36306a503085cbfc79c35a28e441c59dd1d8070d2dd65152345ebf2dfec2/warp_lang-1.17.0-py3-none-win_amd64.whl",
+     "platform": "windows-x64"
+    },
+    "addon_file": "C:\\Users\\Tyler\\projects\\warpsph-m5-requal-20261126\\evidence\\vulkan-zero-copy\\20261126-requal\\profiles\\vulkan\\extensions\\user_default\\warp_sph_realtime\\addon.py",
+    "window": [
+     1600,
+     900
+    ],
+    "region": [
+     1311,
+     775
+    ]
+   }
+  },
+  "opengl": {
+   "supervisor": {
+    "lane": "opengl",
+    "smoke": false,
+    "command": [
+     "C:\\Users\\Tyler\\Downloads\\blender-5.2.0-windows-x64\\blender-5.2.0-windows-x64\\blender.exe",
+     "--factory-startup",
+     "--online-mode",
+     "--gpu-backend",
+     "opengl",
+     "--window-geometry",
+     "0",
+     "0",
+     "1600",
+     "900",
+     "--python",
+     "C:\\Users\\Tyler\\projects\\warpsph-m5-requal-20261126\\evidence\\vulkan-zero-copy\\20261126-requal\\harness\\m5_probe.py"
+    ],
+    "deadline_seconds": 2400,
+    "started": 1795716104.3976295,
+    "pid": 42320,
+    "job_member": true,
+    "reason": "natural_exit",
+    "exit_code": 0,
+    "elapsed_s": 430.7,
+    "queued_s": 7.0
+   },
+   "probe": {
+    "lane": "opengl",
+    "status": "DONE",
+    "steps": [
+     "setup",
+     "parity",
+     "bench"
+    ]
+   },
+   "identity": {
+    "blender": "5.2.0 LTS",
+    "build_hash": "fbe6228777e7",
+    "gpu_backend": "OPENGL",
+    "gpu_renderer": "NVIDIA GeForce RTX 4080 SUPER/PCIe/SSE2",
+    "gpu_version": "4.6.0 NVIDIA 621.14",
+    "python": "3.13.13 (main, May  8 2026, 12:37:03) [MSC v.1944 64 bit (AMD64)]",
+    "warp": "1.17.0",
+    "warp_file": "C:\\Users\\Tyler\\projects\\warpsph-m5-requal-20261126\\evidence\\vulkan-zero-copy\\20261126-requal\\profiles\\opengl\\extensions\\.user\\user_default\\warp_sph_realtime\\.local\\warp\\__init__.py",
+    "device": "NVIDIA GeForce RTX 4080 SUPER",
+    "install_message": "FINISHED",
+    "owned_install": "certified",
+    "wheel_requests": [
+     "https://files.pythonhosted.org/packages/ff/7a/36306a503085cbfc79c35a28e441c59dd1d8070d2dd65152345ebf2dfec2/warp_lang-1.17.0-py3-none-win_amd64.whl"
+    ],
+    "wheel_lock": {
+     "filename": "warp_lang-1.17.0-py3-none-win_amd64.whl",
+     "sha256": "ca35c82242a7553046f09023bbe56750b5c3d9af72625bd1a905a56d3189771d",
+     "size": 151236515,
+     "url": "https://files.pythonhosted.org/packages/ff/7a/36306a503085cbfc79c35a28e441c59dd1d8070d2dd65152345ebf2dfec2/warp_lang-1.17.0-py3-none-win_amd64.whl",
+     "platform": "windows-x64"
+    },
+    "addon_file": "C:\\Users\\Tyler\\projects\\warpsph-m5-requal-20261126\\evidence\\vulkan-zero-copy\\20261126-requal\\profiles\\opengl\\extensions\\user_default\\warp_sph_realtime\\addon.py",
+    "window": [
+     1600,
+     900
+    ],
+    "region": [
+     1311,
+     775
+    ]
+   }
+  }
+ },
+ "parity": {
+  "vulkan": {
+   "rows": 10,
+   "pass": true,
+   "interop_rows": 5
+  },
+  "opengl": {
+   "rows": 5,
+   "pass": true
+  }
+ },
+ "images": {
+  "pairs": [
+   {
+    "pair": "vulkan:interop_points_1 vs vulkan:readback_points_1",
+    "tolerance": "1/255",
+    "fraction": 1.0,
+    "threshold": 0.9999,
+    "pass": true
+   },
+   {
+    "pair": "vulkan:interop_points_4095 vs vulkan:readback_points_4095",
+    "tolerance": "1/255",
+    "fraction": 1.0,
+    "threshold": 0.9999,
+    "pass": true
+   },
+   {
+    "pair": "vulkan:interop_points_4096 vs vulkan:readback_points_4096",
+    "tolerance": "1/255",
+    "fraction": 1.0,
+    "threshold": 0.9999,
+    "pass": true
+   },
+   {
+    "pair": "vulkan:interop_points_4097 vs vulkan:readback_points_4097",
+    "tolerance": "1/255",
+    "fraction": 1.0,
+    "threshold": 0.9999,
+    "pass": true
+   },
+   {
+    "pair": "vulkan:interop_points_4194304 vs vulkan:readback_points_4194304",
+    "tolerance": "1/255",
+    "fraction": 1.0,
+    "threshold": 0.9999,
+    "pass": true
+   },
+   {
+    "pair": "vulkan:interop_spheres_1 vs vulkan:readback_spheres_1",
+    "tolerance": "1/255",
+    "fraction": 1.0,
+    "threshold": 0.9999,
+    "pass": true
+   },
+   {
+    "pair": "vulkan:interop_spheres_4095 vs vulkan:readback_spheres_4095",
+    "tolerance": "1/255",
+    "fraction": 1.0,
+    "threshold": 0.9999,
+    "pass": true
+   },
+   {
+    "pair": "vulkan:interop_spheres_4096 vs vulkan:readback_spheres_4096",
+    "tolerance": "1/255",
+    "fraction": 1.0,
+    "threshold": 0.9999,
+    "pass": true
+   },
+   {
+    "pair": "vulkan:interop_spheres_4097 vs vulkan:readback_spheres_4097",
+    "tolerance": "1/255",
+    "fraction": 1.0,
+    "threshold": 0.9999,
+    "pass": true
+   },
+   {
+    "pair": "vulkan:interop_spheres_4194304 vs vulkan:readback_spheres_4194304",
+    "tolerance": "1/255",
+    "fraction": 1.0,
+    "threshold": 0.9999,
+    "pass": true
+   },
+   {
+    "pair": "vulkan:readback_points_1 vs opengl:readback_points_1",
+    "tolerance": "2/255",
+    "fraction": 1.0,
+    "threshold": 0.995,
+    "pass": true
+   },
+   {
+    "pair": "vulkan:readback_points_4095 vs opengl:readback_points_4095",
+    "tolerance": "2/255",
+    "fraction": 1.0,
+    "threshold": 0.995,
+    "pass": true
+   },
+   {
+    "pair": "vulkan:readback_points_4096 vs opengl:readback_points_4096",
+    "tolerance": "2/255",
+    "fraction": 1.0,
+    "threshold": 0.995,
+    "pass": true
+   },
+   {
+    "pair": "vulkan:readback_points_4097 vs opengl:readback_points_4097",
+    "tolerance": "2/255",
+    "fraction": 1.0,
+    "threshold": 0.995,
+    "pass": true
+   },
+   {
+    "pair": "vulkan:readback_points_4194304 vs opengl:readback_points_4194304",
+    "tolerance": "2/255",
+    "fraction": 1.0,
+    "threshold": 0.995,
+    "pass": true
+   },
+   {
+    "pair": "vulkan:readback_spheres_1 vs opengl:readback_spheres_1",
+    "tolerance": "2/255",
+    "fraction": 1.0,
+    "threshold": 0.995,
+    "pass": true
+   },
+   {
+    "pair": "vulkan:readback_spheres_4095 vs opengl:readback_spheres_4095",
+    "tolerance": "2/255",
+    "fraction": 1.0,
+    "threshold": 0.995,
+    "pass": true
+   },
+   {
+    "pair": "vulkan:readback_spheres_4096 vs opengl:readback_spheres_4096",
+    "tolerance": "2/255",
+    "fraction": 1.0,
+    "threshold": 0.995,
+    "pass": true
+   },
+   {
+    "pair": "vulkan:readback_spheres_4097 vs opengl:readback_spheres_4097",
+    "tolerance": "2/255",
+    "fraction": 1.0,
+    "threshold": 0.995,
+    "pass": true
+   },
+   {
+    "pair": "vulkan:readback_spheres_4194304 vs opengl:readback_spheres_4194304",
+    "tolerance": "2/255",
+    "fraction": 1.0,
+    "threshold": 0.995,
+    "pass": true
+   }
+  ],
+  "nonblank_pixels": {
+   "vulkan:readback_points_1": 9,
+   "vulkan:readback_spheres_1": 14,
+   "vulkan:interop_points_1": 9,
+   "vulkan:interop_spheres_1": 14,
+   "vulkan:readback_points_4095": 30712,
+   "vulkan:readback_spheres_4095": 63783,
+   "vulkan:interop_points_4095": 30712,
+   "vulkan:interop_spheres_4095": 63783,
+   "vulkan:readback_points_4096": 30721,
+   "vulkan:readback_spheres_4096": 63790,
+   "vulkan:interop_points_4096": 30721,
+   "vulkan:interop_spheres_4096": 63790,
+   "vulkan:readback_points_4097": 30730,
+   "vulkan:readback_spheres_4097": 63815,
+   "vulkan:interop_points_4097": 30730,
+   "vulkan:interop_spheres_4097": 63815,
+   "vulkan:readback_points_4194304": 129335,
+   "vulkan:readback_spheres_4194304": 131035,
+   "vulkan:interop_points_4194304": 129335,
+   "vulkan:interop_spheres_4194304": 131035,
+   "opengl:readback_points_1": 9,
+   "opengl:readback_spheres_1": 14,
+   "opengl:readback_points_4095": 30712,
+   "opengl:readback_spheres_4095": 63783,
+   "opengl:readback_points_4096": 30721,
+   "opengl:readback_spheres_4096": 63790,
+   "opengl:readback_points_4097": 30730,
+   "opengl:readback_spheres_4097": 63815,
+   "opengl:readback_points_4194304": 129335,
+   "opengl:readback_spheres_4194304": 131035
+  },
+  "pass": true
+ },
+ "cycles": {
+  "pass": true,
+  "failures": [],
+  "by_kind": {
+   "start_stop": {
+    "vram_warm_mib": 1735.65625,
+    "vram_final_mib": 1735.65625,
+    "vram_allowance_mib": 64.0,
+    "handle_slope_per_cycle": -0.0008710801393623142,
+    "handles_warm": 1585,
+    "handles_final": 1591,
+    "pass": true
+   },
+   "disable": {
+    "vram_warm_mib": 1735.90625,
+    "vram_final_mib": 1735.90625,
+    "vram_allowance_mib": 64.0,
+    "handle_slope_per_cycle": 0.041637630662035845,
+    "handles_warm": 1605,
+    "handles_final": 1606,
+    "pass": true
+   },
+   "file_load": {
+    "vram_warm_mib": 1735.90625,
+    "vram_final_mib": 1735.90625,
+    "vram_allowance_mib": 64.0,
+    "handle_slope_per_cycle": -0.0710801393728013,
+    "handles_warm": 1606,
+    "handles_final": 1602,
+    "pass": true
+   }
+  },
+  "cycles": 200
+ },
+ "faults": {
+  "pass": true,
+  "failed_cases": [],
+  "checks": {
+   "uuid_no_allocation": true,
+   "cache_sources": true,
+   "resolver_no_vulkan": true
+  }
+ },
+ "fatal_mocked": {
+  "pass": true,
+  "row": {
+   "first_publish": null,
+   "fatal_tick": 1,
+   "error": "cuEventQuery returned CUresult 700",
+   "fatal_reason": "cuEventQuery returned CUresult 700",
+   "close": "failed",
+   "readback_created": 0,
+   "calls_at_fatal": 58,
+   "calls_after": 0,
+   "after": [
+    false,
+    true
+   ],
+   "in_quarantine": true,
+   "pass": true
+  }
+ },
+ "latency_gate": {
+  "criterion": "interop completed transport latency p95 <= 16.67 ms at 4194304, zero drops, COMPLETE samples",
+  "p95_ms": 9.89806,
+  "drops": 0,
+  "status": "COMPLETE",
+  "missing_completions": 0,
+  "uploads": 3300,
+  "timer_uploads": 3299,
+  "pass": true
+ },
+ "informational_2ms": {
+  "criterion": "interop completed p95 <= 2.0 ms at <= 1000000 particles (not a gate)",
+  "rows": [
+   {
+    "count": 500000,
+    "p95_ms": 1.6056,
+    "met": true
+   },
+   {
+    "count": 1000000,
+    "p95_ms": 1.725505,
+    "met": true
+   }
+  ]
+ },
+ "gates": {
+  "parity": true,
+  "images": true,
+  "cycles": true,
+  "faults": true,
+  "fatal_mocked": true,
+  "latency_gate": true
+ },
+ "m5_pass": true
+}

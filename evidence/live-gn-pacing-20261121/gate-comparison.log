@@ -1,0 +1,26 @@
+[bgate] lease bb3adcf9a38a class exclusive session codex:01a1b27d-ac2e-7bc1-9f7d-41142a402d51 label WarpSPH installed Live GN pacing comparison
+[bgate] started 2026-11-21 22:31:35 cwd=C:\Users\Tyler\.codex\worktrees\warpsph-live-output\warp_sph_realtime
+[bgate] command: C:\Users\Tyler\Downloads\blender-5.2.0-windows-x64\blender-5.2.0-windows-x64\blender.exe --factory-startup --gpu-backend vulkan --python-exit-code 1 --python C:\Users\Tyler\.codex\worktrees\warpsph-live-output\warp_sph_realtime\evidence\live-gn-pacing-20261121\demo_probe.py
+Info: Saved as "WarpSPH-Live-Output.blend"
+01:14.000  blend            | Saved session recovery to "C:\Users\Tyler\AppData\Local\Temp\quit.blend"
+Warp 1.17.0 initialized:
+   CUDA Toolkit 12.9, Driver 13.5
+   Devices:
+     "cpu"      : "AMD64 Family 23 Model 113 Stepping 0, AuthenticAMD"
+     "cuda:0"   : "NVIDIA GeForce RTX 4080 SUPER" (16 GiB, sm_89, mempool enabled)
+   Kernel cache:
+     \\?\C:\Users\Tyler\AppData\Local\NVIDIA\warp\Cache\1.17.0
+Module bl_ext.demo.warp_sph_realtime.warp_runtime 6aa92cd load on device 'cuda:0' took 176.25 ms  (cached)
+Module bl_ext.demo.warp_sph_realtime.sim.sim_core 59d9cab load on device 'cuda:0' took 21986.59 ms  (cached)
+Module bl_ext.demo.warp_sph_realtime.scene.demo_scenes e352ad3 load on device 'cuda:0' took 165.38 ms  (cached)
+Module blender_vulkan_interop._impl.transport_vulkan 0adc730 load on device 'cuda:0' took 114.44 ms  (cached)
+Module bl_ext.demo.warp_sph_realtime.sdk_channels a5ac9d5 load on device 'cuda:0' took 97.08 ms  (cached)
+Module blender_vulkan_interop._impl.particle_channels f490bba load on device 'cuda:0' took 245.78 ms  (cached)
+Info: WarpSPH reset to frame 1 (1802 ms)
+Info: WarpSPH reset to frame 1 (29 ms)
+Info: WarpSPH reset to frame 1 (28 ms)
+Info: WarpSPH reset to frame 1 (30 ms)
+Info: WarpSPH reset to frame 1 (52 ms)
+
+Blender quit
+[bgate] exit code 0 after 76.1s

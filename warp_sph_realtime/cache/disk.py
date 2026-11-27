@@ -233,7 +233,9 @@ class DiskCache:
             raise CacheError(f"frame {frame} is not cached") from exc
         except (OSError, ValueError, KeyError, EOFError, zipfile.BadZipFile) as exc:  # truncated, missing member
             raise CacheError(f"frame {frame} is unreadable: {exc}") from exc
-        count = len(ids)
+        if ids.ndim != 1:
+            raise CacheError(f"frame {frame} has unexpected array shapes or types")
+        count = ids.shape[0]
         if (position.dtype != np.float32 or velocity.dtype != np.float32 or ids.dtype != np.int32
                 or position.shape != (count, 3) or velocity.shape != (count, 3)):
             raise CacheError(f"frame {frame} has unexpected array shapes or types")

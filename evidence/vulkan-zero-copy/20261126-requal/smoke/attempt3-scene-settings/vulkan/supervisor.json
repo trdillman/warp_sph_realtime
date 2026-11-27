@@ -1,0 +1,26 @@
+{
+  "lane": "vulkan",
+  "smoke": true,
+  "command": [
+    "C:\\Users\\Tyler\\Downloads\\blender-5.2.0-windows-x64\\blender-5.2.0-windows-x64\\blender.exe",
+    "--factory-startup",
+    "--online-mode",
+    "--gpu-backend",
+    "vulkan",
+    "--window-geometry",
+    "0",
+    "0",
+    "1600",
+    "900",
+    "--python",
+    "C:\\Users\\Tyler\\projects\\warpsph-m5-requal-20261126\\evidence\\vulkan-zero-copy\\20261126-requal\\harness\\m5_probe.py"
+  ],
+  "deadline_seconds": 5400,
+  "started": 1795714313.0399377,
+  "pid": 49316,
+  "job_member": true,
+  "reason": "natural_exit",
+  "exit_code": 0,
+  "elapsed_s": 70.7,
+  "queued_s": 32.5
+}

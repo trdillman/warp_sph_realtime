@@ -82,6 +82,18 @@ class TestRoundTrip(CacheTestCase):
         with self.assertRaises(CacheError):
             self.disk.read_frame(1)
 
+    def test_read_frame_rejects_non_vector_ids_as_cache_error(self):
+        self.disk.begin(1, SIGNATURE)
+        position = np.zeros((4, 3), dtype=np.float32)
+        velocity = np.zeros_like(position)
+        path = self.disk.path(1)
+        for ids in (np.arange(4, dtype=np.int32).reshape(4, 1), np.array(1, dtype=np.int32)):
+            with self.subTest(shape=ids.shape):
+                with path.open("wb") as handle:
+                    np.savez_compressed(handle, position=position, velocity=velocity, id=ids)
+                with self.assertRaises(CacheError):
+                    self.disk.read_frame(1)
+
     def test_negative_frame_numbers(self):
         self.disk.begin(-2, SIGNATURE)
         self.fill(-2, 1)

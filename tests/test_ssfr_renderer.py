@@ -10,6 +10,7 @@ import ctypes
 import importlib.util
 import math
 import os
+import re
 import sys
 import unittest
 import unittest.mock
@@ -46,6 +47,14 @@ def _load_viewport_draw():
 
 
 _VIEWPORT_DRAW = _load_viewport_draw()
+
+
+def test_own_liquid_pass_has_alpha_for_additive_premult_blend():
+    shader = (os.path.dirname(__file__) + "/../warp_sph_realtime/render/gpu_ssfr.py")
+    source = open(shader, encoding="utf-8").read()
+    match = re.search(r"fragColor\s*=\s*vec4\(0\.98\s*\*\s*own\s*,\s*([0-9.]+)\s*\)", source)
+
+    assert match is not None and float(match.group(1)) > 0.0
 
 
 class _StatefulGL:

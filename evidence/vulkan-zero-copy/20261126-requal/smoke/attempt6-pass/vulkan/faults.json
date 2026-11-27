@@ -1,0 +1,811 @@
+{
+ "cases": [
+  {
+   "case": "unknown_abi",
+   "resolution": [
+    false,
+    "unknown_profile",
+    "Executable, build, architecture or Python ABI is not approved"
+   ],
+   "made": {
+    "vulkan": 0,
+    "readback": 1
+   },
+   "label": "Readback (CPU copy)",
+   "reason": "Vulkan interop unavailable: unknown_profile (Executable, build, architecture or Python ABI is not approved)",
+   "close": "completed",
+   "calls": [],
+   "ledger": [],
+   "quarantine_delta": 0,
+   "balanced": true,
+   "pass": true
+  },
+  {
+   "case": "missing_pdb",
+   "resolution": [
+    false,
+    "pdb_missing",
+    "Matching local PDB is required even with a valid cache"
+   ],
+   "made": {
+    "vulkan": 0,
+    "readback": 1
+   },
+   "label": "Readback (CPU copy)",
+   "reason": "Vulkan interop unavailable: pdb_missing (Matching local PDB is required even with a valid cache)",
+   "close": "completed",
+   "calls": [],
+   "ledger": [],
+   "quarantine_delta": 0,
+   "balanced": true,
+   "pass": true
+  },
+  {
+   "case": "wrong_rva_helper",
+   "resolution": [
+    false,
+    "helper_result",
+    "RVA differs from independently reviewed manifest: GPU_pixel_buffer_create"
+   ],
+   "made": {
+    "vulkan": 0,
+    "readback": 1
+   },
+   "label": "Readback (CPU copy)",
+   "reason": "Vulkan interop unavailable: helper_result (RVA differs from independently reviewed manifest: GPU_pixel_buffer_create)",
+   "close": "completed",
+   "calls": [],
+   "ledger": [],
+   "quarantine_delta": 0,
+   "balanced": true,
+   "pass": true
+  },
+  {
+   "case": "cache_create",
+   "resolution": [
+    true,
+    "resolved",
+    "helper"
+   ],
+   "made": {
+    "vulkan": 1,
+    "readback": 0
+   },
+   "label": "Vulkan interop (GPU copy, no CPU readback)",
+   "reason": "",
+   "close": "completed",
+   "calls": [
+    {
+     "backend_is_vulkan": 1,
+     "max_texture_size": 1,
+     "blender_uuid": 1,
+     "cuda_uuid": 1,
+     "mem_info": 1,
+     "is_main_thread": 3,
+     "live_windows": 3,
+     "active_context": 9,
+     "window_context": 3,
+     "drw_enabled": 6,
+     "drw_enable": 3,
+     "create_texture": 2,
+     "texture_pointer": 2,
+     "pb_create": 3,
+     "pb_size": 3,
+     "pb_export": 3,
+     "import_memory": 3,
+     "close_handle": 3,
+     "map_buffer": 3,
+     "event_create": 3,
+     "fence_create": 3,
+     "event_record": 2,
+     "event_query": 2,
+     "texture_update": 2,
+     "fence_signal": 3,
+     "fence_query": 5,
+     "read_texture": 1,
+     "mem_free": 3,
+     "destroy_external": 3,
+     "event_destroy": 3,
+     "fence_free": 3,
+     "pb_free": 3,
+     "drw_disable": 3
+    }
+   ],
+   "ledger": [
+    [
+     true,
+     {
+      "pb_create": 3,
+      "pb_export": 3,
+      "import_memory": 3,
+      "close_handle": 3,
+      "map_buffer": 3,
+      "event_create": 3,
+      "fence_create": 3,
+      "mem_free": 3,
+      "destroy_external": 3,
+      "event_destroy": 3,
+      "fence_free": 3,
+      "pb_free": 3
+     }
+    ]
+   ],
+   "quarantine_delta": 0,
+   "balanced": true,
+   "pass": true
+  },
+  {
+   "case": "stale_cache",
+   "resolution": [
+    true,
+    "resolved",
+    "helper"
+   ],
+   "made": {
+    "vulkan": 1,
+    "readback": 0
+   },
+   "label": "Vulkan interop (GPU copy, no CPU readback)",
+   "reason": "",
+   "close": "completed",
+   "calls": [
+    {
+     "backend_is_vulkan": 1,
+     "max_texture_size": 1,
+     "blender_uuid": 1,
+     "cuda_uuid": 1,
+     "mem_info": 1,
+     "is_main_thread": 3,
+     "live_windows": 3,
+     "active_context": 9,
+     "window_context": 3,
+     "drw_enabled": 6,
+     "drw_enable": 3,
+     "create_texture": 2,
+     "texture_pointer": 2,
+     "pb_create": 3,
+     "pb_size": 3,
+     "pb_export": 3,
+     "import_memory": 3,
+     "close_handle": 3,
+     "map_buffer": 3,
+     "event_create": 3,
+     "fence_create": 3,
+     "event_record": 2,
+     "event_query": 3,
+     "texture_update": 2,
+     "fence_signal": 3,
+     "fence_query": 5,
+     "read_texture": 1,
+     "mem_free": 3,
+     "destroy_external": 3,
+     "event_destroy": 3,
+     "fence_free": 3,
+     "pb_free": 3,
+     "drw_disable": 3
+    }
+   ],
+   "ledger": [
+    [
+     true,
+     {
+      "pb_create": 3,
+      "pb_export": 3,
+      "import_memory": 3,
+      "close_handle": 3,
+      "map_buffer": 3,
+      "event_create": 3,
+      "fence_create": 3,
+      "mem_free": 3,
+      "destroy_external": 3,
+      "event_destroy": 3,
+      "fence_free": 3,
+      "pb_free": 3
+     }
+    ]
+   ],
+   "quarantine_delta": 0,
+   "balanced": true,
+   "pass": true
+  },
+  {
+   "case": "wrong_rva_cache",
+   "resolution": [
+    true,
+    "resolved",
+    "helper"
+   ],
+   "made": {
+    "vulkan": 1,
+    "readback": 0
+   },
+   "label": "Vulkan interop (GPU copy, no CPU readback)",
+   "reason": "",
+   "close": "completed",
+   "calls": [
+    {
+     "backend_is_vulkan": 1,
+     "max_texture_size": 1,
+     "blender_uuid": 1,
+     "cuda_uuid": 1,
+     "mem_info": 1,
+     "is_main_thread": 3,
+     "live_windows": 3,
+     "active_context": 9,
+     "window_context": 3,
+     "drw_enabled": 6,
+     "drw_enable": 3,
+     "create_texture": 2,
+     "texture_pointer": 2,
+     "pb_create": 3,
+     "pb_size": 3,
+     "pb_export": 3,
+     "import_memory": 3,
+     "close_handle": 3,
+     "map_buffer": 3,
+     "event_create": 3,
+     "fence_create": 3,
+     "event_record": 2,
+     "event_query": 2,
+     "texture_update": 2,
+     "fence_signal": 3,
+     "fence_query": 5,
+     "read_texture": 1,
+     "mem_free": 3,
+     "destroy_external": 3,
+     "event_destroy": 3,
+     "fence_free": 3,
+     "pb_free": 3,
+     "drw_disable": 3
+    }
+   ],
+   "ledger": [
+    [
+     true,
+     {
+      "pb_create": 3,
+      "pb_export": 3,
+      "import_memory": 3,
+      "close_handle": 3,
+      "map_buffer": 3,
+      "event_create": 3,
+      "fence_create": 3,
+      "mem_free": 3,
+      "destroy_external": 3,
+      "event_destroy": 3,
+      "fence_free": 3,
+      "pb_free": 3
+     }
+    ]
+   ],
+   "quarantine_delta": 0,
+   "balanced": true,
+   "pass": true
+  },
+  {
+   "case": "corrupt_cache",
+   "resolution": [
+    true,
+    "resolved",
+    "helper"
+   ],
+   "made": {
+    "vulkan": 1,
+    "readback": 0
+   },
+   "label": "Vulkan interop (GPU copy, no CPU readback)",
+   "reason": "",
+   "close": "completed",
+   "calls": [
+    {
+     "backend_is_vulkan": 1,
+     "max_texture_size": 1,
+     "blender_uuid": 1,
+     "cuda_uuid": 1,
+     "mem_info": 1,
+     "is_main_thread": 3,
+     "live_windows": 3,
+     "active_context": 9,
+     "window_context": 3,
+     "drw_enabled": 6,
+     "drw_enable": 3,
+     "create_texture": 2,
+     "texture_pointer": 2,
+     "pb_create": 3,
+     "pb_size": 3,
+     "pb_export": 3,
+     "import_memory": 3,
+     "close_handle": 3,
+     "map_buffer": 3,
+     "event_create": 3,
+     "fence_create": 3,
+     "event_record": 2,
+     "event_query": 3,
+     "texture_update": 2,
+     "fence_signal": 3,
+     "fence_query": 5,
+     "read_texture": 1,
+     "mem_free": 3,
+     "destroy_external": 3,
+     "event_destroy": 3,
+     "fence_free": 3,
+     "pb_free": 3,
+     "drw_disable": 3
+    }
+   ],
+   "ledger": [
+    [
+     true,
+     {
+      "pb_create": 3,
+      "pb_export": 3,
+      "import_memory": 3,
+      "close_handle": 3,
+      "map_buffer": 3,
+      "event_create": 3,
+      "fence_create": 3,
+      "mem_free": 3,
+      "destroy_external": 3,
+      "event_destroy": 3,
+      "fence_free": 3,
+      "pb_free": 3
+     }
+    ]
+   ],
+   "quarantine_delta": 0,
+   "balanced": true,
+   "pass": true
+  },
+  {
+   "case": "valid_cache",
+   "resolution": [
+    true,
+    "resolved",
+    "cache"
+   ],
+   "made": {
+    "vulkan": 1,
+    "readback": 0
+   },
+   "label": "Vulkan interop (GPU copy, no CPU readback)",
+   "reason": "",
+   "close": "completed",
+   "calls": [
+    {
+     "backend_is_vulkan": 1,
+     "max_texture_size": 1,
+     "blender_uuid": 1,
+     "cuda_uuid": 1,
+     "mem_info": 1,
+     "is_main_thread": 3,
+     "live_windows": 3,
+     "active_context": 9,
+     "window_context": 3,
+     "drw_enabled": 6,
+     "drw_enable": 3,
+     "create_texture": 2,
+     "texture_pointer": 2,
+     "pb_create": 3,
+     "pb_size": 3,
+     "pb_export": 3,
+     "import_memory": 3,
+     "close_handle": 3,
+     "map_buffer": 3,
+     "event_create": 3,
+     "fence_create": 3,
+     "event_record": 2,
+     "event_query": 3,
+     "texture_update": 2,
+     "fence_signal": 3,
+     "fence_query": 5,
+     "read_texture": 1,
+     "mem_free": 3,
+     "destroy_external": 3,
+     "event_destroy": 3,
+     "fence_free": 3,
+     "pb_free": 3,
+     "drw_disable": 3
+    }
+   ],
+   "ledger": [
+    [
+     true,
+     {
+      "pb_create": 3,
+      "pb_export": 3,
+      "import_memory": 3,
+      "close_handle": 3,
+      "map_buffer": 3,
+      "event_create": 3,
+      "fence_create": 3,
+      "mem_free": 3,
+      "destroy_external": 3,
+      "event_destroy": 3,
+      "fence_free": 3,
+      "pb_free": 3
+     }
+    ]
+   ],
+   "quarantine_delta": 0,
+   "balanced": true,
+   "pass": true
+  },
+  {
+   "case": "uuid_mismatch",
+   "resolution": [
+    true,
+    "resolved",
+    "profile"
+   ],
+   "made": {
+    "vulkan": 1,
+    "readback": 1
+   },
+   "label": "Readback (CPU copy)",
+   "reason": "Vulkan interop unavailable: Blender Vulkan device UUID differs from CUDA device 0",
+   "close": "completed",
+   "calls": [
+    {
+     "backend_is_vulkan": 1,
+     "max_texture_size": 1,
+     "blender_uuid": 1,
+     "cuda_uuid": 1
+    }
+   ],
+   "ledger": [
+    [
+     true,
+     {}
+    ]
+   ],
+   "quarantine_delta": 0,
+   "balanced": true,
+   "pass": true
+  },
+  {
+   "case": "pb_create_fail_1",
+   "resolution": [
+    true,
+    "resolved",
+    "profile"
+   ],
+   "made": {
+    "vulkan": 1,
+    "readback": 1
+   },
+   "label": "Readback (CPU copy)",
+   "reason": "Vulkan interop unavailable: pixel buffer allocation failed",
+   "close": "completed",
+   "calls": [
+    {
+     "backend_is_vulkan": 1,
+     "max_texture_size": 1,
+     "blender_uuid": 1,
+     "cuda_uuid": 1,
+     "mem_info": 1,
+     "is_main_thread": 1,
+     "live_windows": 1,
+     "active_context": 3,
+     "window_context": 1,
+     "drw_enabled": 2,
+     "drw_enable": 1,
+     "create_texture": 1,
+     "texture_pointer": 1,
+     "pb_create": 1,
+     "drw_disable": 1
+    }
+   ],
+   "ledger": [
+    [
+     true,
+     {}
+    ]
+   ],
+   "quarantine_delta": 0,
+   "balanced": true,
+   "pass": true
+  },
+  {
+   "case": "pb_create_fail_2",
+   "resolution": [
+    true,
+    "resolved",
+    "profile"
+   ],
+   "made": {
+    "vulkan": 1,
+    "readback": 1
+   },
+   "label": "Readback (CPU copy)",
+   "reason": "Vulkan interop unavailable: pixel buffer allocation failed",
+   "close": "completed",
+   "calls": [
+    {
+     "backend_is_vulkan": 1,
+     "max_texture_size": 1,
+     "blender_uuid": 1,
+     "cuda_uuid": 1,
+     "mem_info": 1,
+     "is_main_thread": 1,
+     "live_windows": 1,
+     "active_context": 3,
+     "window_context": 1,
+     "drw_enabled": 2,
+     "drw_enable": 1,
+     "create_texture": 2,
+     "texture_pointer": 2,
+     "pb_create": 2,
+     "pb_size": 1,
+     "pb_export": 1,
+     "import_memory": 1,
+     "close_handle": 1,
+     "map_buffer": 1,
+     "event_create": 1,
+     "fence_create": 1,
+     "event_record": 1,
+     "event_query": 2,
+     "texture_update": 1,
+     "fence_signal": 1,
+     "fence_query": 2,
+     "read_texture": 1,
+     "mem_free": 1,
+     "destroy_external": 1,
+     "event_destroy": 1,
+     "fence_free": 1,
+     "pb_free": 1,
+     "drw_disable": 1
+    }
+   ],
+   "ledger": [
+    [
+     true,
+     {
+      "pb_create": 1,
+      "pb_export": 1,
+      "import_memory": 1,
+      "close_handle": 1,
+      "map_buffer": 1,
+      "event_create": 1,
+      "fence_create": 1,
+      "mem_free": 1,
+      "destroy_external": 1,
+      "event_destroy": 1,
+      "fence_free": 1,
+      "pb_free": 1
+     }
+    ]
+   ],
+   "quarantine_delta": 0,
+   "balanced": true,
+   "pass": true
+  },
+  {
+   "case": "pb_create_fail_3",
+   "resolution": [
+    true,
+    "resolved",
+    "profile"
+   ],
+   "made": {
+    "vulkan": 1,
+    "readback": 1
+   },
+   "label": "Readback (CPU copy)",
+   "reason": "Vulkan interop unavailable: pixel buffer allocation failed",
+   "close": "completed",
+   "calls": [
+    {
+     "backend_is_vulkan": 1,
+     "max_texture_size": 1,
+     "blender_uuid": 1,
+     "cuda_uuid": 1,
+     "mem_info": 1,
+     "is_main_thread": 1,
+     "live_windows": 1,
+     "active_context": 3,
+     "window_context": 1,
+     "drw_enabled": 2,
+     "drw_enable": 1,
+     "create_texture": 2,
+     "texture_pointer": 2,
+     "pb_create": 3,
+     "pb_size": 2,
+     "pb_export": 2,
+     "import_memory": 2,
+     "close_handle": 2,
+     "map_buffer": 2,
+     "event_create": 2,
+     "fence_create": 2,
+     "event_record": 1,
+     "event_query": 2,
+     "texture_update": 1,
+     "fence_signal": 1,
+     "fence_query": 2,
+     "read_texture": 1,
+     "mem_free": 2,
+     "destroy_external": 2,
+     "event_destroy": 2,
+     "fence_free": 2,
+     "pb_free": 2,
+     "drw_disable": 1
+    }
+   ],
+   "ledger": [
+    [
+     true,
+     {
+      "pb_create": 2,
+      "pb_export": 2,
+      "import_memory": 2,
+      "close_handle": 2,
+      "map_buffer": 2,
+      "event_create": 2,
+      "fence_create": 2,
+      "mem_free": 2,
+      "destroy_external": 2,
+      "event_destroy": 2,
+      "fence_free": 2,
+      "pb_free": 2
+     }
+    ]
+   ],
+   "quarantine_delta": 0,
+   "balanced": true,
+   "pass": true
+  },
+  {
+   "case": "import_fail_2",
+   "resolution": [
+    true,
+    "resolved",
+    "profile"
+   ],
+   "made": {
+    "vulkan": 1,
+    "readback": 1
+   },
+   "label": "Readback (CPU copy)",
+   "reason": "Vulkan interop unavailable: cuImportExternalMemory failed with CUresult 2",
+   "close": "completed",
+   "calls": [
+    {
+     "backend_is_vulkan": 1,
+     "max_texture_size": 1,
+     "blender_uuid": 1,
+     "cuda_uuid": 1,
+     "mem_info": 1,
+     "is_main_thread": 1,
+     "live_windows": 1,
+     "active_context": 3,
+     "window_context": 1,
+     "drw_enabled": 2,
+     "drw_enable": 1,
+     "create_texture": 2,
+     "texture_pointer": 2,
+     "pb_create": 2,
+     "pb_size": 2,
+     "pb_export": 2,
+     "import_memory": 2,
+     "close_handle": 2,
+     "map_buffer": 1,
+     "event_create": 1,
+     "fence_create": 1,
+     "event_record": 1,
+     "event_query": 2,
+     "texture_update": 1,
+     "fence_signal": 1,
+     "fence_query": 2,
+     "read_texture": 1,
+     "mem_free": 1,
+     "destroy_external": 1,
+     "event_destroy": 1,
+     "fence_free": 1,
+     "pb_free": 2,
+     "drw_disable": 1
+    }
+   ],
+   "ledger": [
+    [
+     true,
+     {
+      "pb_create": 2,
+      "pb_export": 2,
+      "import_memory": 1,
+      "close_handle": 2,
+      "map_buffer": 1,
+      "event_create": 1,
+      "fence_create": 1,
+      "mem_free": 1,
+      "destroy_external": 1,
+      "event_destroy": 1,
+      "fence_free": 1,
+      "pb_free": 2
+     }
+    ]
+   ],
+   "quarantine_delta": 0,
+   "balanced": true,
+   "pass": true
+  },
+  {
+   "case": "self_test_mismatch",
+   "resolution": [
+    true,
+    "resolved",
+    "profile"
+   ],
+   "made": {
+    "vulkan": 1,
+    "readback": 1
+   },
+   "label": "Readback (CPU copy)",
+   "reason": "Vulkan interop unavailable: 256-byte known-answer self-test mismatch",
+   "close": "completed",
+   "calls": [
+    {
+     "backend_is_vulkan": 1,
+     "max_texture_size": 1,
+     "blender_uuid": 1,
+     "cuda_uuid": 1,
+     "mem_info": 1,
+     "is_main_thread": 1,
+     "live_windows": 1,
+     "active_context": 3,
+     "window_context": 1,
+     "drw_enabled": 2,
+     "drw_enable": 1,
+     "create_texture": 1,
+     "texture_pointer": 1,
+     "pb_create": 1,
+     "pb_size": 1,
+     "pb_export": 1,
+     "import_memory": 1,
+     "close_handle": 1,
+     "map_buffer": 1,
+     "event_create": 1,
+     "fence_create": 1,
+     "event_record": 1,
+     "event_query": 2,
+     "texture_update": 1,
+     "fence_signal": 1,
+     "fence_query": 2,
+     "read_texture": 1,
+     "mem_free": 1,
+     "destroy_external": 1,
+     "event_destroy": 1,
+     "fence_free": 1,
+     "pb_free": 1,
+     "drw_disable": 1
+    }
+   ],
+   "ledger": [
+    [
+     true,
+     {
+      "pb_create": 1,
+      "pb_export": 1,
+      "import_memory": 1,
+      "close_handle": 1,
+      "map_buffer": 1,
+      "event_create": 1,
+      "fence_create": 1,
+      "mem_free": 1,
+      "destroy_external": 1,
+      "event_destroy": 1,
+      "fence_free": 1,
+      "pb_free": 1
+     }
+    ]
+   ],
+   "quarantine_delta": 0,
+   "balanced": true,
+   "pass": true
+  }
+ ],
+ "checks": {
+  "uuid_no_allocation": true,
+  "cache_sources": true,
+  "resolver_no_vulkan": true
+ },
+ "all_pass": true
+}

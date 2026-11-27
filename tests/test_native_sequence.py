@@ -2,6 +2,7 @@
 
 from collections.abc import Mapping
 from importlib.util import find_spec
+from types import SimpleNamespace
 
 import numpy as np
 import pytest
@@ -95,6 +96,33 @@ def test_budgets_ids_and_metadata_fail_before_write(tmp_path):
     bad["position"][0, 0] = np.nan
     with pytest.raises(ValueError):
         m.NativeFrame(bad, f.stamp)
+
+
+def _payload_from_frame(f, *, position_type="float32", duplicate_position=False):
+    arrays = []
+    for name, values in f.fields.items():
+        scalar_type = "uint64" if name == "id" else "float32"
+        if name == "position":
+            scalar_type = position_type
+        arrays.append(SimpleNamespace(name=name, scalar_type=scalar_type, shape=values.shape, data=values.tobytes()))
+    if duplicate_position:
+        values = f.fields["position"]
+        arrays.append(SimpleNamespace(name="position", scalar_type="float32", shape=values.shape, data=values.tobytes()))
+    return SimpleNamespace(
+        arrays=arrays,
+        spatial=SimpleNamespace(meters_per_unit=1.0, origin_m=(0.0, 0.0, 0.0)),
+        stamp=SimpleNamespace(**f.stamp),
+    )
+
+
+def test_from_payload_rejects_wrong_scalar_type_and_duplicate_names():
+    m = api()
+    f = frame()
+
+    with pytest.raises(ValueError, match="scalar|channel|payload"):
+        m.from_payload(_payload_from_frame(f, position_type="int32"))
+    with pytest.raises(ValueError, match="duplicate|channel|payload"):
+        m.from_payload(_payload_from_frame(f, duplicate_position=True))
 
 
 def test_capture_is_immutable_and_ownership_epoch_cannot_mix(tmp_path):

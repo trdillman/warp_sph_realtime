@@ -1,0 +1,16 @@
+{
+ "first_publish": null,
+ "fatal_tick": 1,
+ "error": "cuEventQuery returned CUresult 700",
+ "fatal_reason": "cuEventQuery returned CUresult 700",
+ "close": "failed",
+ "readback_created": 0,
+ "calls_at_fatal": 58,
+ "calls_after": 0,
+ "after": [
+  false,
+  true
+ ],
+ "in_quarantine": true,
+ "pass": true
+}

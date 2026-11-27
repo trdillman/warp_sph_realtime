@@ -1,0 +1,9 @@
+{
+ "lane": "vulkan",
+ "status": "FAILED",
+ "steps": [
+  "setup",
+  "parity"
+ ],
+ "error": "Traceback (most recent call last):\n  File \"C:\\Users\\Tyler\\projects\\warpsph-m5-requal-20261126\\evidence\\vulkan-zero-copy\\20261126-requal\\harness\\m5_probe.py\", line 840, in driver\n    return next(GEN)\n  File \"C:\\Users\\Tyler\\projects\\warpsph-m5-requal-20261126\\evidence\\vulkan-zero-copy\\20261126-requal\\harness\\m5_probe.py\", line 816, in main\n    yield from step_cycles()\n  File \"C:\\Users\\Tyler\\projects\\warpsph-m5-requal-20261126\\evidence\\vulkan-zero-copy\\20261126-requal\\harness\\m5_probe.py\", line 444, in step_cycles\n    yield from start_sim()\n  File \"C:\\Users\\Tyler\\projects\\warpsph-m5-requal-20261126\\evidence\\vulkan-zero-copy\\20261126-requal\\harness\\m5_probe.py\", line 408, in start_sim\n    raise AssertionError(f'{exc}; state={sim_state()}') from None\nAssertionError: timeout after 60s: interop session with 3 uploads; state={'running': True, 'paused': True, 'timer': True, 'solver': 100000, 'session': {'label': 'Vulkan interop (GPU copy, no CPU readback)', 'reason': '', 'transport': 'VulkanInteropTransport', 'caps': {'transport': 'VULKAN_INTEROP', 'zero_copy': True, 'max_count': 4194304, 'ready': True, 'reason': ''}, 'uploads': 1}, 'gl_buf': False, 'last_error': '', 'step_count': 0, 'interop_unavailable': '', 'restart_required': ''}\n"
+}

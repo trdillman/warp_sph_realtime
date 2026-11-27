@@ -1,0 +1,348 @@
+.ss.sss..s.s.................................................. [  7%]
+..............................................sssssss................... [ 16%]
+.................ssss....................................... [ 24%]
+.......sss............ss.s........s.s......................... [ 31%]
+............................................................. [ 39%]
+.....................................ssssss..ss...........s.s........... [ 48%]
+.sssssssssssssss............sssss.s........................F.......FFFFF [ 57%]
+...FFF...................................................... [ 64%]
+.................s.s.........................................s.s.... [ 73%]
+...................................................................... [ 81%]
+..................................s..................s.............sss.. [ 90%]
+...................................s............................ [ 98%]
+..........                                                            [100%]
+================================== FAILURES ===================================
+________ test_paused_capture_preserves_solver_ids_sort_order_and_units ________
+
+    def test_paused_capture_preserves_solver_ids_sort_order_and_units():
+        m = api()
+        scene, session, wp, reads = setup()
+        before = session.solver.pos_sim.value.copy()
+>       payload = m.capture_paused(session, scene, wp_module=wp)
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\test_sdk_snapshot.py:62: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+warp_sph_realtime\sdk_snapshot.py:159: in capture_paused
+    require_sdk()
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+    def require_sdk():
+        """Load only the byte-bound candidate; no automatic install or fallback."""
+        lock = json.loads(_DEFAULT_LOCK.read_text(encoding='utf-8'))
+        spec = importlib.util.find_spec('blender_vulkan_interop')
+        if spec is None or not spec.origin:
+>           raise RuntimeError('Native snapshots need the separately installed, qualified Blender Vulkan Interop SDK candidate')
+E           RuntimeError: Native snapshots need the separately installed, qualified Blender Vulkan Interop SDK candidate
+
+warp_sph_realtime\sdk_snapshot.py:51: RuntimeError
+___________ test_invalid_or_reused_ids_reject_without_payload[ids0] ___________
+
+ids = [-1, 1, 3]
+
+    @pytest.mark.parametrize('ids', [[-1, 1, 3], [4, 4, 1], [6, 1, 3]])
+    def test_invalid_or_reused_ids_reject_without_payload(ids):
+        m = api()
+        scene, session, wp, reads = setup()
+        session.solver.pid.value[:3] = ids
+        with pytest.raises(ValueError, match='identit|ID'):
+>           m.capture_paused(session, scene, wp_module=wp)
+
+tests\test_sdk_snapshot.py:97: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+warp_sph_realtime\sdk_snapshot.py:159: in capture_paused
+    require_sdk()
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+    def require_sdk():
+        """Load only the byte-bound candidate; no automatic install or fallback."""
+        lock = json.loads(_DEFAULT_LOCK.read_text(encoding='utf-8'))
+        spec = importlib.util.find_spec('blender_vulkan_interop')
+        if spec is None or not spec.origin:
+>           raise RuntimeError('Native snapshots need the separately installed, qualified Blender Vulkan Interop SDK candidate')
+E           RuntimeError: Native snapshots need the separately installed, qualified Blender Vulkan Interop SDK candidate
+
+warp_sph_realtime\sdk_snapshot.py:51: RuntimeError
+___________ test_invalid_or_reused_ids_reject_without_payload[ids1] ___________
+
+ids = [4, 4, 1]
+
+    @pytest.mark.parametrize('ids', [[-1, 1, 3], [4, 4, 1], [6, 1, 3]])
+    def test_invalid_or_reused_ids_reject_without_payload(ids):
+        m = api()
+        scene, session, wp, reads = setup()
+        session.solver.pid.value[:3] = ids
+        with pytest.raises(ValueError, match='identit|ID'):
+>           m.capture_paused(session, scene, wp_module=wp)
+
+tests\test_sdk_snapshot.py:97: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+warp_sph_realtime\sdk_snapshot.py:159: in capture_paused
+    require_sdk()
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+    def require_sdk():
+        """Load only the byte-bound candidate; no automatic install or fallback."""
+        lock = json.loads(_DEFAULT_LOCK.read_text(encoding='utf-8'))
+        spec = importlib.util.find_spec('blender_vulkan_interop')
+        if spec is None or not spec.origin:
+>           raise RuntimeError('Native snapshots need the separately installed, qualified Blender Vulkan Interop SDK candidate')
+E           RuntimeError: Native snapshots need the separately installed, qualified Blender Vulkan Interop SDK candidate
+
+warp_sph_realtime\sdk_snapshot.py:51: RuntimeError
+___________ test_invalid_or_reused_ids_reject_without_payload[ids2] ___________
+
+ids = [6, 1, 3]
+
+    @pytest.mark.parametrize('ids', [[-1, 1, 3], [4, 4, 1], [6, 1, 3]])
+    def test_invalid_or_reused_ids_reject_without_payload(ids):
+        m = api()
+        scene, session, wp, reads = setup()
+        session.solver.pid.value[:3] = ids
+        with pytest.raises(ValueError, match='identit|ID'):
+>           m.capture_paused(session, scene, wp_module=wp)
+
+tests\test_sdk_snapshot.py:97: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+warp_sph_realtime\sdk_snapshot.py:159: in capture_paused
+    require_sdk()
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+    def require_sdk():
+        """Load only the byte-bound candidate; no automatic install or fallback."""
+        lock = json.loads(_DEFAULT_LOCK.read_text(encoding='utf-8'))
+        spec = importlib.util.find_spec('blender_vulkan_interop')
+        if spec is None or not spec.origin:
+>           raise RuntimeError('Native snapshots need the separately installed, qualified Blender Vulkan Interop SDK candidate')
+E           RuntimeError: Native snapshots need the separately installed, qualified Blender Vulkan Interop SDK candidate
+
+warp_sph_realtime\sdk_snapshot.py:51: RuntimeError
+_________ test_solver_generation_changes_epoch_not_survivor_identity __________
+
+    def test_solver_generation_changes_epoch_not_survivor_identity():
+        m = api()
+        scene, session, wp, _ = setup()
+>       first = m.capture_paused(session, scene, wp_module=wp)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\test_sdk_snapshot.py:102: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+warp_sph_realtime\sdk_snapshot.py:159: in capture_paused
+    require_sdk()
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+    def require_sdk():
+        """Load only the byte-bound candidate; no automatic install or fallback."""
+        lock = json.loads(_DEFAULT_LOCK.read_text(encoding='utf-8'))
+        spec = importlib.util.find_spec('blender_vulkan_interop')
+        if spec is None or not spec.origin:
+>           raise RuntimeError('Native snapshots need the separately installed, qualified Blender Vulkan Interop SDK candidate')
+E           RuntimeError: Native snapshots need the separately installed, qualified Blender Vulkan Interop SDK candidate
+
+warp_sph_realtime\sdk_snapshot.py:51: RuntimeError
+___________ test_zero_count_does_not_read_capacity_or_export_ghosts ___________
+
+    def test_zero_count_does_not_read_capacity_or_export_ghosts():
+        m = api()
+        scene, session, wp, reads = setup()
+        session.solver.active_count = 0
+>       p = m.capture_paused(session, scene, wp_module=wp)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\test_sdk_snapshot.py:118: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+warp_sph_realtime\sdk_snapshot.py:159: in capture_paused
+    require_sdk()
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+    def require_sdk():
+        """Load only the byte-bound candidate; no automatic install or fallback."""
+        lock = json.loads(_DEFAULT_LOCK.read_text(encoding='utf-8'))
+        spec = importlib.util.find_spec('blender_vulkan_interop')
+        if spec is None or not spec.origin:
+>           raise RuntimeError('Native snapshots need the separately installed, qualified Blender Vulkan Interop SDK candidate')
+E           RuntimeError: Native snapshots need the separately installed, qualified Blender Vulkan Interop SDK candidate
+
+warp_sph_realtime\sdk_snapshot.py:51: RuntimeError
+__ test_cuda_readback_failure_stops_session_instead_of_allowing_resume[sync] __
+
+where = 'sync'
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000021E854DA740>
+
+    @pytest.mark.parametrize('where', ['sync', 'array'])
+    def test_cuda_readback_failure_stops_session_instead_of_allowing_resume(where, monkeypatch):
+        m = api()
+        scene, session, wp, reads = setup()
+    
+        def fail(*_args):
+            raise RuntimeError('CUDA context lost')
+        if where == 'sync':
+            wp.synchronize_device = fail
+        else:
+            session.solver.pos_sim.numpy = fail
+            original = session.solver.pos_sim.__class__.__getitem__
+    
+            def failing_slice(self, index):
+                result = original(self, index)
+                if self is session.solver.pos_sim:
+                    result.numpy = fail
+                return result
+            monkeypatch.setattr(Array, '__getitem__', failing_slice)
+        with pytest.raises(RuntimeError, match='CUDA'):
+>           m.capture_paused(session, scene, wp_module=wp)
+
+tests\test_sdk_snapshot.py:173: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+warp_sph_realtime\sdk_snapshot.py:159: in capture_paused
+    require_sdk()
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+    def require_sdk():
+        """Load only the byte-bound candidate; no automatic install or fallback."""
+        lock = json.loads(_DEFAULT_LOCK.read_text(encoding='utf-8'))
+        spec = importlib.util.find_spec('blender_vulkan_interop')
+        if spec is None or not spec.origin:
+>           raise RuntimeError('Native snapshots need the separately installed, qualified Blender Vulkan Interop SDK candidate')
+E           RuntimeError: Native snapshots need the separately installed, qualified Blender Vulkan Interop SDK candidate
+
+warp_sph_realtime\sdk_snapshot.py:51: RuntimeError
+
+During handling of the above exception, another exception occurred:
+
+where = 'sync'
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000021E854DA740>
+
+    @pytest.mark.parametrize('where', ['sync', 'array'])
+    def test_cuda_readback_failure_stops_session_instead_of_allowing_resume(where, monkeypatch):
+        m = api()
+        scene, session, wp, reads = setup()
+    
+        def fail(*_args):
+            raise RuntimeError('CUDA context lost')
+        if where == 'sync':
+            wp.synchronize_device = fail
+        else:
+            session.solver.pos_sim.numpy = fail
+            original = session.solver.pos_sim.__class__.__getitem__
+    
+            def failing_slice(self, index):
+                result = original(self, index)
+                if self is session.solver.pos_sim:
+                    result.numpy = fail
+                return result
+            monkeypatch.setattr(Array, '__getitem__', failing_slice)
+>       with pytest.raises(RuntimeError, match='CUDA'):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AssertionError: Regex pattern did not match.
+E         Expected regex: 'CUDA'
+E         Actual message: 'Native snapshots need the separately installed, qualified Blender Vulkan Interop SDK candidate'
+
+tests\test_sdk_snapshot.py:172: AssertionError
+_ test_cuda_readback_failure_stops_session_instead_of_allowing_resume[array] __
+
+where = 'array'
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000021E85431780>
+
+    @pytest.mark.parametrize('where', ['sync', 'array'])
+    def test_cuda_readback_failure_stops_session_instead_of_allowing_resume(where, monkeypatch):
+        m = api()
+        scene, session, wp, reads = setup()
+    
+        def fail(*_args):
+            raise RuntimeError('CUDA context lost')
+        if where == 'sync':
+            wp.synchronize_device = fail
+        else:
+            session.solver.pos_sim.numpy = fail
+            original = session.solver.pos_sim.__class__.__getitem__
+    
+            def failing_slice(self, index):
+                result = original(self, index)
+                if self is session.solver.pos_sim:
+                    result.numpy = fail
+                return result
+            monkeypatch.setattr(Array, '__getitem__', failing_slice)
+        with pytest.raises(RuntimeError, match='CUDA'):
+>           m.capture_paused(session, scene, wp_module=wp)
+
+tests\test_sdk_snapshot.py:173: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+warp_sph_realtime\sdk_snapshot.py:159: in capture_paused
+    require_sdk()
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+    def require_sdk():
+        """Load only the byte-bound candidate; no automatic install or fallback."""
+        lock = json.loads(_DEFAULT_LOCK.read_text(encoding='utf-8'))
+        spec = importlib.util.find_spec('blender_vulkan_interop')
+        if spec is None or not spec.origin:
+>           raise RuntimeError('Native snapshots need the separately installed, qualified Blender Vulkan Interop SDK candidate')
+E           RuntimeError: Native snapshots need the separately installed, qualified Blender Vulkan Interop SDK candidate
+
+warp_sph_realtime\sdk_snapshot.py:51: RuntimeError
+
+During handling of the above exception, another exception occurred:
+
+where = 'array'
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000021E85431780>
+
+    @pytest.mark.parametrize('where', ['sync', 'array'])
+    def test_cuda_readback_failure_stops_session_instead_of_allowing_resume(where, monkeypatch):
+        m = api()
+        scene, session, wp, reads = setup()
+    
+        def fail(*_args):
+            raise RuntimeError('CUDA context lost')
+        if where == 'sync':
+            wp.synchronize_device = fail
+        else:
+            session.solver.pos_sim.numpy = fail
+            original = session.solver.pos_sim.__class__.__getitem__
+    
+            def failing_slice(self, index):
+                result = original(self, index)
+                if self is session.solver.pos_sim:
+                    result.numpy = fail
+                return result
+            monkeypatch.setattr(Array, '__getitem__', failing_slice)
+>       with pytest.raises(RuntimeError, match='CUDA'):
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AssertionError: Regex pattern did not match.
+E         Expected regex: 'CUDA'
+E         Actual message: 'Native snapshots need the separately installed, qualified Blender Vulkan Interop SDK candidate'
+
+tests\test_sdk_snapshot.py:172: AssertionError
+_______ test_disposed_and_recreated_session_uses_new_identity_namespace _______
+
+    def test_disposed_and_recreated_session_uses_new_identity_namespace():
+        m = api()
+        scene, session, wp, _ = setup()
+>       first = m.capture_paused(session, scene, wp_module=wp)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\test_sdk_snapshot.py:180: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+warp_sph_realtime\sdk_snapshot.py:159: in capture_paused
+    require_sdk()
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+    def require_sdk():
+        """Load only the byte-bound candidate; no automatic install or fallback."""
+        lock = json.loads(_DEFAULT_LOCK.read_text(encoding='utf-8'))
+        spec = importlib.util.find_spec('blender_vulkan_interop')
+        if spec is None or not spec.origin:
+>           raise RuntimeError('Native snapshots need the separately installed, qualified Blender Vulkan Interop SDK candidate')
+E           RuntimeError: Native snapshots need the separately installed, qualified Blender Vulkan Interop SDK candidate
+
+warp_sph_realtime\sdk_snapshot.py:51: RuntimeError
+=========================== short test summary info ===========================
+FAILED tests/test_sdk_snapshot.py::test_paused_capture_preserves_solver_ids_sort_order_and_units
+FAILED tests/test_sdk_snapshot.py::test_invalid_or_reused_ids_reject_without_payload[ids0]
+FAILED tests/test_sdk_snapshot.py::test_invalid_or_reused_ids_reject_without_payload[ids1]
+FAILED tests/test_sdk_snapshot.py::test_invalid_or_reused_ids_reject_without_payload[ids2]
+FAILED tests/test_sdk_snapshot.py::test_solver_generation_changes_epoch_not_survivor_identity
+FAILED tests/test_sdk_snapshot.py::test_zero_count_does_not_read_capacity_or_export_ghosts
+FAILED tests/test_sdk_snapshot.py::test_cuda_readback_failure_stops_session_instead_of_allowing_resume[sync]
+FAILED tests/test_sdk_snapshot.py::test_cuda_readback_failure_stops_session_instead_of_allowing_resume[array]
+FAILED tests/test_sdk_snapshot.py::test_disposed_and_recreated_session_uses_new_identity_namespace
+9 failed, 729 passed, 67 skipped, 72 subtests passed in 100.63s (0:01:40)

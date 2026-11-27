@@ -1,0 +1,54 @@
+[
+ {
+  "kind": "readback",
+  "count": 500000,
+  "backend": "OPENGL",
+  "close": "completed",
+  "status": "COMPLETE",
+  "samples": 120,
+  "warmup": 30,
+  "elapsed_s": 2.55,
+  "published": 150,
+  "cadence": "one publish attempt per timer tick after the previous frame was drawn",
+  "slot_waits": 0,
+  "publish_false": 0,
+  "uploads": null,
+  "timer_uploads": null,
+  "drops": 0,
+  "never_shown": 0,
+  "cpu_submit_ms": {
+   "n": 120,
+   "p50": 4.22815,
+   "p95": 9.79905,
+   "max": 11.2541,
+   "mean": 4.916205000000001
+  },
+  "positions_texture_cpu_ms": {
+   "n": 120,
+   "p50": 1.1535,
+   "p95": 1.654825,
+   "max": 1.9405,
+   "mean": 1.2097241666666667
+  },
+  "frame_time_ms": {
+   "n": 119,
+   "p50": 16.7593,
+   "p95": 18.143779999999996,
+   "max": 22.1483,
+   "mean": 16.67561512605042
+  },
+  "publish_to_draw_ms": {
+   "n": 120,
+   "p50": 13.1637,
+   "p95": 14.822275,
+   "max": 17.0804,
+   "mean": 13.008728333333332
+  },
+  "pack_gpu_ms": null,
+  "upload_gpu_ms": "NOT MEASURED (no GPU timestamp on the Blender upload)",
+  "completed_latency_ms": "NOT MEASURED (Readback has no completion fence)",
+  "completed_missing": null,
+  "completion_codes": {},
+  "poll_observed_free_ms": null
+ }
+]

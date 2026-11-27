@@ -1,0 +1,12 @@
+{
+ "lane": "vulkan",
+ "status": "DONE",
+ "steps": [
+  "setup",
+  "parity",
+  "cycles",
+  "faults",
+  "bench",
+  "fatal"
+ ]
+}

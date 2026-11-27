@@ -162,6 +162,10 @@ def ensure_mesh_object(scene, cloud_object, defaults: output.MeshingDefaults):
     elif modifier.node_group is not tree:  # a rebuilt group: re-point and reset the inputs
         modifier.node_group = tree
         _set_inputs(modifier, tree, cloud_object, defaults)
+    else:
+        identifier = _identifier(modifier, "Point Cloud")
+        if identifier is not None:
+            _set_input(modifier, identifier, cloud_object)
     obj.update_tag()  # inputs set from Python do not tag the object for re-evaluation by themselves
     cloud_object.hide_render = True  # the mesh replaces the points in renders; hiding is reversible by the user
     return obj, created

@@ -9,6 +9,7 @@ releases, development checkouts) a separately installed ``blender_vulkan_interop
 
 from __future__ import annotations
 
+import hashlib
 import importlib
 import importlib.util
 import sys
@@ -16,6 +17,11 @@ from pathlib import Path
 
 NAME = "blender_vulkan_interop"
 BUNDLED_ROOT = Path(__file__).with_name("_vendor") / NAME
+
+
+def payload_sha256(path: Path) -> str:
+    """Hash canonical LF text so Git for Windows checkout conversion preserves identity."""
+    return hashlib.sha256(Path(path).read_bytes().replace(b"\r\n", b"\n")).hexdigest()
 
 
 def bundled_root() -> Path | None:

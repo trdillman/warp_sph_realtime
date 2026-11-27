@@ -1,0 +1,78 @@
+[
+ {
+  "count": 1,
+  "kind": "readback",
+  "width": 4096,
+  "height": 1,
+  "frame_count": 1,
+  "exact": true,
+  "max_abs": 0.0,
+  "padding_zero": true,
+  "sha256": "8fce4e1f642816b5d289cff0d497ea086cac8fe507367a5fc99baa3ac5a98b56",
+  "close": "completed",
+  "capabilities": {
+   "transport": "READBACK",
+   "zero_copy": false,
+   "max_count": 4194304,
+   "ready": false,
+   "reason": ""
+  }
+ },
+ {
+  "count": 1,
+  "kind": "interop",
+  "width": 4096,
+  "height": 1,
+  "frame_count": 1,
+  "exact": true,
+  "max_abs": 0.0,
+  "padding_zero": true,
+  "sha256": "8fce4e1f642816b5d289cff0d497ea086cac8fe507367a5fc99baa3ac5a98b56",
+  "close": "completed",
+  "capabilities": {
+   "transport": "VULKAN_INTEROP",
+   "zero_copy": true,
+   "max_count": 4194304,
+   "ready": false,
+   "reason": "closed: completed"
+  }
+ },
+ {
+  "count": 4097,
+  "kind": "readback",
+  "width": 4096,
+  "height": 2,
+  "frame_count": 4097,
+  "exact": true,
+  "max_abs": 0.0,
+  "padding_zero": true,
+  "sha256": "2fb68d082df810fc3869f0c3daf45a74ebe8881057d9863881ffeee15a980f45",
+  "close": "completed",
+  "capabilities": {
+   "transport": "READBACK",
+   "zero_copy": false,
+   "max_count": 4194304,
+   "ready": false,
+   "reason": ""
+  }
+ },
+ {
+  "count": 4097,
+  "kind": "interop",
+  "width": 4096,
+  "height": 2,
+  "frame_count": 4097,
+  "exact": true,
+  "max_abs": 0.0,
+  "padding_zero": true,
+  "sha256": "2fb68d082df810fc3869f0c3daf45a74ebe8881057d9863881ffeee15a980f45",
+  "close": "completed",
+  "capabilities": {
+   "transport": "VULKAN_INTEROP",
+   "zero_copy": true,
+   "max_count": 4194304,
+   "ready": false,
+   "reason": "closed: completed"
+  }
+ }
+]

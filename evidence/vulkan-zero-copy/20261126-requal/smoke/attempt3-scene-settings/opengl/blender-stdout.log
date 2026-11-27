@@ -1,0 +1,13 @@
+00:32.812  blend            | Saved session recovery to "C:\Users\Tyler\AppData\Local\Temp\quit.blend"
+Info: Installing Warp in the background: progress is shown in the add-on Preferences
+Warp 1.17.0 initialized:
+   CUDA Toolkit 12.9, Driver 13.5
+   Devices:
+     "cpu"      : "AMD64 Family 23 Model 113 Stepping 0, AuthenticAMD"
+     "cuda:0"   : "NVIDIA GeForce RTX 4080 SUPER" (16 GiB, sm_89, mempool enabled)
+   Kernel cache:
+     \\?\C:\Users\Tyler\AppData\Local\NVIDIA\warp\Cache\1.17.0
+Module bl_ext.user_default.warp_sph_realtime.warp_runtime 6aa92cd load on device 'cuda:0' took 4.02 ms  (cached)
+
+Blender quit
+[bgate] log saved: C:\Users\Tyler\AppData\Local\blender-gate\logs\claude-45a79101-c0e5-4e58-89a8-6bb0ac60cf79\20261126-123308-ba4f86c04d57.log

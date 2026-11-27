@@ -1,0 +1,17 @@
+01:09.687  blend            | Saved session recovery to "C:\Users\Tyler\AppData\Local\Temp\quit.blend"
+Info: Warp 1.17.0 is already installed
+Warp 1.17.0 initialized:
+   CUDA Toolkit 12.9, Driver 13.5
+   Devices:
+     "cpu"      : "AMD64 Family 23 Model 113 Stepping 0, AuthenticAMD"
+     "cuda:0"   : "NVIDIA GeForce RTX 4080 SUPER" (16 GiB, sm_89, mempool enabled)
+   Kernel cache:
+     \\?\C:\Users\Tyler\AppData\Local\NVIDIA\warp\Cache\1.17.0
+Module bl_ext.user_default.warp_sph_realtime.warp_runtime 6aa92cd load on device 'cuda:0' took 5.07 ms  (cached)
+Info: Saved copy as "cycle.blend"
+Module bl_ext.user_default.warp_sph_realtime.render.transport_vulkan 0adc730 load on device 'cuda:0' took 3.03 ms  (cached)
+Module bl_ext.user_default.warp_sph_realtime.sim.sim_core 59d9cab load on device 'cuda:0' took 12.76 ms  (cached)
+Module bl_ext.user_default.warp_sph_realtime.scene.demo_scenes e352ad3 load on device 'cuda:0' took 2.57 ms  (cached)
+
+Blender quit
+[bgate] log saved: C:\Users\Tyler\AppData\Local\blender-gate\logs\claude-45a79101-c0e5-4e58-89a8-6bb0ac60cf79\20261126-123903-3bc97f512db5.log

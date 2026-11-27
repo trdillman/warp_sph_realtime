@@ -1,0 +1,5 @@
+00:04.203  blend            | Saved session recovery to "C:\Users\Tyler\AppData\Local\Temp\quit.blend"
+Error: Warp 1.18.0 is already loaded from C:\Program Files\Blender Foundation\Blender 5.2\5.2\python\lib\site-packages\warp\__init__.py, which WarpSPH does not own. Remove that copy, then press Install Warp. WarpSPH will not change it.
+
+Blender quit
+[bgate] log saved: C:\Users\Tyler\AppData\Local\blender-gate\logs\claude-45a79101-c0e5-4e58-89a8-6bb0ac60cf79\20261126-122713-0ff2e4a4eb93.log
