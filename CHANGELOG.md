@@ -12,7 +12,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   `pytest` also compares against the pinned SDK). The add-on gains the SDK's integer-texture upload
   (`create_texture_uint`, `texture_update_uint`, profile `GPU_DATA_UINT`), which the add-on's own transport does not
   use. The SDK gains this add-on's slow-step fix (5 s stall deadline) and Windows line-ending-tolerant profile check.
-  The SDK submodule moved from `1b3e4be` to SDK main `a4c83b6` and both byte locks were regenerated. **Needs an M5
+  The SDK submodule moved from `1b3e4be` to SDK main `acedc4d` and both byte locks were regenerated. **Needs an M5
   re-run on the Windows GPU PC before release:** the profile and transport files changed, though the M5 path does not
   call the new code.
 - Vulkan M5 4M latency target (owner decision, 2026-11-26): completed transport p95 at 4,194,304 particles must fit

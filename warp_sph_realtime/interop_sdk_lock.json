@@ -38,11 +38,11 @@
     "resource_api.py": "37bd374439fbb8e040f0818bc834fd14e54abaabbb4e805a86ed32a615115283",
     "resource_frames.py": "464781d1fb8d8abd8cbaccffca56c117ae44ab2d4ad8d5e20d8d2949c35d3fca"
   },
-  "pin_note": "Pin moved 2026-11-27 from SDK 1b3e4be to SDK main a4c83b6 (shared core 1.0, see SHARED_CORE.json). wheel_sha256 cleared: this exact commit has no built wheel yet. Re-qualify on the Windows GPU PC before relying on it.",
+  "pin_note": "Pin moved 2026-11-27 from SDK 1b3e4be to SDK main acedc4d (shared core 1.0, see SHARED_CORE.json). wheel_sha256 cleared: this exact commit has no built wheel yet. Re-qualify on the Windows GPU PC before relying on it.",
   "private_candidate": true,
   "schema_version": 1,
   "sdk_review_commit": "0eee7214bab679d0033c15b21a9e3490a6ffd1d4",
-  "sdk_source_commit": "a4c83b6214277660246b0ddb2e48e6577395eff3",
+  "sdk_source_commit": "acedc4db5ddc4bf990b94e1aef9e0546e0a5b9be",
   "warp_version": "1.17.0",
   "wheel_sha256": null
 }

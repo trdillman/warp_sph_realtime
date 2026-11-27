@@ -29,7 +29,7 @@ def test_windows_line_endings_do_not_count_as_drift(tmp_path):
     copy = _copy_repo_files(tmp_path)
     for entry in checker.load_manifest(copy)["files"]:
         path = copy / entry[checker.side_of(copy)]
-        path.write_bytes(path.read_bytes().replace(b"\n", b"\r\n"))
+        path.write_bytes(path.read_bytes().replace(b"\r\n", b"\n").replace(b"\n", b"\r\n"))
     assert checker.check(copy, None) == []
 
 
