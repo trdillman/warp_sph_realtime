@@ -43,15 +43,20 @@ def test_windows_crlf_submodule_is_normalized_to_locked_lf_bytes(tmp_path):
                if path.is_file() and path.suffix in (".py", ".json"))
 
 
-def test_submodule_is_pinned_to_the_shared_core_sdk_commit():
+@pytest.mark.parametrize("lock_name", build_extension.SDK_LOCKS)
+def test_submodule_is_pinned_to_the_shared_core_sdk_commit(lock_name):
     gitmodules = (ROOT / ".gitmodules").read_text(encoding="utf-8")
-    assert "path = vendor/blender-vulkan-interop" in gitmodules
+    submodule = "vendor/blender-vulkan-interop"
+    assert f"path = {submodule}" in gitmodules
     assert "branch = main" in gitmodules
-    staged = subprocess.run(["git", "-C", str(ROOT), "ls-files", "-s", "vendor/blender-vulkan-interop"],
-                            capture_output=True, text=True)
-    if staged.returncode != 0 or not staged.stdout:
-        pytest.skip("not a git checkout")
-    assert staged.stdout.split()[1].startswith("fc82987"), "SDK submodule moved off the locked commit"
+    if not (ROOT / ".git").exists():
+        pytest.skip("source archive without a Git index")
+    lock = json.loads((PACKAGE / lock_name).read_text(encoding="utf-8"))
+    entry = subprocess.check_output(
+        ["git", "-C", str(ROOT), "ls-files", "--stage", "--error-unmatch", "--", submodule],
+        text=True,
+    ).strip()
+    assert entry == f"160000 {lock['sdk_source_commit']} 0\t{submodule}", lock_name
 
 
 @pytest.mark.private_sdk

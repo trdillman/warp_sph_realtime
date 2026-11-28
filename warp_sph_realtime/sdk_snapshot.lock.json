@@ -3,7 +3,7 @@
     "__init__.py": "0089bc52bc664bf65f19f2731bd2f944a52ab8da01450ef8d68df402345364e1",
     "_impl/__init__.py": "9757a60e726b44742f31c51d64ba4091931db1098607fc2a4869d7c42bd7b981",
     "_impl/backends/__init__.py": "2c2c3c652af72b60b1fb732de53e8339f7df6c07851da33d31586b893543befc",
-    "_impl/backends/blender_vulkan.py": "81995357c0c668947f85bb0c1930bc2f5c6e9762c0ed63e880d515ff0a812e34",
+    "_impl/backends/blender_vulkan.py": "2b3113bd6b8405a09d547ca1f170ea8265fac081aff97b23d3c1d6ec52412c2d",
     "_impl/backends/protocol.py": "b6382dd7490b0e21fa58960e4d923a956155dea29c4e8077cd78f939a0c7e86c",
     "_impl/blender_symbols.py": "c27343a488149c2e880360bf59153007fac3ace48234e2bf57721689e3936fd8",
     "_impl/blender_symbols_helper.py": "bdc56afbe65d77e8dd41a1a1c1daaa407172230e8cddd54e7a82e71850e7ca3b",
@@ -18,7 +18,7 @@
     "adapters/_validation.py": "001b8f6f4d3245454b1dd19ef0af8c972f2ca9223938b38254c448e9965e671a",
     "adapters/scene_snapshot.py": "4e4fd669a420424ce8d2affa263ccfea8dea97b21aaf99fb00a635e776a524ef",
     "adapters/scene_updates.py": "5a640683460cb3a5757219fd4774ae3428f73fe01bbe9e315fa458791600e625",
-    "api.py": "2db19468c8b450baf3289e3ac6e4a19345cd689cc19f45319cd7546416b9bb01",
+    "api.py": "de0123b3db178dac37c956fe4ac592ad8b8045f9cbfddbfac6bd467d4d1b310d",
     "frame_api.py": "67876a470cef92f02c4374dad5dc9acb02e7a4f5083b28a2ded910ea4e32cf16",
     "frames.py": "bd8c49cecdfd915f35831d738e65af9bfbf0afea69450bee03e11a65f98cb91a",
     "lifecycle.py": "c8d8a26703a08af642e7945a03d27331706b14130f976242ae144aa5dc79b811",
@@ -34,9 +34,9 @@
     "resource_api.py": "37bd374439fbb8e040f0818bc834fd14e54abaabbb4e805a86ed32a615115283",
     "resource_frames.py": "464781d1fb8d8abd8cbaccffca56c117ae44ab2d4ad8d5e20d8d2949c35d3fca"
   },
-  "pin_note": "Pin moved 2026-11-27 from SDK 1b3e4be to SDK main fc82987 (shared core 1.0, see SHARED_CORE.json). wheel_sha256 cleared: this exact commit has no built wheel yet. Re-qualify on the Windows GPU PC before relying on it.",
+  "pin_note": "Shared core 1.0 with the SDK's precise shutdown reporting. The payload hashes verify the bundled SDK. No standalone wheel is pinned.",
   "schema_version": 1,
   "scope": "explicit paused native output only; not public v2/live transport activation",
-  "sdk_source_commit": "fc82987dc912f43f26661e89fa4b59ce840157a9",
+  "sdk_source_commit": "66ffbd444de48c34698b025c76cdcecbf509a6a4",
   "wheel_sha256": null
 }
