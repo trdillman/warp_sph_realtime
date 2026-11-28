@@ -23,7 +23,8 @@ Thank you for contributing to **WarpSPH Realtime**! Because this extension bridg
    only the CPU fallback `ReadbackTransport` is add-on-only). To change one of them: make the same edit in the SDK
    repository and here, run `python scripts/check_shared_core.py --update --bump "what changed"` in one and copy
    `SHARED_CORE.json` to the other, merge the SDK first, then move the submodule pointer here and regenerate both
-   `*sdk*.lock.json` payload hashes (`scripts/build_extension.py` prints any mismatch). Public CI runs
+   payload hashes in `warp_sph_realtime/interop_sdk_lock.json` and `warp_sph_realtime/sdk_snapshot.lock.json`
+   (`scripts/build_extension.py` prints any mismatch). Public CI runs
    `scripts/check_shared_core.py` without the SDK; plain `pytest` with the submodule also compares the pinned SDK.
    The SDK must never be copied into this public repository or its GitHub releases.
 
