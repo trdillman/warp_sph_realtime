@@ -1,4 +1,4 @@
 [submodule "vendor/blender-vulkan-interop"]
 	path = vendor/blender-vulkan-interop
 	url = https://github.com/trdillman/blender-vulkan-interop.git
-	branch = interop/reconcile-20261102
+	branch = main

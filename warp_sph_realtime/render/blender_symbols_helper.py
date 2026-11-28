@@ -89,6 +89,6 @@ def main():
 if __name__ == '__main__':
     try:
         main()
-    except Exception as error:
+    except Exception as error:  # noqa: BLE001 - unclassified runtime errors must fail closed and preserve evidence
         print(f'{type(error).__name__}: {error}', file=sys.stderr)
         sys.exit(1)

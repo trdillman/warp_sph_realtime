@@ -157,6 +157,10 @@ conversion enabled. Use a fresh checkout if the submodule was already populated 
 uses that copy automatically, and `scripts/build_extension.py` bundles it into the zip; pass `--no-sdk` for a
 public build without it.
 
+The add-on's Vulkan transport files are kept identical to the SDK's under one labelled version
+(`SHARED_CORE.json`, checked by `scripts/check_shared_core.py` and CI); see `CONTRIBUTING.md` for how to change
+them in both repositories.
+
 ```bash
 pip install numpy "warp-lang==1.17.0" "fake-bpy-module==20251003" "pytest==9.0.1" "ruff==0.14.11" "pyright==1.1.408"
 pytest                      # CPU-only by default

@@ -6,6 +6,15 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Changed
+- **Shared core 1.0 with the private SDK.** The Vulkan transport files (`render/transport_vulkan.py`,
+  `transport.py`, `blender_symbols.py`, `blender_symbols_helper.py` and the Blender 5.2 profile) are now the same
+  as the SDK's, recorded in `SHARED_CORE.json` and enforced by `scripts/check_shared_core.py` (public CI runs it;
+  `pytest` also compares against the pinned SDK). The add-on gains the SDK's integer-texture upload
+  (`create_texture_uint`, `texture_update_uint`, profile `GPU_DATA_UINT`), which the add-on's own transport does not
+  use. The SDK gains this add-on's slow-step fix (5 s stall deadline) and Windows line-ending-tolerant profile check.
+  The SDK submodule now pins `66ffbd4`, including precise shutdown reporting. Both byte locks track this payload. **Needs an M5
+  re-run on the Windows GPU PC before release:** the profile and transport files changed, though the M5 path does not
+  call the new code.
 - Vulkan M5 4M latency target (owner decision, 2026-11-26): completed transport p95 at 4,194,304 particles must fit
   in one 60 Hz frame (≤16.67 ms) instead of ≤2 ms. The frozen 2026-10-19 v4 run passes it (p95 5.20 ms, max
   13.20 ms); the original ≤2 ms result stays recorded as a fail. Docs only; no code or measurement changed.

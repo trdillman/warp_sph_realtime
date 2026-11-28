@@ -101,7 +101,7 @@ class _RouteUnavailable(RecoverableTransportError):
 
 
 class _Slot:
-    __slots__ = ('size', 'texels', 'pb', 'ext', 'ptr', 'array', 'event', 'fence', 'state', 'frame', 'started')
+    __slots__ = ('array', 'event', 'ext', 'fence', 'frame', 'pb', 'ptr', 'size', 'started', 'state', 'texels')
     pb: int | None
     ext: int | None
     ptr: int | None
@@ -687,6 +687,11 @@ class BlenderVulkanNative:
     def create_texture(self, width: int, height: int):
         return self._gpu.types.GPUTexture((width, height), format='RGBA32F')
 
+    def create_texture_uint(self, width: int, height: int):
+        if self._enums.get('GPU_DATA_UINT') != 3:
+            raise RecoverableTransportError('integer upload enum missing from exact-build profile')
+        return self._gpu.types.GPUTexture((width, height), format='RGBA32UI')
+
     def read_texture(self, texture, width: int, height: int):
         data = texture.read()
         data.dimensions = width * height * 4
@@ -717,6 +722,9 @@ class BlenderVulkanNative:
 
     def texture_update(self, texture_pointer: int, pb: int, width: int, height: int):
         self._update(texture_pointer, self._enums['GPU_DATA_FLOAT'], pb, 0, 0, 0, width, height, 1)
+
+    def texture_update_uint(self, texture_pointer: int, pb: int, width: int, height: int):
+        self._update(texture_pointer, self._enums['GPU_DATA_UINT'], pb, 0, 0, 0, width, height, 1)
 
     def fence_create(self) -> int:
         return self._fence_create() or 0
@@ -811,4 +819,4 @@ def create(resolved, count: int, *, window: int, device: str = 'cuda:0') -> Vulk
     return VulkanInteropTransport(BlenderVulkanNative(resolved, device), WarpOps(device), count, window=window)
 
 
-__all__ = ['VulkanInteropTransport', 'BlenderVulkanNative', 'WarpOps', 'create', 'known_answer']
+__all__ = ['BlenderVulkanNative', 'VulkanInteropTransport', 'WarpOps', 'create', 'known_answer']

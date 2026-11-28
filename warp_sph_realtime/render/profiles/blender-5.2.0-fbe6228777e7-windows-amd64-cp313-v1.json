@@ -270,7 +270,8 @@
     "VK_SUCCESS": 0,
     "VK_TIMEOUT": 2,
     "CUDA_SUCCESS": 0,
-    "CUDA_ERROR_NOT_READY": 600
+    "CUDA_ERROR_NOT_READY": 600,
+    "GPU_DATA_UINT": 3
   },
   "allocation": {
     "export_size": "use returned native handle allocation size; never infer requested size",

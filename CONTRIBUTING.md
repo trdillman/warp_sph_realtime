@@ -18,6 +18,16 @@ Thank you for contributing to **WarpSPH Realtime**! Because this extension bridg
    uses that copy automatically, and `scripts/build_extension.py` bundles it into the zip; pass `--no-sdk` for a
    public build without it.
 
+   **Keeping the add-on and the SDK in step:** the Vulkan transport files listed in `SHARED_CORE.json` exist in
+   both repositories and must stay identical (the add-on cannot depend on the private SDK, so it keeps its own copy;
+   only the CPU fallback `ReadbackTransport` is add-on-only). To change one of them: make the same edit in the SDK
+   repository and here, run `python scripts/check_shared_core.py --update --bump "what changed"` in one and copy
+   `SHARED_CORE.json` to the other, merge the SDK first, then move the submodule pointer here and regenerate both
+   payload hashes in `warp_sph_realtime/interop_sdk_lock.json` and `warp_sph_realtime/sdk_snapshot.lock.json`
+   (`scripts/build_extension.py` prints any mismatch). Public CI runs
+   `scripts/check_shared_core.py` without the SDK; plain `pytest` with the submodule also compares the pinned SDK.
+   The SDK must never be copied into this public repository or its GitHub releases.
+
 3. **Install Dependencies:**
    ```bash
    pip install "warp-lang==1.17.0" "fake-bpy-module==20251003" numpy pytest ruff "pyright==1.1.408"
